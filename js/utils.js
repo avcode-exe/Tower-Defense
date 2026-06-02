@@ -34,11 +34,6 @@ function dist(ax, ay, bx, by) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-function dist2(ax, ay, bx, by) {
-  const dx = ax - bx, dy = ay - by;
-  return dx * dx + dy * dy;
-}
-
 // Tile coordinates -> pixel center.
 function tileCenter(gx, gy) {
   return {

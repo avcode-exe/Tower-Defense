@@ -79,12 +79,4 @@ const RENDERER = {
     this.ctx.arc(x, y, r, 0, Math.PI * 2);
     this.ctx.fill();
   },
-
-  fillText(text, x, y, color, size, align) {
-    this.ctx.fillStyle = color;
-    this.ctx.font = (size || 14) + 'px system-ui, sans-serif';
-    this.ctx.textAlign = align || 'left';
-    this.ctx.textBaseline = 'middle';
-    this.ctx.fillText(text, x, y);
-  },
 };

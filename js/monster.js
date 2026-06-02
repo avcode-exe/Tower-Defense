@@ -7,11 +7,13 @@ class Monster {
     this.level = level;
     const key = level === 'B' ? 'B' : level;
     this.spec = MONSTER_SPECS[key];
-    this.maxHp = Math.round(this.spec.hp * 1.05);
+    this.maxHp = this.spec ? this.spec.hp : 1;
+    // Boss gets an extra 100% HP on top.
+    if (level === 'B') this.maxHp *= 2;
     this.hp = this.maxHp;
-    this.speed = this.spec.speed; // tiles per second baseline
-    this.reward = this.spec.reward;
-    this.leak = this.spec.leak;
+    this.speed = this.spec ? this.spec.speed : 1;
+    this.reward = this.spec ? this.spec.reward : 0;
+    this.leak = this.spec ? this.spec.leak : 1;
 
     // Build cumulative segment lengths for fast lookup.
     this.waypoints = waypoints;
@@ -33,6 +35,7 @@ class Monster {
     this.segIdx = 0;   // current segment index (monotonic, only advances)
     this.alive = true;
     this.reachedEnd = false;
+    this.stunTimer = 0;
     this._updatePosition();
   }
 
@@ -83,11 +86,6 @@ class Monster {
     return Math.max(Math.abs(mt.gx - gx), Math.abs(mt.gy - gy));
   }
 
-  // World-distance to a point in pixels.
-  worldDistanceTo(px, py) {
-    return dist(this.x, this.y, px, py);
-  }
-
   // Tile distance from a troop tile (for ranged targeting).
   worldDistanceFromTile(gx, gy) {
     const c = tileCenter(gx, gy);
@@ -95,6 +93,7 @@ class Monster {
   }
 
   takeDamage(amount) {
+    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return { killed: false };
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
@@ -106,6 +105,11 @@ class Monster {
 
   update(dt) {
     if (!this.alive) return;
+    // Stunned: count down timer but don't move.
+    if (this.stunTimer > 0) {
+      this.stunTimer = Math.max(0, this.stunTimer - dt);
+      return;
+    }
     this.distance += this.speed * CONFIG.TILE_SIZE * dt;
     this._updatePosition();
   }

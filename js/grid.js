@@ -34,12 +34,4 @@ class Grid {
   isBuildable(gx, gy) {
     return this.get(gx, gy) === TILE.EMPTY;
   }
-
-  forEach(callback) {
-    for (let y = 0; y < this.size; y++) {
-      for (let x = 0; x < this.size; x++) {
-        callback(x, y, this.get(x, y));
-      }
-    }
-  }
 }

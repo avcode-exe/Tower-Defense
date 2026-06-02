@@ -23,7 +23,7 @@ const UI = {
 
   // Returns the rect (in screen pixels) of the shop card at index i, or null.
   shopCardRect(i) {
-    const cardW = 200, cardH = 60, gap = 8;
+    const cardW = 200, cardH = 52, gap = 4;
     const x = 8;
     const y = UI_LAYOUT.HUD_HEIGHT + 8 + i * (cardH + gap);
     return { x, y, w: cardW, h: cardH };
@@ -100,8 +100,9 @@ const UI = {
     this._rstBtnRect = { x: rstX, y: 14, w: rstW, h: 28 };
 
     // Speed.
-    const speeds = [1, 2, 4, 8, 16, 32];
-    let sx = w - 310;
+    const speeds = [1, 2, 4, 8, 16, 32, 64, 128];
+    const speedW = speeds.length * 28;
+    let sx = w - 370;
     c.fillStyle = CONFIG.COLORS.hudText;
     c.fillText('Speed:', sx - 50, 28);
     for (let i = 0; i < speeds.length; i++) {
@@ -119,10 +120,11 @@ const UI = {
     // Start wave / pause button.
     const btn = { x: w - 116, y: 14, w: 90, h: 28 };
     const label = game.state === 'PRE_WAVE' ? 'Start Wave'
-      : game.state === 'WAVE_ACTIVE' ? (game.paused ? 'Resume' : 'Pause')
+      : game.state === 'WAVE_ACTIVE' ? 'Pause'
+      : game.state === 'PAUSED' ? 'Resume'
       : '';
     if (label) {
-      c.fillStyle = game.state === 'PRE_WAVE' ? '#27ae60' : (game.paused ? '#27ae60' : '#c0392b');
+      c.fillStyle = game.state === 'PRE_WAVE' || game.state === 'PAUSED' ? '#27ae60' : '#c0392b';
       c.fillRect(btn.x, btn.y, btn.w, btn.h);
       c.fillStyle = '#fff';
       c.font = '13px system-ui, sans-serif';
@@ -131,7 +133,7 @@ const UI = {
     }
 
     // Top-right status text.
-    if (game.state === 'WAVE_ACTIVE' && !game.paused) {
+    if (game.state === 'WAVE_ACTIVE' || game.state === 'PAUSED') {
       c.fillStyle = CONFIG.COLORS.hudText;
       c.font = '12px system-ui, sans-serif';
       c.textAlign = 'right';
@@ -175,9 +177,8 @@ const UI = {
       // Type + range.
       c.fillStyle = '#7a8893';
       c.font = '11px system-ui, sans-serif';
-      c.fillText(spec.type + ' · rng ' + spec.range + ' · ' + spec.attackSpeed + 's/hit', r.x + 14, r.y + 48);
+      c.fillText(spec.type + ' · rng ' + spec.range + ' · ' + spec.attackSpeed + 's · ' + spec.damage + 'dmg', r.x + 14, r.y + 48);
       c.font = '11px system-ui, sans-serif';
-      c.fillText('dmg ' + spec.damage, r.x + 14, r.y + 62);
       // Hotkey.
       c.fillStyle = CONFIG.COLORS.hudAccent;
       c.font = 'bold 12px system-ui, sans-serif';
@@ -205,34 +206,41 @@ const UI = {
         c.fillStyle = '#e6edf3';
         c.font = 'bold 12px system-ui, sans-serif';
         c.textAlign = 'left';
-        c.fillText(t.spec.name + ' Lv.' + t.level, 14, panelY + 16);
+        c.fillText(t.spec.name, 14, panelY + 16);
         c.fillStyle = '#7a8893';
         c.font = '11px system-ui, sans-serif';
-        c.fillText('Dmg: ' + t.getDamage() + ' · Spd: ' + t.spec.attackSpeed + 's/hit', 14, panelY + 34);
-        c.fillText('Range: ' + t.getRange(), 14, panelY + 52);
+        c.fillText('Dmg: ' + t.getDamage() + ' Lv.' + t.dmgLevel + ' · Spd: ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel, 14, panelY + 34);
+        c.fillText('Range: ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? ' · Chn: ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 14, panelY + 52);
 
-        // Upgrade / Max Level button.
-        if (t.level < t.maxLevel) {
-          const cost = t.getUpgradeCost();
+        // Upgrade buttons — 4 stats (chain only shown for lightning).
+        const stats = ['dmg', 'range', 'speed', 'chain'];
+        const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN' };
+        const statColors = { dmg: '#e74c3c', range: '#2ecc71', speed: '#3498db', chain: '#f1c40f' };
+        const statBtnW = 49;
+        for (let i = 0; i < stats.length; i++) {
+          const stat = stats[i];
+          const cost = t.getUpgradeCost(stat);
           const affordable = game.devMode || game.gold >= cost;
-          const btn = { x: 8, y: RENDERER.height - 102, w: 200, h: 36 };
-          c.fillStyle = affordable ? '#2e86de' : '#444';
-          c.fillRect(btn.x, btn.y, btn.w, btn.h);
-          c.fillStyle = '#fff';
-          c.font = '13px system-ui, sans-serif';
-          c.textAlign = 'center';
-          c.fillText('Upgrade Lv.' + t.level + ' → Lv.' + (t.level + 1) + ' (' + cost + 'g)',
-            btn.x + btn.w / 2, btn.y + btn.h / 2);
-        } else {
-          const btn = { x: 8, y: RENDERER.height - 102, w: 200, h: 36 };
-          c.fillStyle = '#333';
-          c.fillRect(btn.x, btn.y, btn.w, btn.h);
-          c.strokeStyle = '#555';
-          c.strokeRect(btn.x, btn.y, btn.w, btn.h);
-          c.fillStyle = '#888';
-          c.font = '12px system-ui, sans-serif';
-          c.textAlign = 'center';
-          c.fillText('Max Level Achieved', btn.x + btn.w / 2, btn.y + btn.h / 2);
+          const btn = { x: 8 + i * (statBtnW + 2), y: RENDERER.height - 102, w: statBtnW, h: 36 };
+          if (t.isMaxed(stat)) {
+            c.fillStyle = '#333';
+            c.fillRect(btn.x, btn.y, btn.w, btn.h);
+            c.strokeStyle = '#555';
+            c.strokeRect(btn.x, btn.y, btn.w, btn.h);
+            c.fillStyle = '#666';
+            c.font = 'bold 8px system-ui, sans-serif';
+            c.textAlign = 'center';
+            c.fillText(statLabels[stat] + ' MAX', btn.x + btn.w / 2, btn.y + btn.h / 2 + 3);
+          } else {
+            c.fillStyle = affordable ? statColors[stat] : '#444';
+            c.fillRect(btn.x, btn.y, btn.w, btn.h);
+            c.fillStyle = '#fff';
+            c.font = 'bold 9px system-ui, sans-serif';
+            c.textAlign = 'center';
+            c.fillText(statLabels[stat], btn.x + btn.w / 2, btn.y + 13);
+            c.font = '9px system-ui, sans-serif';
+            c.fillText('(' + cost + 'g)', btn.x + btn.w / 2, btn.y + 27);
+          }
         }
 
         // Sell/Delete button.
@@ -245,12 +253,7 @@ const UI = {
         if (game.devMode) {
           c.fillText('Delete ' + t.spec.name, sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2);
         } else {
-          // Total cost = base cost + sum of upgrade costs paid to reach current level.
-          let totalInvested = t.spec.cost;
-          for (let lvl = 2; lvl <= t.level; lvl++) {
-            totalInvested += Math.floor(t.spec.cost * Math.pow(2, lvl - 2));
-          }
-          const refund = Math.ceil(totalInvested * CONFIG.SELL_REFUND_RATIO);
+          const refund = Math.ceil(t.getTotalInvested() * CONFIG.SELL_REFUND_RATIO);
           c.fillText('Sell ' + t.spec.name + ' (+' + refund + 'g)',
             sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2);
         }
@@ -333,7 +336,7 @@ const UI = {
     c.strokeStyle = CONFIG.COLORS.selected;
     c.lineWidth = 2;
     c.beginPath();
-    c.arc(t.x, t.y, (t.spec.range + 0.5) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
+    c.arc(t.x, t.y, (t.getRange() + 0.5) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
     c.stroke();
     c.restore();
   },
@@ -355,7 +358,7 @@ const UI = {
   },
 
   drawDevConfirmDialog(game) {
-    if (!game.devConfirmPending && !game.resetConfirmPending) return;
+    if (!game.devConfirmPending && !game.resetConfirmPending && !game.sellConfirmPending) return;
     const c = RENDERER.ctx;
     c.fillStyle = 'rgba(0,0,0,0.55)';
     c.fillRect(0, 0, RENDERER.width, RENDERER.height);
@@ -373,12 +376,18 @@ const UI = {
     c.textAlign = 'center';
     c.fillStyle = '#e6edf3';
     c.font = 'bold 16px system-ui, sans-serif';
-    if (game.resetConfirmPending) {
+    if (game.sellConfirmPending) {
+      const t = game.troops[game.sellConfirmTroopIndex];
+      c.fillText('Sell ' + (t ? t.spec.name : 'Troop') + '?', px + pw / 2, py + 34);
+      c.fillStyle = '#e67e22';
+      c.font = '12px system-ui, sans-serif';
+      c.fillText('This cannot be undone.', px + pw / 2, py + 56);
+    } else if (game.resetConfirmPending) {
       c.fillText('Reset Game?', px + pw / 2, py + 34);
       c.fillStyle = '#e74c3c';
       c.font = '12px system-ui, sans-serif';
       c.fillText('All progress will be lost.', px + pw / 2, py + 56);
-    } else {
+    } else if (!game.sellConfirmPending) {
       c.fillText(game.devMode ? 'Disable Dev Mode?' : 'Enable Dev Mode?', px + pw / 2, py + 34);
       c.fillStyle = '#7a8893';
       c.font = '12px system-ui, sans-serif';
@@ -386,7 +395,7 @@ const UI = {
     }
 
     // Yes button.
-    c.fillStyle = game.devMode || game.resetConfirmPending ? '#e74c3c' : '#27ae60';
+    c.fillStyle = game.sellConfirmPending ? '#e67e22' : (game.devMode || game.resetConfirmPending ? '#e74c3c' : '#27ae60');
     c.fillRect(px + 40, py + 80, 90, 32);
     c.fillStyle = '#fff';
     c.font = 'bold 13px system-ui, sans-serif';

@@ -40,6 +40,8 @@ class Game {
     this.devWarningTimer = 0;
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
+    this.sellConfirmPending = false;
+    this.sellConfirmTroopIndex = -1;
     this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0};
   }
 
@@ -75,26 +77,22 @@ class Game {
     t.alive = false;
     this.grid.set(t.gx, t.gy, TILE.EMPTY);
     if (!this.devMode) {
-      // Total cost = base cost + sum of upgrade costs paid to reach current level.
-      let totalInvested = t.spec.cost;
-      for (let lvl = 2; lvl <= t.level; lvl++) {
-        totalInvested += Math.floor(t.spec.cost * Math.pow(2, lvl - 2));
-      }
-      const refund = Math.ceil(totalInvested * CONFIG.SELL_REFUND_RATIO);
-      this.gold += refund;
+      const refund = Math.ceil(t.getTotalInvested() * CONFIG.SELL_REFUND_RATIO);
+      this.gold = Math.min(this.gold + refund, CONFIG.MAX_GOLD);
       this.popups.push({ text: '+' + refund, x: t.x, y: t.y, t: 1.2, color: CONFIG.COLORS.gold });
     }
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
   }
 
-  upgradeTroop(index) {
+  upgradeTroopStat(index, stat) {
     const t = this.troops[index];
     if (!t || !t.alive) return;
-    const cost = t.getUpgradeCost();
-    if (cost < 0 || this.gold < cost) return;
+    if (t.isMaxed(stat)) return;
+    const cost = t.getUpgradeCost(stat);
+    if (this.gold < cost) return;
     this.gold -= cost;
-    t.upgrade();
-    this.popups.push({ text: 'Lv.' + t.level, x: t.x, y: t.y - 10, t: 1.2, color: '#f1c40f' });
+    t.upgradeStat(stat);
+    this.popups.push({ text: stat.toUpperCase() + ' +1', x: t.x, y: t.y - 10, t: 1.2, color: '#f1c40f' });
   }
 
   spawnMonster(level) {
@@ -108,7 +106,7 @@ class Game {
     if (!m.alive) return false;
     const r = m.takeDamage(amount);
     if (r.killed) {
-      this.gold += r.reward;
+      this.gold = Math.min(this.gold + r.reward, CONFIG.MAX_GOLD);
       this.popups.push({ text: '+' + r.reward, x: m.x, y: m.y - 8, t: 1.2, color: CONFIG.COLORS.gold });
       // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
       if (m.level !== 'B' && m.level > 1) {
@@ -119,6 +117,7 @@ class Game {
           child.distance = m.distance;
           child.segIdx = m.segIdx;
           child._updatePosition();
+          child.stunTimer = m.stunTimer;
           this.monsters.push(child);
         }
       }
@@ -157,6 +156,8 @@ class Game {
     // Monsters.
     for (const m of this.monsters) {
       if (!m.alive) continue;
+      // Safety: force-kill if HP dropped below zero without being caught.
+      if (m.hp <= 0) { m.alive = false; continue; }
       m.update(dt);
       if (m.reachedEnd) {
         m.alive = false;
@@ -212,13 +213,61 @@ class Game {
   applyProjectileImpact(proj) {
     if (!proj.target || !proj.target.alive) {
       // Dead before impact: do damage at last position with splash only.
-      this.splashAt(proj.lastTargetX, proj.lastTargetY, proj.troop.getDamage(), proj.troop.spec.splash, proj.troop);
+      if (proj.troop.spec.chain > 0) {
+        this.chainHitAt(proj.lastTargetX, proj.lastTargetY, proj.troop);
+      } else {
+        this.splashAt(proj.lastTargetX, proj.lastTargetY, proj.troop.getDamage(), proj.troop.spec.splash, proj.troop);
+      }
       return;
     }
-    if (proj.troop.spec.splash > 0) {
+    if (proj.troop.spec.chain > 0) {
+      // Chain lightning: hit primary target, then chain to consecutive monsters behind it.
+      this.chainHitAt(proj.target.x, proj.target.y, proj.troop);
+    } else if (proj.troop.spec.splash > 0) {
       this.splashAt(proj.target.x, proj.target.y, proj.troop.getDamage(), proj.troop.spec.splash, proj.troop);
     } else {
       this.damageMonster(proj.target, proj.troop.getDamage());
+    }
+  }
+
+  // Chain lightning: damages the nearest monster to (x,y) then chains to
+  // consecutive monsters behind it (lower progress = further from end).
+  chainHitAt(x, y, troop) {
+    const damage = troop.getDamage();
+    const chainCount = troop.getChain();
+    const stunDuration = troop.spec.stun || 0;
+
+    // Find alive monsters sorted by proximity to impact point.
+    const alive = this.monsters.filter(m => m.alive);
+    alive.sort((a, b) => dist(a.x, a.y, x, y) - dist(b.x, b.y, x, y));
+
+    // Hit the closest one first as primary, then pick the next chainCount
+    // monsters with lower progress (behind it along the path).
+    if (alive.length === 0) return;
+    const primary = alive[0];
+    // Apply stun + damage to a single target. Returns true if it split.
+    const hitAndStun = (m) => {
+      if (!m.alive) return false;
+      const countBefore = this.monsters.length;
+      if (stunDuration > 0) m.stunTimer = Math.max(m.stunTimer, stunDuration);
+      this.damageMonster(m, damage);
+      this.popups.push({ text: '⚡', x: m.x, y: m.y - 12, t: 0.6, color: '#f1c40f' });
+      // Apply stun to any split children (last entries pushed).
+      if (stunDuration > 0) {
+        for (let i = countBefore; i < this.monsters.length; i++) {
+          this.monsters[i].stunTimer = Math.max(this.monsters[i].stunTimer, stunDuration);
+        }
+      }
+      return this.monsters.length > countBefore;
+    };
+
+    hitAndStun(primary);
+
+    // Chain: monsters behind the primary (lower progress), sorted by progress descending.
+    const rest = alive.slice(1).filter(m => m.alive && m.progress < primary.progress);
+    rest.sort((a, b) => b.progress - a.progress);
+    for (let i = 0; i < chainCount && i < rest.length; i++) {
+      hitAndStun(rest[i]);
     }
   }
 
@@ -245,8 +294,9 @@ class Game {
       const fixed = CONFIG.FIXED_TIMESTEP;
       const simDt = realDt * this.speed;
       this.accumulator += simDt;
-      this.accumulator = Math.min(this.accumulator, fixed * 8);
-      let safety = 8;
+      const maxSteps = Math.max(8, this.speed * 4); // ~4× the speed value
+      this.accumulator = Math.min(this.accumulator, fixed * maxSteps);
+      let safety = maxSteps;
       while (this.accumulator >= fixed && safety-- > 0) {
         this.step(fixed);
         this.accumulator -= fixed;
@@ -298,15 +348,6 @@ class Game {
       RENDERER.fillRect(x, y, s, s, t.spec.color);
       RENDERER.strokeRect(x, y, s, s, '#0e1418', 2);
       RENDERER.fillCircle(t.x, t.y - 4, 3, t.spec.type === 'melee' ? '#f1c40f' : '#ecf0f1');
-      // Level badge.
-      if (t.level > 1) {
-        const bx = t.gx * T + T - 8, by = t.gy * T + 8;
-        RENDERER.fillCircle(bx, by, 6, '#f1c40f');
-        RENDERER.ctx.fillStyle = '#000';
-        RENDERER.ctx.font = 'bold 8px system-ui, sans-serif';
-        RENDERER.ctx.textAlign = 'center';
-        RENDERER.ctx.fillText(t.level, bx, by + 3);
-      }
     }
 
     // Monsters.
@@ -314,11 +355,14 @@ class Game {
       if (!m.alive) continue;
       RENDERER.fillCircle(m.x, m.y, m.spec.size / 2 + 3, '#000');
       RENDERER.fillCircle(m.x, m.y, m.spec.size / 2, m.spec.color);
-      const w = m.spec.size + 6;
-      const h = 3;
-      const x = m.x - w / 2, y = m.y - m.spec.size / 2 - 10;
-      RENDERER.fillRect(x, y, w, h, '#400');
-      RENDERER.fillRect(x, y, w * (m.hp / m.maxHp), h, '#2ecc71');
+      // HP bar: only shown when monster has taken damage.
+      if (m.hp < m.maxHp) {
+        const w = m.spec.size + 6;
+        const h = 3;
+        const x = m.x - w / 2, y = m.y - m.spec.size / 2 - 10;
+        RENDERER.fillRect(x, y, w, h, '#400');
+        RENDERER.fillRect(x, y, w * (m.hp / m.maxHp), h, '#2ecc71');
+      }
     }
 
     // Projectiles (world space, no extra transform).
@@ -375,10 +419,15 @@ class Game {
     }
 
     // Confirmation dialog clicks (intercepts everything while shown).
-    if (this.devConfirmPending || this.resetConfirmPending) {
+    if (this.devConfirmPending || this.resetConfirmPending || this.sellConfirmPending) {
       if (UI._devConfirmYes && px >= UI._devConfirmYes.x && px <= UI._devConfirmYes.x + UI._devConfirmYes.w && py >= UI._devConfirmYes.y && py <= UI._devConfirmYes.y + UI._devConfirmYes.h) {
         this.devConfirmPending = false;
-        if (this.resetConfirmPending) {
+        this.resetConfirmPending = false;
+        if (this.sellConfirmPending) {
+          this.sellConfirmPending = false;
+          this.sellTroop(this.sellConfirmTroopIndex);
+          this.sellConfirmTroopIndex = -1;
+        } else if (this.resetConfirmPending) {
           this.resetConfirmPending = false;
           this.resetGame();
         } else {
@@ -389,6 +438,8 @@ class Game {
       if (UI._devConfirmNo && px >= UI._devConfirmNo.x && px <= UI._devConfirmNo.x + UI._devConfirmNo.w && py >= UI._devConfirmNo.y && py <= UI._devConfirmNo.y + UI._devConfirmNo.h) {
         this.devConfirmPending = false;
         this.resetConfirmPending = false;
+        this.sellConfirmPending = false;
+        this.sellConfirmTroopIndex = -1;
         return;
       }
       return; // all clicks consumed while dialog is shown
@@ -438,9 +489,9 @@ class Game {
 
     // HUD: speed buttons.
     const w = RENDERER.width;
-    const speeds = [1, 2, 4, 8, 16, 32];
+    const speeds = [1, 2, 4, 8, 16, 32, 64, 128];
     for (let i = 0; i < speeds.length; i++) {
-      const r = { x: w - 310 + i * 28, y: 14, w: 26, h: 28 };
+      const r = { x: w - 370 + i * 28, y: 14, w: 26, h: 28 };
       if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
         this.speed = speeds[i];
         return;
@@ -474,24 +525,35 @@ class Game {
       return;
     }
 
-    // Sell button.
+    // Sell button — show confirmation dialog.
     if (this.selectedTroopIndex >= 0) {
       const sellBtn = { x: 8, y: RENDERER.height - 60, w: 200, h: 36 };
       if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
           && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
-        this.sellTroop(this.selectedTroopIndex);
+        if (this.devMode) {
+          this.sellTroop(this.selectedTroopIndex);
+        } else {
+          this.sellConfirmTroopIndex = this.selectedTroopIndex;
+          this.sellConfirmPending = true;
+        }
         return;
       }
     }
 
-    // Upgrade button.
+    // Upgrade buttons (4 stats).
     if (this.selectedTroopIndex >= 0) {
       const t = this.troops[this.selectedTroopIndex];
-      if (t && t.alive && t.level < t.maxLevel) {
-        const upgBtn = { x: 8, y: RENDERER.height - 102, w: 200, h: 36 };
-        if (px >= upgBtn.x && px <= upgBtn.x + upgBtn.w && py >= upgBtn.y && py <= upgBtn.y + upgBtn.h) {
-          this.upgradeTroop(this.selectedTroopIndex);
-          return;
+      if (t && t.alive) {
+        const stats = ['dmg', 'range', 'speed', 'chain'];
+        const statBtnW = 49;
+        for (let i = 0; i < stats.length; i++) {
+          const stat = stats[i];
+          if (t.isMaxed(stat)) continue;
+          const btn = { x: 8 + i * (statBtnW + 2), y: RENDERER.height - 102, w: statBtnW, h: 36 };
+          if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
+            this.upgradeTroopStat(this.selectedTroopIndex, stat);
+            return;
+          }
         }
       }
     }

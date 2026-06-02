@@ -10,8 +10,11 @@ class Troop {
     const c = tileCenter(gx, gy);
     this.x = c.x;
     this.y = c.y;
-    this.level = 1;
-    this.maxLevel = 5;
+    this.dmgLevel = 1;
+    this.rangeLevel = 1;
+    this.speedLevel = 1;
+    this.chainLevel = 1;
+    this.maxUpgradeLevel = 5;
     this.cooldown = 0;
     this.target = null;
     this.targetRefresh = 0;
@@ -19,19 +22,60 @@ class Troop {
   }
 
   // Scaled stats (1.2x per level).
-  getDamage()   { return Math.round(this.spec.damage * Math.pow(1.2, this.level - 1)); }
-  getRange()    { return this.spec.range; }
+  getDamage()     { return Math.round(this.spec.damage * Math.pow(1.2, this.dmgLevel - 1)); }
+  getRange()      {
+    if (this.spec.type === 'melee') return this.spec.range;
+    return this.spec.range + (this.rangeLevel - 1) * 1;
+  }
+  getAttackSpeed(){ return +(this.spec.attackSpeed * Math.pow(0.9, this.speedLevel - 1)).toFixed(2); }
+  getChain()      { return this.spec.chain + (this.chainLevel - 1); }
 
-  // Upgrade cost: spec.cost * 2^(level-1). Level 1->2: cost*1, 2->3: cost*2, etc.
-  getUpgradeCost() {
-    if (this.level >= this.maxLevel) return -1;
-    return Math.floor(this.spec.cost * Math.pow(2, this.level - 1));
+  // Cost for next upgrade of a stat: base cost * 2^(level-1).
+  getUpgradeCost(stat) {
+    let level;
+    if (stat === 'dmg') level = this.dmgLevel;
+    else if (stat === 'range') level = this.rangeLevel;
+    else if (stat === 'speed') level = this.speedLevel;
+    else if (stat === 'chain') level = this.chainLevel;
+    else return Infinity;
+    return this.spec.cost * Math.pow(2, level - 1);
   }
 
-  upgrade() {
-    if (this.level >= this.maxLevel) return false;
-    this.level++;
-    return true;
+  // Upgrade a specific stat. Returns false if already maxed or invalid for this troop type.
+  upgradeStat(stat) {
+    // Melee troops cannot upgrade range.
+    if (stat === 'range' && this.spec.type === 'melee') return false;
+    // Only lightning troop can upgrade chain.
+    if (stat === 'chain' && this.spec.id !== 'lightning') return false;
+    if (stat === 'dmg' && this.dmgLevel < this.maxUpgradeLevel) { this.dmgLevel++; return true; }
+    if (stat === 'range' && this.rangeLevel < this.maxUpgradeLevel) { this.rangeLevel++; return true; }
+    if (stat === 'speed' && this.speedLevel < this.maxUpgradeLevel) { this.speedLevel++; return true; }
+    if (stat === 'chain' && this.chainLevel < this.maxUpgradeLevel) { this.chainLevel++; return true; }
+    return false;
+  }
+
+  isMaxed(stat) {
+    // Melee troops cannot upgrade range — always report it as maxed (hidden).
+    if (stat === 'range' && this.spec.type === 'melee') return true;
+    // Only lightning troop has chain stat.
+    if (stat === 'chain' && this.spec.id !== 'lightning') return true;
+    if (stat === 'dmg') return this.dmgLevel >= this.maxUpgradeLevel;
+    if (stat === 'range') return this.rangeLevel >= this.maxUpgradeLevel;
+    if (stat === 'speed') return this.speedLevel >= this.maxUpgradeLevel;
+    if (stat === 'chain') return this.chainLevel >= this.maxUpgradeLevel;
+    return false;
+  }
+
+  // Total gold invested in this troop (base cost + all upgrades).
+  getTotalInvested() {
+    let total = this.spec.cost;
+    for (const stat of ['dmg', 'range', 'speed', 'chain']) {
+      const level = stat === 'dmg' ? this.dmgLevel : stat === 'range' ? this.rangeLevel : stat === 'speed' ? this.speedLevel : this.chainLevel;
+      for (let l = 1; l < level; l++) {
+        total += this.spec.cost * Math.pow(2, l - 1);
+      }
+    }
+    return total;
   }
 
   pickTarget(monsters) {
@@ -91,10 +135,10 @@ class Troop {
           game.damageMonster(this.target, this.getDamage());
         }
       }
-      this.cooldown = this.spec.attackSpeed;
+      this.cooldown = this.getAttackSpeed();
     } else {
       projectiles.push(new Projectile(this, this.target, this.x, this.y));
-      this.cooldown = this.spec.attackSpeed;
+      this.cooldown = this.getAttackSpeed();
     }
   }
 }
