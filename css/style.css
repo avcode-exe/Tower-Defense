@@ -4,10 +4,11 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #0a0e12;
+  background: #070b0f;
   color: #e6edf3;
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
   overflow: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 #wrap {
@@ -27,17 +28,22 @@ html, body {
 
 #help {
   position: fixed;
-  bottom: 8px;
-  right: 8px;
-  background: rgba(10, 14, 18, 0.85);
-  border: 1px solid #1f2a33;
-  border-radius: 6px;
-  padding: 8px 12px;
-  font-size: 12px;
-  line-height: 1.5;
-  max-width: 320px;
-  color: #b6c2cc;
+  bottom: 10px;
+  right: 10px;
+  background: rgba(7, 11, 15, 0.8);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 11px;
+  line-height: 1.6;
+  max-width: 300px;
+  color: rgba(182, 194, 204, 0.7);
   pointer-events: none;
+  font-feature-settings: 'tnum';
 }
-#help strong { color: #e6edf3; }
-#help ul { margin: 4px 0 0 16px; padding: 0; }
+#help strong { color: #e6edf3; font-weight: 500; }
+#help ul { margin: 5px 0 0 14px; padding: 0; }
+
+/* Import Inter font for cleaner UI text inside canvas is handled by JS */

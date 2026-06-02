@@ -345,15 +345,35 @@ class Game {
     for (const t of this.troops) {
       if (!t.alive) continue;
       const x = t.gx * T + 6, y = t.gy * T + 6, s = T - 12;
-      RENDERER.fillRect(x, y, s, s, t.spec.color);
-      RENDERER.strokeRect(x, y, s, s, '#0e1418', 2);
-      RENDERER.fillCircle(t.x, t.y - 4, 3, t.spec.type === 'melee' ? '#f1c40f' : '#ecf0f1');
+      // Rounded rect for troops.
+      const c = RENDERER.ctx;
+      const rr = 4;
+      c.beginPath();
+      c.moveTo(x + rr, y);
+      c.lineTo(x + s - rr, y);
+      c.quadraticCurveTo(x + s, y, x + s, y + rr);
+      c.lineTo(x + s, y + s - rr);
+      c.quadraticCurveTo(x + s, y + s, x + s - rr, y + s);
+      c.lineTo(x + rr, y + s);
+      c.quadraticCurveTo(x, y + s, x, y + s - rr);
+      c.lineTo(x, y + rr);
+      c.quadraticCurveTo(x, y, x + rr, y);
+      c.closePath();
+      c.fillStyle = t.spec.color;
+      c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.12)';
+      c.lineWidth = 1.5;
+      c.stroke();
+      // Type indicator dot.
+      RENDERER.fillCircle(t.x, t.y - 3, 2.5, t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7');
     }
 
     // Monsters.
     for (const m of this.monsters) {
       if (!m.alive) continue;
-      RENDERER.fillCircle(m.x, m.y, m.spec.size / 2 + 3, '#000');
+      // Outer shadow/glow.
+      RENDERER.fillCircle(m.x, m.y, m.spec.size / 2 + 3, 'rgba(0,0,0,0.4)');
+      // Body.
       RENDERER.fillCircle(m.x, m.y, m.spec.size / 2, m.spec.color);
       // HP bar: only shown when monster has taken damage.
       if (m.hp < m.maxHp) {
