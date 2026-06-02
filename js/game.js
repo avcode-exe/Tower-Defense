@@ -441,16 +441,19 @@ class Game {
     // Confirmation dialog clicks (intercepts everything while shown).
     if (this.devConfirmPending || this.resetConfirmPending || this.sellConfirmPending) {
       if (UI._devConfirmYes && px >= UI._devConfirmYes.x && px <= UI._devConfirmYes.x + UI._devConfirmYes.w && py >= UI._devConfirmYes.y && py <= UI._devConfirmYes.y + UI._devConfirmYes.h) {
-        this.devConfirmPending = false;
-        this.resetConfirmPending = false;
         if (this.sellConfirmPending) {
           this.sellConfirmPending = false;
           this.sellTroop(this.sellConfirmTroopIndex);
           this.sellConfirmTroopIndex = -1;
+          this.devConfirmPending = false;
+          this.resetConfirmPending = false;
         } else if (this.resetConfirmPending) {
+          this.devConfirmPending = false;
           this.resetConfirmPending = false;
           this.resetGame();
         } else {
+          this.devConfirmPending = false;
+          this.resetConfirmPending = false;
           this.toggleDevMode();
         }
         return;

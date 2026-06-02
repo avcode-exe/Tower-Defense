@@ -55,7 +55,7 @@ const UI = {
   },
 
   shopCardRect(i) {
-    const cardW = 200, cardH = 52, gap = 4;
+    const cardW = 200, cardH = 58, gap = 4;
     const x = 8;
     const y = UI_LAYOUT.HUD_HEIGHT + 8 + i * (cardH + gap);
     return { x, y, w: cardW, h: cardH };
@@ -114,13 +114,10 @@ const UI = {
 
     // Wave.
     const waveX = 200;
-    c.fillStyle = UI_COLORS.textDim;
-    c.font = '11px system-ui, sans-serif';
-    c.textAlign = 'left';
-    c.fillText('WAVE', waveX, 18);
     c.fillStyle = UI_COLORS.textBright;
-    c.font = 'bold 18px system-ui, sans-serif';
-    c.fillText(game.wave.currentWave + 1, waveX, 42);
+    c.font = 'bold 15px system-ui, sans-serif';
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText('Wave ' + (game.wave.currentWave + 1), waveX, 28);
 
     // DEV button.
     const devX = 260, devW = 44;
@@ -201,9 +198,8 @@ const UI = {
     if (game.state === 'WAVE_ACTIVE' || game.state === 'PAUSED') {
       c.fillStyle = UI_COLORS.textDim;
       c.font = '11px system-ui, sans-serif';
-      c.textAlign = 'right'; c.textBaseline = 'bottom';
-      c.fillText(game.wave.monstersRemainingThisWave + ' monsters',
-        w - 210, UI_LAYOUT.HUD_HEIGHT - 5);
+      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText(game.wave.monstersRemainingThisWave + ' monsters', sx - 130, 28);
     }
     c.textBaseline = 'alphabetic';
   },
