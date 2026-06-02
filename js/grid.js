@@ -1,0 +1,45 @@
+// Grid with tile states and helpers. Size is driven by CONFIG.GRID_SIZE.
+
+const TILE = {
+  EMPTY: 0,
+  PATH: 1,
+  BLOCKED: 2,
+};
+
+class Grid {
+  constructor() {
+    this.size = CONFIG.GRID_SIZE;
+    this.tiles = new Uint8Array(this.size * this.size);
+    this.clear();
+  }
+
+  clear() {
+    this.tiles.fill(TILE.EMPTY);
+  }
+
+  idx(gx, gy) {
+    return gy * this.size + gx;
+  }
+
+  get(gx, gy) {
+    if (!inBounds(gx, gy)) return TILE.BLOCKED;
+    return this.tiles[this.idx(gx, gy)];
+  }
+
+  set(gx, gy, state) {
+    if (!inBounds(gx, gy)) return;
+    this.tiles[this.idx(gx, gy)] = state;
+  }
+
+  isBuildable(gx, gy) {
+    return this.get(gx, gy) === TILE.EMPTY;
+  }
+
+  forEach(callback) {
+    for (let y = 0; y < this.size; y++) {
+      for (let x = 0; x < this.size; x++) {
+        callback(x, y, this.get(x, y));
+      }
+    }
+  }
+}

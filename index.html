@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Tower Defense</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="wrap">
+    <canvas id="game"></canvas>
+    <div id="help">
+      <strong>Controls</strong>
+      <ul>
+        <li>Click a shop card (or press 1-7) then click a tile to place</li>
+        <li>Click an existing troop to select; press Sell to remove (50% refund)</li>
+        <li>Right-click or Esc to cancel selection</li>
+        <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Load order matters: config & utils first, then simulation, then UI/game. -->
+  <script src="js/config.js"></script>
+  <script src="js/utils.js"></script>
+  <script src="js/grid.js"></script>
+  <script src="js/pathGenerator.js"></script>
+  <script src="js/monster.js"></script>
+  <script src="js/projectile.js"></script>
+  <script src="js/troop.js"></script>
+  <script src="js/waveManager.js"></script>
+  <script src="js/renderer.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/input.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+// A monster travels along the waypoint list at a constant rate (tiles per
+// second) defined by its spec. We track `distance` (px travelled along the
+// path) rather than per-segment progress to make speed uniform.
+
+class Monster {
+  constructor(level, waypoints) {
+    this.level = level;
+    const key = level === 'B' ? 'B' : level;
+    this.spec = MONSTER_SPECS[key];
+    this.maxHp = Math.round(this.spec.hp * 1.05);
+    this.hp = this.maxHp;
+    this.speed = this.spec.speed; // tiles per second baseline
+    this.reward = this.spec.reward;
+    this.leak = this.spec.leak;
+
+    // Build cumulative segment lengths for fast lookup.
+    this.waypoints = waypoints;
+    this.segments = [];
+    let total = 0;
+    for (let i = 1; i < waypoints.length; i++) {
+      const [ax, ay] = waypoints[i - 1];
+      const [bx, by] = waypoints[i];
+      const axp = ax * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      const ayp = ay * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      const bxp = bx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      const byp = by * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      const len = dist(axp, ayp, bxp, byp);
+      total += len;
+      this.segments.push({ ax: axp, ay: ayp, bx: bxp, by: byp, len, cumStart: total - len });
+    }
+    this.totalLength = total;
+    this.distance = 0; // px travelled along the path
+    this.segIdx = 0;   // current segment index (monotonic, only advances)
+    this.alive = true;
+    this.reachedEnd = false;
+    this._updatePosition();
+  }
+
+  // Convert distance -> world x/y on the current segment.
+  _updatePosition() {
+    if (this.segments.length === 0) {
+      // Single-cell path edge case.
+      const [gx, gy] = this.waypoints[0];
+      this.x = gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      this.y = gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      return;
+    }
+    if (this.distance >= this.totalLength) {
+      const last = this.segments[this.segments.length - 1];
+      this.x = last.bx;
+      this.y = last.by;
+      this.reachedEnd = true;
+      return;
+    }
+    // Advance segIdx while distance has passed the end of the current segment.
+    const segs = this.segments;
+    while (this.segIdx < segs.length - 1
+           && this.distance >= segs[this.segIdx].cumStart + segs[this.segIdx].len) {
+      this.segIdx++;
+    }
+    const seg = segs[this.segIdx];
+    const t = seg.len === 0 ? 0 : (this.distance - seg.cumStart) / seg.len;
+    this.x = lerp(seg.ax, seg.bx, t);
+    this.y = lerp(seg.ay, seg.by, t);
+  }
+
+  // Progress as 0..1 along the whole path. Used to pick "leads" target.
+  get progress() {
+    return this.totalLength === 0 ? 1 : this.distance / this.totalLength;
+  }
+
+  // Tile the monster currently occupies (used by melee troops).
+  get tile() {
+    return {
+      gx: Math.floor(this.x / CONFIG.TILE_SIZE),
+      gy: Math.floor(this.y / CONFIG.TILE_SIZE),
+    };
+  }
+
+  // Tile-distance to another tile (Chebyshev so diagonals feel fair).
+  tileDistanceTo(gx, gy) {
+    const mt = this.tile;
+    return Math.max(Math.abs(mt.gx - gx), Math.abs(mt.gy - gy));
+  }
+
+  // World-distance to a point in pixels.
+  worldDistanceTo(px, py) {
+    return dist(this.x, this.y, px, py);
+  }
+
+  // Tile distance from a troop tile (for ranged targeting).
+  worldDistanceFromTile(gx, gy) {
+    const c = tileCenter(gx, gy);
+    return dist(this.x, this.y, c.x, c.y);
+  }
+
+  takeDamage(amount) {
+    this.hp -= amount;
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.alive = false;
+      return { killed: true, reward: this.reward };
+    }
+    return { killed: false };
+  }
+
+  update(dt) {
+    if (!this.alive) return;
+    this.distance += this.speed * CONFIG.TILE_SIZE * dt;
+    this._updatePosition();
+  }
+}
