@@ -287,24 +287,38 @@ class Game {
   }
 
   start() {
+    // Use a Web Worker for simulation so the game runs at full speed
+    // even when the tab is in the background (workers are never throttled).
     this.lastTime = performance.now();
-    const loop = (now) => {
-      const realDt = Math.min(0.1, (now - this.lastTime) / 1000);
-      this.lastTime = now;
-      const fixed = CONFIG.FIXED_TIMESTEP;
-      const simDt = realDt * this.speed;
-      this.accumulator += simDt;
-      const maxSteps = Math.max(8, this.speed * 4); // ~4× the speed value
-      this.accumulator = Math.min(this.accumulator, fixed * maxSteps);
-      let safety = maxSteps;
-      while (this.accumulator >= fixed && safety-- > 0) {
-        this.step(fixed);
-        this.accumulator -= fixed;
+    this._running = true;
+
+    // Spawn the sim worker.
+    const blob = new Blob([this._simWorkerScript()], { type: 'application/javascript' });
+    this._simWorker = new Worker(URL.createObjectURL(blob));
+    this._simWorker.onmessage = (e) => {
+      if (e.data === 'tick') {
+        if (!this._running) return;
+        const now = performance.now();
+        const realDt = Math.min(0.1, (now - this.lastTime) / 1000);
+        this.lastTime = now;
+        const fixed = CONFIG.FIXED_TIMESTEP;
+        const simDt = realDt * this.speed;
+        this.accumulator += simDt;
+        const maxSteps = Math.max(8, this.speed * 4);
+        this.accumulator = Math.min(this.accumulator, fixed * maxSteps);
+        let safety = maxSteps;
+        while (this.accumulator >= fixed && safety-- > 0) {
+          this.step(fixed);
+          this.accumulator -= fixed;
+        }
+        this.render();
       }
-      this.render();
-      requestAnimationFrame(loop);
     };
-    requestAnimationFrame(loop);
+    this._simWorker.postMessage('start');
+  }
+
+  _simWorkerScript() {
+    return 'let id; onmessage=function(e){if(e.data==="start"){id=setInterval(function(){postMessage("tick")},16)}else if(e.data==="stop"){clearInterval(id)}};';
   }
 
   // ===== Rendering =====
@@ -651,6 +665,8 @@ class Game {
   }
 
   restart() {
+    if (this._simWorker) { this._simWorker.postMessage('stop'); this._simWorker.terminate(); this._simWorker = null; }
+    this._running = false;
     this.state = 'PRE_WAVE';
     this.paused = false;
     this.speed = 1;
@@ -668,6 +684,7 @@ class Game {
     this.popups = [];
     this.wave = new WaveManager();
     this.devMonsterCounts = this._defaultDevCounts();
+    this.start(); // re-start the background loop
   }
 
   toggleDevMode() {
