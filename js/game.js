@@ -76,6 +76,7 @@ class Game {
     if (cd > 0) return;
     t.alive = false;
     this.grid.set(t.gx, t.gy, TILE.EMPTY);
+    RENDERER.markCacheDirty();
     if (!this.devMode) {
       const refund = Math.ceil(t.getTotalInvested() * CONFIG.SELL_REFUND_RATIO);
       this.gold = Math.min(this.gold + refund, CONFIG.MAX_GOLD);
@@ -324,36 +325,10 @@ class Game {
   // ===== Rendering =====
   render() {
     RENDERER.beginFrame();
+    RENDERER.drawStaticLayers(this.grid);
     RENDERER.applyMapTransform();
 
     const T = CONFIG.TILE_SIZE;
-
-    // Ground.
-    RENDERER.fillRect(0, 0, CONFIG.GRID_SIZE * T, CONFIG.GRID_SIZE * T, '#1c2a22');
-
-    // Buildable grid overlay (very faint).
-    for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
-      for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
-        if (this.grid.get(x, y) === TILE.EMPTY) {
-          RENDERER.fillRect(x * T, y * T, T, T, 'rgba(120,200,120,0.04)');
-        }
-      }
-    }
-
-    // Path tiles.
-    for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
-      for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
-        if (this.grid.get(x, y) === TILE.PATH) {
-          RENDERER.fillRect(x * T, y * T, T, T, CONFIG.COLORS.path);
-        }
-      }
-    }
-
-    // Grid lines.
-    for (let i = 0; i <= CONFIG.GRID_SIZE; i++) {
-      RENDERER.fillRect(i * T, 0, 1, CONFIG.GRID_SIZE * T, CONFIG.COLORS.gridLine);
-      RENDERER.fillRect(0, i * T, CONFIG.GRID_SIZE * T, 1, CONFIG.COLORS.gridLine);
-    }
 
     // Troops.
     for (const t of this.troops) {
@@ -702,6 +677,7 @@ class Game {
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.waypoints = generatePath(this.seed);
     this.markPathTiles();
+    RENDERER.markCacheDirty();
     this.monsters = [];
     this.troops = [];
     this.projectiles = [];
