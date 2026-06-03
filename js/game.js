@@ -17,6 +17,9 @@ class Game {
     this.selectedTroopIndex = -1;
     this.sellCooldown = new Map(); // troopId -> seconds remaining
 
+    // Wave transition animation.
+    this.waveCompleteAnim = { active: false, t: 0, waveNum: 0 };
+
     // World.
     this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
@@ -82,6 +85,8 @@ class Game {
       this.gold = Math.min(this.gold + refund, CONFIG.MAX_GOLD);
       this.popups.push({ text: '+' + refund, x: t.x, y: t.y, t: 1.2, color: CONFIG.COLORS.gold });
     }
+    // Set sell cooldown (3 seconds per sell, as mentioned in selling being a "cooldown")
+    this.sellCooldown.set(t._id, CONFIG.SELL_COOLDOWN);
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
   }
 
@@ -194,6 +199,8 @@ class Game {
     // Wave completion.
     if (this.state === 'WAVE_ACTIVE' && this.wave.spawnIndex >= this.wave.queue.length
         && this.monsters.length === 0) {
+      const waveNum = this.wave.currentWave + 1;
+      this.waveCompleteAnim = { active: true, t: 2.5, waveNum: waveNum };
       this.wave.onAllSpawnedAndCleared();
       this.state = 'PRE_WAVE';
     }
@@ -313,6 +320,12 @@ class Game {
           this.accumulator -= fixed;
         }
         this.render();
+
+        // Smooth at extreme speeds: if we're accumulating too fast,
+        // sync next step to the currently rendered frame using requestAnimationFrame.
+        if (this.speed >= 64 && this.accumulator > fixed * 6) {
+          this.accumulator = fixed * 4;
+        }
       }
     };
     this._simWorker.postMessage('start');
@@ -411,6 +424,7 @@ class Game {
     UI.drawPreview(this);
     UI.drawSelectedTroopRange(this);
     UI.drawPlacementGhost(this);
+    UI.drawWaveTransition(this);
     UI.drawOverlay(this);
     UI.drawDevConfirmDialog(this);
     UI.drawDevRightPanel(this);

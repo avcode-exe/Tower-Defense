@@ -54,8 +54,6 @@ function UIRoundRect(c, x, y, w, h, r) {
 }
 
 // ── Toggle button helper ──
-// Returns a small collapse/expand triangle button rect near the edge of a panel.
-// The caller handles drawing and hit-testing via drawToggleButton / hitToggleButton.
 function toggleBtnRect(side, panelRect) {
   const s = 16;
   if (side === 'left') return { x: panelRect.x, y: panelRect.y + 4, w: s, h: s };
@@ -65,13 +63,11 @@ function toggleBtnRect(side, panelRect) {
 }
 
 function drawToggleButton(c, rect, collapsed, expandDir) {
-  // Transparent circle bg
   c.fillStyle = 'rgba(255,255,255,0.08)';
   c.beginPath(); c.arc(rect.x + rect.w / 2, rect.y + rect.h / 2, 7, 0, Math.PI * 2); c.fill();
   c.fillStyle = 'rgba(255,255,255,0.4)';
   c.font = 'bold 10px system-ui, sans-serif';
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  // Arrow direction: collapsed => point toward panel (to expand), expanded => point away (to collapse)
   const arrow = collapsed ? '◀' : expandDir === 'up' ? '▼' : expandDir === 'down' ? '▲' : '▶';
   c.fillText(arrow, rect.x + rect.w / 2, rect.y + rect.h / 2 + 0.5);
 }
@@ -87,7 +83,6 @@ const UI = {
   hoveredShopIndex: -1,
   hoveredTroopIndex: -1,
 
-  // Stored toggle button rects for hit testing
   _toggleShop: null,
   _toggleHud: null,
   _togglePreview: null,
@@ -127,7 +122,6 @@ const UI = {
     return -1;
   },
 
-  // Handle toggle button clicks — returns true if consumed
   handleToggleClick(px, py) {
     if (this._toggleHud && hitToggleButton(px, py, this._toggleHud)) {
       UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
@@ -141,7 +135,6 @@ const UI = {
     }
     if (this._toggleHelp && hitToggleButton(px, py, this._toggleHelp)) {
       UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
-      // Show/hide the HTML help div
       const helpEl = document.getElementById('help');
       if (helpEl) helpEl.style.display = UI_LAYOUT.collapsed.help ? 'none' : '';
       return true;
@@ -161,7 +154,6 @@ const UI = {
     this._toggleHud = null;
 
     if (UI_LAYOUT.collapsed.hud) {
-      // Draw a tiny collapsed indicator strip at top
       c.fillStyle = UI_COLORS.panelBg;
       c.fillRect(0, 0, w, 20);
       c.fillStyle = UI_COLORS.panelBorder;
@@ -170,25 +162,22 @@ const UI = {
       c.font = '8px system-ui, sans-serif';
       c.textAlign = 'left'; c.textBaseline = 'middle';
       c.fillText('HUD', 6, 10);
-      // Expand button
       const btnRect = { x: w - 22, y: 2, w: 16, h: 16 };
       this._toggleHud = btnRect;
       drawToggleButton(c, btnRect, true, 'down');
       return;
     }
 
-    // Bottom edge border for visual separation.
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(0, 0, w, UI_LAYOUT.HUD_HEIGHT);
     c.fillStyle = UI_COLORS.panelBorder;
     c.fillRect(0, UI_LAYOUT.HUD_HEIGHT, w, 1);
 
-    // Collapse toggle button
     const btnRect = { x: w - 22, y: 6, w: 16, h: 16 };
     this._toggleHud = btnRect;
     drawToggleButton(c, btnRect, false, 'up');
 
-    // Gold icon + amount.
+    // Gold.
     const goldX = 14;
     c.fillStyle = UI_COLORS.gold;
     c.beginPath(); c.arc(goldX + 8, 28, 7, 0, Math.PI * 2); c.fill();
@@ -199,14 +188,14 @@ const UI = {
     c.fillStyle = UI_COLORS.textBright;
     c.textAlign = 'left';
     c.font = '15px system-ui, sans-serif';
-    c.fillText(game.devMode ? '\u221E' : String(game.gold), goldX + 20, 28);
+    c.fillText(game.devMode ? '∞' : String(game.gold), goldX + 20, 28);
 
     // Lives.
     const livesX = 120;
     c.fillStyle = UI_COLORS.heart;
     c.font = '16px system-ui, sans-serif';
     c.textAlign = 'left';
-    c.fillText('\u2764', livesX, 28);
+    c.fillText('❤', livesX, 28);
     c.fillStyle = UI_COLORS.textBright;
     c.font = '15px system-ui, sans-serif';
     c.fillText(String(game.lives), livesX + 18, 28);
@@ -273,7 +262,7 @@ const UI = {
     }
 
     // Start / pause / resume.
-    const btn = { x: w - 116, y: 12, w: 90, h: 32 };
+    const ctrlBtn = { x: w - 116, y: 12, w: 90, h: 32 };
     const label = game.state === 'PRE_WAVE' ? 'Start Wave'
       : game.state === 'WAVE_ACTIVE' ? 'Pause'
       : game.state === 'PAUSED' ? 'Resume'
@@ -281,25 +270,34 @@ const UI = {
     if (label) {
       const isStart = game.state === 'PRE_WAVE' || game.state === 'PAUSED';
       c.fillStyle = isStart ? 'rgba(46,160,67,0.15)' : 'rgba(218,54,51,0.15)';
-      UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
+      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
       c.fill();
       c.strokeStyle = isStart ? 'rgba(46,160,67,0.3)' : 'rgba(218,54,51,0.3)';
       c.lineWidth = 1;
-      UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
+      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
       c.stroke();
       c.fillStyle = isStart ? UI_COLORS.green : UI_COLORS.red;
       c.font = 'bold 11px system-ui, sans-serif';
       c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(label, btn.x + btn.w / 2, btn.y + btn.h / 2 + 1);
+      c.fillText(label, ctrlBtn.x + ctrlBtn.w / 2, ctrlBtn.y + ctrlBtn.h / 2 + 1);
     }
 
-    // Monsters left — during active wave.
+    // Monsters left count.
     if (game.state === 'WAVE_ACTIVE' || game.state === 'PAUSED') {
       c.fillStyle = UI_COLORS.textDim;
       c.font = '11px system-ui, sans-serif';
       c.textAlign = 'left'; c.textBaseline = 'middle';
       c.fillText(game.wave.monstersRemainingThisWave + ' monsters', sx - 130, 28);
     }
+
+    // Wave 10+ scaling indicator.
+    if (game.wave.currentWave >= 10) {
+      c.fillStyle = UI_COLORS.red;
+      c.font = 'bold 11px system-ui, sans-serif';
+      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText('x' + game.wave.currentMultiplier.toFixed(2), 375, 28);
+    }
+
     c.textBaseline = 'alphabetic';
   },
 
@@ -310,7 +308,6 @@ const UI = {
     this._toggleShop = null;
 
     if (UI_LAYOUT.collapsed.shop) {
-      // Collapsed: tiny strip on the left side
       c.fillStyle = UI_COLORS.panelBg;
       c.fillRect(0, UI_LAYOUT.hudHeight, 20, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
       c.fillStyle = UI_COLORS.panelBorder;
@@ -319,11 +316,9 @@ const UI = {
       c.translate(10, (h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight) / 2 + UI_LAYOUT.hudHeight);
       c.rotate(-Math.PI / 2);
       c.fillStyle = UI_COLORS.textDim;
-      c.font = '8px system-ui, sans-serif';
-      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = '8px system-ui,淋漓'; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('TROOPS', 0, 0);
       c.restore();
-      // Expand button
       const btnRect = { x: 2, y: UI_LAYOUT.hudHeight + 4, w: 16, h: 16 };
       this._toggleShop = btnRect;
       drawToggleButton(c, btnRect, true, 'right');
@@ -334,7 +329,6 @@ const UI = {
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(0, UI_LAYOUT.hudHeight, UI_LAYOUT.SHOP_WIDTH, h - UI_LAYOUT.hudHeight);
 
-    // Collapse toggle button — in the margin past the cards (cards end at x=208, panel is 220px)
     const btnRect = { x: 209, y: UI_LAYOUT.hudHeight + 7, w: 10, h: 10 };
     this._toggleShop = btnRect;
     drawToggleButton(c, btnRect, false, 'left');
@@ -395,6 +389,11 @@ const UI = {
         UIRoundRect(c, r.x, r.y, r.w, r.h, 8);
         c.stroke();
       }
+
+      // ── Hover tooltip for description ──
+      if (isHovered && spec.desc) {
+        this._drawShopTooltip(c, r, spec);
+      }
     }
 
     // ── Selected troop info panel ──
@@ -402,7 +401,6 @@ const UI = {
       const t = game.troops[game.selectedTroopIndex];
       if (t && t.alive) {
         const panelY = RENDERER.height - 174;
-        // Panel bg.
         c.fillStyle = UI_COLORS.cardBg;
         UIRoundRect(c, 8, panelY, 200, 70, 8);
         c.fill();
@@ -464,21 +462,42 @@ const UI = {
           }
         }
 
-        // Sell button.
+        // Sell button with cooldown indicator.
         const sellBtn = { x: 8, y: RENDERER.height - 58, w: 200, h: 34 };
         const isDevDelete = game.devMode;
-        c.fillStyle = isDevDelete ? 'rgba(218,54,51,0.15)' : 'rgba(212,118,30,0.12)';
+        const cd = game.sellCooldown.get(t._id) || 0;
+        const onCooldown = cd > 0 && !isDevDelete;
+
+        if (isDevDelete) {
+          c.fillStyle = 'rgba(218,54,51,0.15)';
+        } else if (onCooldown) {
+          c.fillStyle = 'rgba(128,128,128,0.12)';
+        } else {
+          c.fillStyle = 'rgba(212,118,30,0.12)';
+        }
         UIRoundRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6);
         c.fill();
-        c.strokeStyle = isDevDelete ? 'rgba(218,54,51,0.25)' : 'rgba(212,118,30,0.2)';
+        if (isDevDelete) {
+          c.strokeStyle = 'rgba(218,54,51,0.25)';
+        } else if (onCooldown) {
+          c.strokeStyle = 'rgba(128,128,128,0.2)';
+        } else {
+          c.strokeStyle = 'rgba(212,118,30,0.2)';
+        }
         c.lineWidth = 1;
         UIRoundRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6);
         c.stroke();
-        c.fillStyle = isDevDelete ? UI_COLORS.red : UI_COLORS.orange;
+        c.fillStyle = isDevDelete ? UI_COLORS.red : (onCooldown ? UI_COLORS.textDim : UI_COLORS.orange);
         c.font = 'bold 10px system-ui, sans-serif';
         c.textAlign = 'center'; c.textBaseline = 'middle';
+
         if (isDevDelete) {
           c.fillText('Delete ' + t.spec.name, sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2);
+        } else if (onCooldown) {
+          c.fillText('Cooldown: ' + Math.ceil(cd) + 's', sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 - 1);
+          c.fillStyle = UI_COLORS.textDim;
+          c.font = '8px system-ui, sans-serif';
+          c.fillText(t.spec.name, sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 + 11);
         } else {
           const refund = Math.ceil(t.getTotalInvested() * CONFIG.SELL_REFUND_RATIO);
           c.fillText('Sell +' + refund + 'g', sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 - 1);
@@ -491,6 +510,57 @@ const UI = {
     c.textBaseline = 'alphabetic';
   },
 
+  _drawShopTooltip(c, r, spec) {
+    if (!spec.desc) return;
+    const lines = this._wrapText(c, spec.desc, r.w + 40, 11, 'system-ui, sans-serif');
+    const lineH = 14;
+    const tipW = r.w + 40;
+    const tipH = 20 + lines.length * lineH;
+    const tipX = r.x + r.w + 4;
+    const tipY = r.y;
+
+    c.save();
+    // Semi-transparent tip background
+    c.fillStyle = 'rgba(16, 26, 36, 0.95)';
+    UIRoundRect(c, tipX, tipY, tipW, tipH, 8);
+    c.fill();
+    c.strokeStyle = 'rgba(88,166,255,0.2)';
+    c.lineWidth = 1;
+    UIRoundRect(c, tipX, tipY, tipW, tipH, 8);
+    c.stroke();
+
+    c.fillStyle = UI_COLORS.textBody;
+    c.font = '11px system-ui, sans-serif';
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    for (let j = 0; j < lines.length; j++) {
+      c.fillText(lines[j], tipX + 8, tipY + 12 + j * lineH);
+    }
+    c.restore();
+  },
+
+  _wrapText(c, text, maxW, fontSize, font) {
+    c.font = fontSize + 'px ' + font;
+    const words = text.split(' ');
+    const lines = [];
+    let current = '';
+    for (const word of words) {
+      const test = current ? current + ' ' + word : word;
+      const metrics = c.measureText(test);
+      if (metrics.width > maxW) {
+        if (current) {
+          lines.push(current);
+          current = word;
+        } else {
+          lines.push(word);
+        }
+      } else {
+        current = test;
+      }
+    }
+    if (current) lines.push(current);
+    return lines;
+  },
+
   drawPreview(game) {
     const c = RENDERER.ctx;
     const w = RENDERER.width;
@@ -498,7 +568,6 @@ const UI = {
     this._togglePreview = null;
 
     if (UI_LAYOUT.collapsed.preview) {
-      // Collapsed: tiny strip at bottom
       const y = RENDERER.height - 20;
       c.fillStyle = UI_COLORS.panelBg;
       c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 20);
@@ -508,7 +577,6 @@ const UI = {
       c.font = '8px system-ui, sans-serif';
       c.textAlign = 'left'; c.textBaseline = 'middle';
       c.fillText('WAVE', UI_LAYOUT.shopWidth + 6, y + 10);
-      // Expand button
       const btnRect = { x: w - 22, y: y + 2, w: 16, h: 16 };
       this._togglePreview = btnRect;
       drawToggleButton(c, btnRect, true, 'up');
@@ -521,7 +589,6 @@ const UI = {
     c.fillStyle = UI_COLORS.panelBorder;
     c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 1);
 
-    // Collapse toggle button
     const btnRect = { x: w - 22, y: y + 4, w: 16, h: 16 };
     this._togglePreview = btnRect;
     drawToggleButton(c, btnRect, false, 'down');
@@ -571,12 +638,10 @@ const UI = {
     c.translate(RENDERER.offsetX, RENDERER.offsetY);
     c.scale(RENDERER.scale, RENDERER.scale);
 
-    // Tile highlight.
     c.fillStyle = valid ? CONFIG.COLORS.buildableHover : CONFIG.COLORS.invalid;
     c.fillRect(tile.gx * CONFIG.TILE_SIZE, tile.gy * CONFIG.TILE_SIZE,
       CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
 
-    // Range circle.
     const center = tileCenter(tile.gx, tile.gy);
     c.strokeStyle = valid ? 'rgba(88,166,255,0.5)' : 'rgba(220,80,80,0.5)';
     c.lineWidth = 1.5;
@@ -586,7 +651,6 @@ const UI = {
     c.stroke();
     c.setLineDash([]);
 
-    // Troop ghost.
     c.globalAlpha = 0.5;
     c.fillStyle = game.selectedSpec.color;
     const s = CONFIG.TILE_SIZE - 8;
@@ -610,6 +674,55 @@ const UI = {
     c.arc(t.x, t.y, (t.getRange() + 0.5) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
     c.stroke();
     c.setLineDash([]);
+    c.restore();
+  },
+
+  drawWaveTransition(game) {
+    if (!game.waveCompleteAnim || !game.waveCompleteAnim.active) return;
+    const a = game.waveCompleteAnim;
+    const fixedDt = CONFIG.FIXED_TIMESTEP || 1 / 60;
+    a.t -= fixedDt;
+    if (a.t <= 0) {
+      a.active = false;
+      return;
+    }
+
+    const c = RENDERER.ctx;
+    const totalTime = 2.5;
+    const progress = 1 - a.t / totalTime;
+    // Fade in 0.0-0.2, hold 0.2-0.8, fade out 0.8-1.0
+    let alpha = 0;
+    if (progress < 0.2) alpha = progress / 0.2;
+    else if (progress < 0.8) alpha = 1;
+    else alpha = (1 - progress) / 0.2;
+    alpha = Math.max(0, Math.min(1, alpha));
+
+    const cx = RENDERER.width / 2;
+    const cy = RENDERER.height / 2;
+
+    // Flash overlay
+    c.save();
+    c.globalAlpha = alpha * 0.25;
+    c.fillStyle = UI_COLORS.accent;
+    c.fillRect(0, 0, RENDERER.width, RENDERER.height);
+    c.globalAlpha = alpha;
+
+    // Text
+    c.fillStyle = UI_COLORS.textBright;
+    c.font = 'bold 32px system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.shadowColor = 'rgba(0,0,0,0.5)';
+    c.shadowBlur = 10;
+    c.shadowOffsetX = 0;
+    c.shadowOffsetY = 4;
+    c.fillText('Wave ' + a.waveNum + ' Complete', cx, cy - 10);
+
+    // Subtle "Ready" text
+    c.font = '16px system-ui, sans-serif';
+    c.fillStyle = UI_COLORS.textDim;
+    c.shadowBlur = 0;
+    c.fillText('Get ready for the next wave', cx, cy + 16);
+
     c.restore();
   },
 
@@ -667,7 +780,6 @@ const UI = {
       c.fillText('This will restart the game.', RENDERER.width / 2, py + 70);
     }
 
-    // Yes / No buttons.
     const btnW = 80, btnH = 36, gap = 20, totalW = btnW * 2 + gap;
     const btnY = py + ph - 60;
     const yesX = (RENDERER.width - totalW) / 2;
@@ -748,7 +860,6 @@ const UI = {
       this._devRightButtons.push(row);
     }
 
-    // Start button.
     const stX = pX + 12, stY = pY + pH - 40, stW = pW - 24, stH = 30;
     this._devRightStartBtn = { x: stX, y: stY, w: stW, h: stH };
     c.fillStyle = 'rgba(46,160,67,0.15)';
@@ -763,7 +874,6 @@ const UI = {
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.fillText('Start Custom Wave', stX + stW / 2, stY + stH / 2);
 
-    // Reset button.
     const rstX = pX + 12, rstY = stY - 32, rstW = pW - 24, rstH = 22;
     c.fillStyle = 'rgba(255,255,255,0.04)';
     UIRoundRect(c, rstX, rstY, rstW, rstH, 6);

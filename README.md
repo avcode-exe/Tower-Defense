@@ -14,11 +14,13 @@ A 2D tower defense game — **framed Electron desktop app** for Windows with aut
 - **10 waves** + infinite wave cycling (boss on wave 10)
 - **Per-stat upgrade system** — each troop has 3-4 upgradable stats (DMG, RNG, SPD, CHN) with independent level tracks
 - **Speed controls** — 1× / 2× / 4× / 8× / 16× / 32× / 64× / 128×
-- **Sell confirmation dialog** — prevents accidental sells (50% refund)
+- **Sell confirmation dialog** — prevents accidental sells (50% refund) with 3-second cooldown
 - **DEV mode** (F2) — unlimited gold + custom wave composition editor
 - **Collapsible panels** — minimize HUD / Shop / Preview / Controls for a full-screen map view (click toggle buttons or use Alt+H/S/P/C)
 - **Auto-update** — built-in update checker via GitHub Releases
 - **Renders at native resolution** with `devicePixelRatio` support and offscreen canvas caching for static map layers
+- **Wave 10+ scaling indicator** — shows current multiplier (1.35× per cycle) in the HUD
+- **Hover tooltips** — hover over any troop card to see its tactical description
 
 ## Troops
 

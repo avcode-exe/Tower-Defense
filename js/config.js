@@ -11,7 +11,10 @@ const CONFIG = {
   STARTING_GOLD: 1000,
   MAX_GOLD: 1000000,
   STARTING_LIVES: 20,
+
+  // Selling
   SELL_REFUND_RATIO: 0.5,
+  SELL_COOLDOWN: 3.0, // seconds before selling again
 
   // Simulation
   FIXED_TIMESTEP: 1 / 60,  // 60 Hz simulation
@@ -51,14 +54,14 @@ const MONSTER_SPECS = {
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).
 const TROOP_SPECS = [
-  { id: 'swordsman', name: 'Swordsman', type: 'melee',  cost: 50,  damage: 12, range: 1, attackSpeed: 0.67, splash: 0, color: '#3498db', hotkey: '1' },
-  { id: 'knight',    name: 'Knight',    type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 0.9, splash: 0, color: '#2980b9', hotkey: '2' },
-  { id: 'archer',    name: 'Archer',    type: 'ranged', cost: 70,  damage: 10, range: 3, attackSpeed: 1.2, splash: 0, color: '#27ae60', hotkey: '3' },
-  { id: 'crossbow',  name: 'Machine Gun',  type: 'ranged', cost: 200, damage: 6, range: 4, attackSpeed: 0.25, splash: 0, color: '#e74c3c', hotkey: '4' },
-  { id: 'mage',      name: 'Mage',      type: 'ranged', cost: 200, damage: 20, range: 3, attackSpeed: 1.3, splash: 1.5, color: '#9b59b6', hotkey: '5' },
-  { id: 'sniper',    name: 'Sniper',    type: 'ranged', cost: 250, damage: 100, range: 10, attackSpeed: 2.5, splash: 0, color: '#2c3e50', hotkey: '6' },
-  { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 180, damage: 15, range: 1, attackSpeed: 1.5, splash: 0, color: '#e67e22', hotkey: '7', aoe: true },
-  { id: 'lightning', name: 'Lightning', type: 'ranged', cost: 300, damage: 100, range: 2, attackSpeed: 3, splash: 0, color: '#f1c40f', hotkey: '8', chain: 4, stun: 0.5 },
+  { id: 'swordsman', name: 'Swordsman', type: 'melee',  cost: 50,  damage: 12, range: 1, attackSpeed: 0.67, splash: 0, color: '#3498db', hotkey: '1', desc: 'Basic melee defender. Cheap and reliable for early waves.' },
+  { id: 'knight',    name: 'Knight',    type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 0.9, splash: 0, color: '#2980b9', hotkey: '2', desc: 'Heavy melee with high damage. Great for holding choke points.' },
+  { id: 'archer',    name: 'Archer',    type: 'ranged', cost: 70,  damage: 10, range: 3, attackSpeed: 1.2, splash: 0, color: '#27ae60', hotkey: '3', desc: 'Fast-firing ranged unit. Good DPS for its cost.' },
+  { id: 'crossbow',  name: 'Machine Gun',  type: 'ranged', cost: 200, damage: 6, range: 4, attackSpeed: 0.25, splash: 0, color: '#e74c3c', hotkey: '4', desc: 'Rapid-fire ranged unit. Shreds groups with its fast attack rate.' },
+  { id: 'mage',      name: 'Mage',      type: 'ranged', cost: 200, damage: 20, range: 3, attackSpeed: 1.3, splash: 1.5, color: '#9b59b6', hotkey: '5', desc: 'Ranged unit with splash damage. Effective against dense groups.' },
+  { id: 'sniper',    name: 'Sniper',    type: 'ranged', cost: 250, damage: 100, range: 10, attackSpeed: 2.5, splash: 0, color: '#2c3e50', hotkey: '6', desc: 'Extreme range and burst damage. Picks off enemies from afar.' },
+  { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 180, damage: 15, range: 1, attackSpeed: 1.5, splash: 0, color: '#e67e22', hotkey: '7', aoe: true, desc: 'Melee unit with AoE attacks. Clears swarms around her.' },
+  { id: 'lightning', name: 'Lightning', type: 'ranged', cost: 300, damage: 100, range: 2, attackSpeed: 3, splash: 0, color: '#f1c40f', hotkey: '8', chain: 4, stun: 0.5, desc: 'Chain lightning that stuns and jumps to multiple enemies.' },
 ];
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.

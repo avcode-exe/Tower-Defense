@@ -104,6 +104,12 @@ class WaveManager {
     return out;
   }
 
+  // Returns the current scaling multiplier for infinite waves (wave 10+).
+  get currentMultiplier() {
+    const cycle = Math.floor(this.currentWave / this.waves.length);
+    return cycle > 0 ? Math.pow(1.35, cycle) : 1;
+  }
+
   get monstersRemainingThisWave() {
     return this.queue.length - this.spawnIndex;
   }
