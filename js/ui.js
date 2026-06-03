@@ -5,6 +5,19 @@ const UI_LAYOUT = {
   HUD_HEIGHT: 56,
   SHOP_WIDTH: 220,
   PREVIEW_HEIGHT: 80,
+
+  // Collapsible section states
+  collapsed: {
+    shop: false,
+    hud: false,
+    preview: false,
+    help: false,
+  },
+
+  // Effective dimensions accounting for collapsed state
+  get hudHeight() { return this.collapsed.hud ? 0 : this.HUD_HEIGHT; },
+  get shopWidth() { return this.collapsed.shop ? 0 : this.SHOP_WIDTH; },
+  get previewHeight() { return this.collapsed.preview ? 0 : this.PREVIEW_HEIGHT; },
 };
 
 // ── Shared helpers ──
@@ -40,11 +53,45 @@ function UIRoundRect(c, x, y, w, h, r) {
   c.closePath();
 }
 
+// ── Toggle button helper ──
+// Returns a small collapse/expand triangle button rect near the edge of a panel.
+// The caller handles drawing and hit-testing via drawToggleButton / hitToggleButton.
+function toggleBtnRect(side, panelRect) {
+  const s = 16;
+  if (side === 'left') return { x: panelRect.x, y: panelRect.y + 4, w: s, h: s };
+  if (side === 'right') return { x: panelRect.x + panelRect.w - s, y: panelRect.y + 4, w: s, h: s };
+  if (side === 'bottom') return { x: panelRect.x + panelRect.w - s - 4, y: panelRect.y + 4, w: s, h: s };
+  return { x: panelRect.x + panelRect.w - s - 4, y: panelRect.y + 4, w: s, h: s };
+}
+
+function drawToggleButton(c, rect, collapsed, expandDir) {
+  // Transparent circle bg
+  c.fillStyle = 'rgba(255,255,255,0.08)';
+  c.beginPath(); c.arc(rect.x + rect.w / 2, rect.y + rect.h / 2, 7, 0, Math.PI * 2); c.fill();
+  c.fillStyle = 'rgba(255,255,255,0.4)';
+  c.font = 'bold 10px system-ui, sans-serif';
+  c.textAlign = 'center'; c.textBaseline = 'middle';
+  // Arrow direction: collapsed => point toward panel (to expand), expanded => point away (to collapse)
+  const arrow = collapsed ? '◀' : expandDir === 'up' ? '▼' : expandDir === 'down' ? '▲' : '▶';
+  c.fillText(arrow, rect.x + rect.w / 2, rect.y + rect.h / 2 + 0.5);
+}
+
+function hitToggleButton(px, py, rect) {
+  if (!rect) return false;
+  return px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
+}
+
 // ── UI object ──
 
 const UI = {
   hoveredShopIndex: -1,
   hoveredTroopIndex: -1,
+
+  // Stored toggle button rects for hit testing
+  _toggleShop: null,
+  _toggleHud: null,
+  _togglePreview: null,
+  _toggleHelp: null,
 
   updateHover(px, py) {
     if (px == null || py == null) {
@@ -57,11 +104,12 @@ const UI = {
   shopCardRect(i) {
     const cardW = 200, cardH = 58, gap = 4;
     const x = 8;
-    const y = UI_LAYOUT.HUD_HEIGHT + 8 + i * (cardH + gap);
+    const y = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
     return { x, y, w: cardW, h: cardH };
   },
 
   hitShop(px, py) {
+    if (UI_LAYOUT.collapsed.shop) return -1;
     for (let i = 0; i < TROOP_SPECS.length; i++) {
       const r = this.shopCardRect(i);
       if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
@@ -79,15 +127,66 @@ const UI = {
     return -1;
   },
 
+  // Handle toggle button clicks — returns true if consumed
+  handleToggleClick(px, py) {
+    if (this._toggleHud && hitToggleButton(px, py, this._toggleHud)) {
+      UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
+      RENDERER.resize(document.getElementById('game'));
+      return true;
+    }
+    if (this._toggleShop && hitToggleButton(px, py, this._toggleShop)) {
+      UI_LAYOUT.collapsed.shop = !UI_LAYOUT.collapsed.shop;
+      RENDERER.resize(document.getElementById('game'));
+      return true;
+    }
+    if (this._toggleHelp && hitToggleButton(px, py, this._toggleHelp)) {
+      UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
+      // Show/hide the HTML help div
+      const helpEl = document.getElementById('help');
+      if (helpEl) helpEl.style.display = UI_LAYOUT.collapsed.help ? 'none' : '';
+      return true;
+    }
+    if (this._togglePreview && hitToggleButton(px, py, this._togglePreview)) {
+      UI_LAYOUT.collapsed.preview = !UI_LAYOUT.collapsed.preview;
+      RENDERER.resize(document.getElementById('game'));
+      return true;
+    }
+    return false;
+  },
+
   drawHUD(game) {
     const c = RENDERER.ctx;
     const w = RENDERER.width;
+
+    this._toggleHud = null;
+
+    if (UI_LAYOUT.collapsed.hud) {
+      // Draw a tiny collapsed indicator strip at top
+      c.fillStyle = UI_COLORS.panelBg;
+      c.fillRect(0, 0, w, 20);
+      c.fillStyle = UI_COLORS.panelBorder;
+      c.fillRect(0, 20, w, 1);
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = '8px system-ui, sans-serif';
+      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText('HUD', 6, 10);
+      // Expand button
+      const btnRect = { x: w - 22, y: 2, w: 16, h: 16 };
+      this._toggleHud = btnRect;
+      drawToggleButton(c, btnRect, true, 'down');
+      return;
+    }
 
     // Bottom edge border for visual separation.
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(0, 0, w, UI_LAYOUT.HUD_HEIGHT);
     c.fillStyle = UI_COLORS.panelBorder;
     c.fillRect(0, UI_LAYOUT.HUD_HEIGHT, w, 1);
+
+    // Collapse toggle button
+    const btnRect = { x: w - 22, y: 6, w: 16, h: 16 };
+    this._toggleHud = btnRect;
+    drawToggleButton(c, btnRect, false, 'up');
 
     // Gold icon + amount.
     const goldX = 14;
@@ -208,15 +307,43 @@ const UI = {
     const c = RENDERER.ctx;
     const h = RENDERER.height;
 
+    this._toggleShop = null;
+
+    if (UI_LAYOUT.collapsed.shop) {
+      // Collapsed: tiny strip on the left side
+      c.fillStyle = UI_COLORS.panelBg;
+      c.fillRect(0, UI_LAYOUT.hudHeight, 20, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
+      c.fillStyle = UI_COLORS.panelBorder;
+      c.fillRect(20, UI_LAYOUT.hudHeight, 1, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
+      c.save();
+      c.translate(10, (h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight) / 2 + UI_LAYOUT.hudHeight);
+      c.rotate(-Math.PI / 2);
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = '8px system-ui, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('TROOPS', 0, 0);
+      c.restore();
+      // Expand button
+      const btnRect = { x: 2, y: UI_LAYOUT.hudHeight + 4, w: 16, h: 16 };
+      this._toggleShop = btnRect;
+      drawToggleButton(c, btnRect, true, 'right');
+      return;
+    }
+
     // Background panel.
     c.fillStyle = UI_COLORS.panelBg;
-    c.fillRect(0, UI_LAYOUT.HUD_HEIGHT, UI_LAYOUT.SHOP_WIDTH, h - UI_LAYOUT.HUD_HEIGHT);
+    c.fillRect(0, UI_LAYOUT.hudHeight, UI_LAYOUT.SHOP_WIDTH, h - UI_LAYOUT.hudHeight);
+
+    // Collapse toggle button — in the margin past the cards (cards end at x=208, panel is 220px)
+    const btnRect = { x: 209, y: UI_LAYOUT.hudHeight + 7, w: 10, h: 10 };
+    this._toggleShop = btnRect;
+    drawToggleButton(c, btnRect, false, 'left');
 
     // Shop header.
     c.fillStyle = UI_COLORS.textDim;
     c.font = '10px system-ui, sans-serif';
     c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillText('TROOPS', 12, UI_LAYOUT.HUD_HEIGHT + 16);
+    c.fillText('TROOPS', 12, UI_LAYOUT.hudHeight + 16);
 
     for (let i = 0; i < TROOP_SPECS.length; i++) {
       const spec = TROOP_SPECS[i];
@@ -367,25 +494,51 @@ const UI = {
   drawPreview(game) {
     const c = RENDERER.ctx;
     const w = RENDERER.width;
+
+    this._togglePreview = null;
+
+    if (UI_LAYOUT.collapsed.preview) {
+      // Collapsed: tiny strip at bottom
+      const y = RENDERER.height - 20;
+      c.fillStyle = UI_COLORS.panelBg;
+      c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 20);
+      c.fillStyle = UI_COLORS.panelBorder;
+      c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 1);
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = '8px system-ui, sans-serif';
+      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText('WAVE', UI_LAYOUT.shopWidth + 6, y + 10);
+      // Expand button
+      const btnRect = { x: w - 22, y: y + 2, w: 16, h: 16 };
+      this._togglePreview = btnRect;
+      drawToggleButton(c, btnRect, true, 'up');
+      return;
+    }
+
     const y = RENDERER.height - UI_LAYOUT.PREVIEW_HEIGHT;
     c.fillStyle = UI_COLORS.panelBg;
-    c.fillRect(UI_LAYOUT.SHOP_WIDTH, y, w - UI_LAYOUT.SHOP_WIDTH, UI_LAYOUT.PREVIEW_HEIGHT);
+    c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, UI_LAYOUT.PREVIEW_HEIGHT);
     c.fillStyle = UI_COLORS.panelBorder;
-    c.fillRect(UI_LAYOUT.SHOP_WIDTH, y, w - UI_LAYOUT.SHOP_WIDTH, 1);
+    c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 1);
+
+    // Collapse toggle button
+    const btnRect = { x: w - 22, y: y + 4, w: 16, h: 16 };
+    this._togglePreview = btnRect;
+    drawToggleButton(c, btnRect, false, 'down');
 
     c.fillStyle = UI_COLORS.textDim;
     c.font = '10px system-ui, sans-serif';
     c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillText('Next Wave', UI_LAYOUT.SHOP_WIDTH + 12, y + 16);
+    c.fillText('Next Wave', UI_LAYOUT.shopWidth + 12, y + 16);
 
     const preview = game.wave.getNextWavePreview();
     if (!preview) {
       c.fillStyle = UI_COLORS.textDim;
       c.font = '12px system-ui, sans-serif';
-      c.fillText('Prepare...', UI_LAYOUT.SHOP_WIDTH + 90, y + 18);
+      c.fillText('Prepare...', UI_LAYOUT.shopWidth + 90, y + 18);
       return;
     }
-    let cx = UI_LAYOUT.SHOP_WIDTH + 90;
+    let cx = UI_LAYOUT.shopWidth + 90;
     for (const [level, count] of preview) {
       const key = level === 'B' ? 'B' : level;
       const spec = MONSTER_SPECS[key];
@@ -408,9 +561,9 @@ const UI = {
     const w = RENDERER.toWorld(RENDERER.hoverPx, RENDERER.hoverPy);
     const tile = pixelToTile(w.x, w.y);
     if (!inBounds(tile.gx, tile.gy)) return;
-    if (RENDERER.hoverPx < UI_LAYOUT.SHOP_WIDTH) return;
-    if (RENDERER.hoverPy < UI_LAYOUT.HUD_HEIGHT) return;
-    if (RENDERER.hoverPy > RENDERER.height - UI_LAYOUT.PREVIEW_HEIGHT) return;
+    if (RENDERER.hoverPx < UI_LAYOUT.shopWidth) return;
+    if (RENDERER.hoverPy < UI_LAYOUT.hudHeight) return;
+    if (RENDERER.hoverPy > RENDERER.height - UI_LAYOUT.previewHeight) return;
 
     const c = RENDERER.ctx;
     const valid = game.canPlace(tile.gx, tile.gy, game.selectedSpec);
@@ -482,7 +635,7 @@ const UI = {
     c.fillStyle = 'rgba(0,0,0,0.6)';
     c.fillRect(0, 0, RENDERER.width, RENDERER.height);
 
-    const pw = 300, ph = 130;
+    const pw = 340, ph = 170;
     const px = (RENDERER.width - pw) / 2;
     const py = (RENDERER.height - ph) / 2;
 
@@ -498,129 +651,126 @@ const UI = {
     c.fillStyle = UI_COLORS.textBright;
     c.font = 'bold 15px system-ui, sans-serif';
     if (game.sellConfirmPending) {
-      const t = game.troops[game.sellConfirmTroopIndex];
-      c.fillText('Sell ' + (t ? t.spec.name : 'Troop') + '?', px + pw / 2, py + 34);
-      c.fillStyle = UI_COLORS.orange;
-      c.font = '12px system-ui, sans-serif';
-      c.fillText('This cannot be undone.', px + pw / 2, py + 56);
-    } else if (game.resetConfirmPending) {
-      c.fillText('Reset Game?', px + pw / 2, py + 34);
-      c.fillStyle = UI_COLORS.red;
-      c.font = '12px system-ui, sans-serif';
-      c.fillText('All progress will be lost.', px + pw / 2, py + 56);
-    } else {
-      c.fillText(game.devMode ? 'Disable Dev Mode?' : 'Enable Dev Mode?', px + pw / 2, py + 34);
+      c.fillText('Sell ' + (game.troops[game.sellConfirmTroopIndex]?.spec?.name || 'troop') + ' for 50% refund?', RENDERER.width / 2, py + 45);
       c.fillStyle = UI_COLORS.textDim;
       c.font = '12px system-ui, sans-serif';
-      c.fillText('Game will reset.', px + pw / 2, py + 56);
+      c.fillText('Sold troops cannot be recovered.', RENDERER.width / 2, py + 70);
+    } else if (game.resetConfirmPending) {
+      c.fillText('Reset game?', RENDERER.width / 2, py + 45);
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = '12px system-ui, sans-serif';
+      c.fillText('All progress will be lost.', RENDERER.width / 2, py + 70);
+    } else {
+      c.fillText('Toggle DEV mode?', RENDERER.width / 2, py + 45);
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = '12px system-ui, sans-serif';
+      c.fillText('This will restart the game.', RENDERER.width / 2, py + 70);
     }
 
-    // Yes button.
-    const yesColor = game.sellConfirmPending ? UI_COLORS.orange : (game.devMode || game.resetConfirmPending ? UI_COLORS.red : UI_COLORS.green);
+    // Yes / No buttons.
+    const btnW = 80, btnH = 36, gap = 20, totalW = btnW * 2 + gap;
+    const btnY = py + ph - 60;
+    const yesX = (RENDERER.width - totalW) / 2;
+    const noX = yesX + btnW + gap;
+    const yesColor = game.resetConfirmPending ? '#da3633' : '#2ea043';
+
     c.fillStyle = yesColor;
-    UIRoundRect(c, px + 40, py + 80, 90, 32, 6);
-    c.fill();
-    c.fillStyle = '#fff';
-    c.font = 'bold 12px system-ui, sans-serif';
-    c.fillText('Yes', px + 85, py + 96);
-    this._devConfirmYes = { x: px + 40, y: py + 80, w: 90, h: 32 };
-
-    // No button.
-    c.fillStyle = 'rgba(255,255,255,0.06)';
-    UIRoundRect(c, px + 170, py + 80, 90, 32, 6);
-    c.fill();
-    c.fillStyle = UI_COLORS.textBody;
-    c.font = '12px system-ui, sans-serif';
-    c.fillText('No', px + 215, py + 96);
-    this._devConfirmNo = { x: px + 170, y: py + 80, w: 90, h: 32 };
-
-    c.textAlign = 'left'; c.textBaseline = 'alphabetic';
-  },
-
-  drawDevRightPanel(game) {
-    if (!game.devMode || game.state !== 'PRE_WAVE') return;
-    const c = RENDERER.ctx;
-    const order = [1, 2, 3, 4, 5, 'B'];
-    const names = {1:'Grunt',2:'Runner',3:'Brute',4:'Elite',5:'Champ','B':'Boss'};
-    const panelW = 220;
-    const rowH = 26;
-    const headerH = 20;
-    const btnH = 34;
-    const panelH = 6 + headerH + order.length * rowH + 6 + btnH + 6;
-    const px = RENDERER.width - panelW - 6;
-    const py = UI_LAYOUT.HUD_HEIGHT + 6;
-
-    // Panel bg.
-    c.fillStyle = UI_COLORS.cardBg;
-    UIRoundRect(c, px, py, panelW, panelH, 8);
-    c.fill();
-    c.strokeStyle = 'rgba(88,166,255,0.2)';
-    c.lineWidth = 1;
-    UIRoundRect(c, px, py, panelW, panelH, 8);
-    c.stroke();
-
-    // Header.
-    c.fillStyle = UI_COLORS.gold;
-    c.font = 'bold 11px system-ui, sans-serif';
-    c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillText('DEV \u2014 Wave ' + (game.wave.currentWave + 1), px + 10, py + 10);
-
-    // Rows.
-    const rows = [];
-    const contentX = px + 10;
-    for (let i = 0; i < order.length; i++) {
-      const level = order[i];
-      const ry = py + headerH + 4 + i * rowH;
-      const count = game.devMonsterCounts[level] || 0;
-
-      c.fillStyle = MONSTER_SPECS[level].color;
-      c.beginPath(); c.arc(contentX + 5, ry + rowH / 2, 4, 0, Math.PI * 2); c.fill();
-
-      c.fillStyle = UI_COLORS.textBody;
-      c.font = '10px system-ui, sans-serif';
-      c.textAlign = 'left'; c.textBaseline = 'middle';
-      c.fillText(names[level], contentX + 13, ry + rowH / 2);
-
-      c.fillStyle = UI_COLORS.gold;
-      c.font = 'bold 11px system-ui, sans-serif';
-      c.textAlign = 'center';
-      c.fillText(count, contentX + 70, ry + rowH / 2);
-
-      // Buttons.
-      var btnDefs = [
-        { tag:'m10', lbl:'-10', x: contentX + 84, w: 30 },
-        { tag:'m1',  lbl:'-1',  x: contentX + 116, w: 22 },
-        { tag:'p1',  lbl:'+1',  x: contentX + 140, w: 22 },
-        { tag:'p10', lbl:'+10', x: contentX + 164, w: 30 },
-      ];
-      var row = { level: level };
-      for (const bd of btnDefs) {
-        const br = { x: bd.x, y: ry + 3, w: bd.w, h: rowH - 6 };
-        c.fillStyle = 'rgba(255,255,255,0.04)';
-        UIRoundRect(c, br.x, br.y, br.w, br.h, 4);
-        c.fill();
-        c.fillStyle = UI_COLORS.textDim;
-        c.font = '9px system-ui, sans-serif';
-        c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.fillText(bd.lbl, br.x + br.w / 2, br.y + br.h / 2);
-        row[bd.tag] = br;
-      }
-      rows.push(row);
-    }
-    this._devRightButtons = rows;
-    this._devRightPanelRect = { x: px, y: py, w: panelW, h: panelH };
-
-    // Start Wave button.
-    const startY = py + headerH + 4 + order.length * rowH + 6;
-    c.fillStyle = UI_COLORS.green;
-    UIRoundRect(c, px + 10, startY, panelW - 20, btnH, 6);
+    UIRoundRect(c, yesX, btnY, btnW, btnH, 8);
     c.fill();
     c.fillStyle = '#fff';
     c.font = 'bold 11px system-ui, sans-serif';
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('Start Wave', px + panelW / 2, startY + btnH / 2);
-    this._devRightStartBtn = { x: px + 10, y: startY, w: panelW - 20, h: btnH };
+    c.fillText(game.resetConfirmPending ? 'Reset' : 'Yes', yesX + btnW / 2, btnY + btnH / 2);
 
-    c.textAlign = 'left'; c.textBaseline = 'alphabetic';
+    c.fillStyle = 'rgba(255,255,255,0.08)';
+    UIRoundRect(c, noX, btnY, btnW, btnH, 8);
+    c.fill();
+    c.fillStyle = UI_COLORS.textDim;
+    c.fillText('No', noX + btnW / 2, btnY + btnH / 2);
+
+    this._devConfirmYes = { x: yesX, y: btnY, w: btnW, h: btnH };
+    this._devConfirmNo = { x: noX, y: btnY, w: btnW, h: btnH };
+    c.textBaseline = 'alphabetic';
+  },
+
+  drawDevRightPanel(game) {
+    if (!game.devMode) return;
+    if (game.state === 'WAVE_ACTIVE') return;
+    const c = RENDERER.ctx;
+    const pW = 180;
+    const pH = 240;
+    const pX = RENDERER.width - pW - 12;
+    const pY = UI_LAYOUT.hudHeight + 50;
+
+    this._devRightPanelRect = { x: pX, y: pY, w: pW, h: pH };
+
+    c.fillStyle = '#111a24';
+    UIRoundRect(c, pX, pY, pW, pH, 10);
+    c.fill();
+    c.strokeStyle = 'rgba(88,166,255,0.15)';
+    c.lineWidth = 1;
+    UIRoundRect(c, pX, pY, pW, pH, 10);
+    c.stroke();
+
+    c.fillStyle = UI_COLORS.textBright;
+    c.font = 'bold 11px system-ui, sans-serif';
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText('Spawn Monsters', pX + 12, pY + 18);
+
+    const levels = [1, 2, 3, 4, 5, 'B'];
+    const rowH = 28;
+    const btnW = 22;
+    this._devRightButtons = [];
+    for (let i = 0; i < levels.length; i++) {
+      const level = levels[i];
+      const ry = pY + 34 + i * rowH;
+      const spec = MONSTER_SPECS[level];
+      c.fillStyle = spec.color;
+      c.beginPath(); c.arc(pX + 16, ry + rowH / 2, 5, 0, Math.PI * 2); c.fill();
+      c.fillStyle = UI_COLORS.textBody;
+      c.font = '10px system-ui, sans-serif';
+      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.fillText(spec.name + ' x' + (game.devMonsterCounts[level] || 0), pX + 28, ry + rowH / 2);
+
+      const row = { level };
+      for (const [tag, dx] of [['m10', -80], ['m1', -58], ['p1', -36], ['p10', -14]]) {
+        const bx = pX + pW - 12 + dx;
+        const btn = { x: bx, y: ry + 2, w: btnW, h: rowH - 4 };
+        c.fillStyle = 'rgba(255,255,255,0.06)';
+        UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 4);
+        c.fill();
+        c.fillStyle = UI_COLORS.textDim;
+        c.font = 'bold 9px system-ui, sans-serif';
+        c.textAlign = 'center'; c.textBaseline = 'middle';
+        c.fillText(tag.replace('m', '-').replace('p', '+'), btn.x + btn.w / 2, btn.y + btn.h / 2);
+        row[tag] = btn;
+      }
+      this._devRightButtons.push(row);
+    }
+
+    // Start button.
+    const stX = pX + 12, stY = pY + pH - 40, stW = pW - 24, stH = 30;
+    this._devRightStartBtn = { x: stX, y: stY, w: stW, h: stH };
+    c.fillStyle = 'rgba(46,160,67,0.15)';
+    UIRoundRect(c, stX, stY, stW, stH, 8);
+    c.fill();
+    c.strokeStyle = 'rgba(46,160,67,0.3)';
+    c.lineWidth = 1;
+    UIRoundRect(c, stX, stY, stW, stH, 8);
+    c.stroke();
+    c.fillStyle = UI_COLORS.green;
+    c.font = 'bold 11px system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('Start Custom Wave', stX + stW / 2, stY + stH / 2);
+
+    // Reset button.
+    const rstX = pX + 12, rstY = stY - 32, rstW = pW - 24, rstH = 22;
+    c.fillStyle = 'rgba(255,255,255,0.04)';
+    UIRoundRect(c, rstX, rstY, rstW, rstH, 6);
+    c.fill();
+    c.fillStyle = UI_COLORS.textDim;
+    c.font = '9px system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('Reset counts to defaults', rstX + rstW / 2, rstY + rstH / 2);
   },
 };

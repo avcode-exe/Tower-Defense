@@ -30,7 +30,7 @@ html, body {
   position: fixed;
   bottom: 10px;
   right: 10px;
-  background: rgba(7, 11, 15, 0.8);
+  background: rgba(7, 11, 15, 0.85);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255,255,255,0.08);
@@ -38,12 +38,31 @@ html, body {
   padding: 10px 14px;
   font-size: 11px;
   line-height: 1.6;
-  max-width: 300px;
+  max-width: 320px;
   color: rgba(182, 194, 204, 0.7);
-  pointer-events: none;
+  pointer-events: auto;
   font-feature-settings: 'tnum';
 }
 #help strong { color: #e6edf3; font-weight: 500; }
 #help ul { margin: 5px 0 0 14px; padding: 0; }
+
+.help-toggle {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  line-height: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  cursor: pointer;
+  border-radius: 4px;
+  user-select: none;
+}
+.help-toggle:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(255,255,255,0.7);
+}
 
 /* Import Inter font for cleaner UI text inside canvas is handled by JS */

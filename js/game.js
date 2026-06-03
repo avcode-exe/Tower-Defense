@@ -452,6 +452,9 @@ class Game {
       return;
     }
 
+    // Panel toggle clicks — checked first, before everything else
+    if (UI.handleToggleClick(px, py)) return;
+
     // Confirmation dialog clicks (intercepts everything while shown).
     if (this.devConfirmPending || this.resetConfirmPending || this.sellConfirmPending) {
       if (UI._devConfirmYes && px >= UI._devConfirmYes.x && px <= UI._devConfirmYes.x + UI._devConfirmYes.w && py >= UI._devConfirmYes.y && py <= UI._devConfirmYes.y + UI._devConfirmYes.h) {
@@ -596,8 +599,8 @@ class Game {
     }
 
     // Map clicks.
-    if (px >= UI_LAYOUT.SHOP_WIDTH && py >= UI_LAYOUT.HUD_HEIGHT
-        && py <= RENDERER.height - UI_LAYOUT.PREVIEW_HEIGHT) {
+    if (px >= UI_LAYOUT.shopWidth && py >= UI_LAYOUT.hudHeight
+        && py <= RENDERER.height - UI_LAYOUT.previewHeight) {
       const world = RENDERER.toWorld(px, py);
       const tile = pixelToTile(world.x, world.y);
       if (inBounds(tile.gx, tile.gy)) {
@@ -661,6 +664,27 @@ class Game {
     }
     if (e.key === 'Enter' && this.state === 'PRE_WAVE') {
       if (this.wave.startNextWave()) this.state = 'WAVE_ACTIVE';
+    }
+    // Panel toggle shortcuts: Alt+H (HUD), Alt+S (Shop), Alt+P (Preview), Alt+C (Controls/Help)
+    if (e.altKey) {
+      if (e.key === 'h' || e.key === 'H') {
+        UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
+        RENDERER.resize(document.getElementById('game'));
+        e.preventDefault();
+      } else if (e.key === 's' || e.key === 'S') {
+        UI_LAYOUT.collapsed.shop = !UI_LAYOUT.collapsed.shop;
+        RENDERER.resize(document.getElementById('game'));
+        e.preventDefault();
+      } else if (e.key === 'p' || e.key === 'P') {
+        UI_LAYOUT.collapsed.preview = !UI_LAYOUT.collapsed.preview;
+        RENDERER.resize(document.getElementById('game'));
+        e.preventDefault();
+      } else if (e.key === 'c' || e.key === 'C') {
+        UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
+        const helpEl = document.getElementById('help');
+        if (helpEl) helpEl.style.display = UI_LAYOUT.collapsed.help ? 'none' : '';
+        e.preventDefault();
+      }
     }
   }
 

@@ -26,10 +26,10 @@ const RENDERER = {
 
     const mapSize = CONFIG.GRID_SIZE * CONFIG.TILE_SIZE;
     this.mapPixelSize = mapSize;
-    this.hudHeight = UI_LAYOUT.HUD_HEIGHT;
-    this.shopWidth = UI_LAYOUT.SHOP_WIDTH;
+    this.hudHeight = UI_LAYOUT.hudHeight;
+    this.shopWidth = UI_LAYOUT.shopWidth;
     const availW = this.width - this.shopWidth;
-    const availH = this.height - this.hudHeight - UI_LAYOUT.PREVIEW_HEIGHT;
+    const availH = this.height - this.hudHeight - UI_LAYOUT.previewHeight;
     const sX = availW / mapSize;
     const sY = availH / mapSize;
     this.scale = Math.min(sX, sY, 1);
