@@ -57,23 +57,24 @@ function createWindow() {
 // ── Update check ──
 
 function checkForUpdates() {
+  console.log('[auto-updater] checkForUpdates() called');
   if (!app.isPackaged) {
-    console.log('[auto-updater] Skipping update check in dev mode');
+    console.log('[auto-updater] Skipping update check - not packaged');
     return;
   }
 
   // Listen for update events before calling checkForUpdates
   autoUpdater.on('checking-for-update', () => {
-    console.log('[auto-updater] Checking for updates...');
+    console.log('[auto-updater] Event: checking-for-update');
   });
 
   autoUpdater.on('update-available', (info) => {
-    console.log('[auto-updater] Update available:', info.version);
+    console.log('[auto-updater] Event: update-available', info.version);
     if (mainWindow) {
       dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: 'Update Available',
-        message: `Version ${info.version} is available.`,
+        message: `Version ${info.version} is available!`,
         detail: 'Downloading in the background. You will be prompted to install when ready.',
         buttons: ['OK']
       });
@@ -81,16 +82,16 @@ function checkForUpdates() {
   });
 
   autoUpdater.on('update-not-available', (info) => {
-    console.log('[auto-updater] No update available (current: ' + app.getVersion() + ')');
+    console.log('[auto-updater] Event: update-not-available (current: ' + app.getVersion() + ')');
   });
 
   autoUpdater.on('download-progress', (progress) => {
     const pct = Math.round(progress.percent);
-    console.log(`[auto-updater] Downloading... ${pct}%`);
+    console.log('[auto-updater] Event: download-progress', pct + '%');
   });
 
   autoUpdater.on('update-downloaded', (info) => {
-    console.log('[auto-updater] Update downloaded:', info.version);
+    console.log('[auto-updater] Event: update-downloaded', info.version);
     if (mainWindow) {
       dialog.showMessageBox(mainWindow, {
         type: 'question',
@@ -107,11 +108,36 @@ function checkForUpdates() {
   });
 
   autoUpdater.on('error', (err) => {
-    console.error('[auto-updater] Error:', err.message);
+    const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : 'Unknown error';
+    console.error('[auto-updater] Error:', errMsg);
+    if (mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Update Error',
+        message: 'Failed to check for updates',
+        detail: errMsg,
+        buttons: ['OK']
+      });
+    }
   });
 
   // Check now (and every 60 minutes after)
-  autoUpdater.checkForUpdates();
+  console.log('[auto-updater] Calling autoUpdater.checkForUpdates()...');
+  autoUpdater.checkForUpdates().then((result) => {
+    console.log('[auto-updater] checkForUpdates() resolved:', result);
+  }).catch((err) => {
+    const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : 'Unknown error';
+    console.error('[auto-updater] checkForUpdates() rejected:', errMsg);
+    if (mainWindow) {
+      dialog.showMessageBox(mainWindow, {
+        type: 'error',
+        title: 'Update Check Failed',
+        message: 'checkForUpdates() failed',
+        detail: errMsg,
+        buttons: ['OK']
+      });
+    }
+  });
   setInterval(() => {
     autoUpdater.checkForUpdates();
   }, 60 * 60 * 1000);
