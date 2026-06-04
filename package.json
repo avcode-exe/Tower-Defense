@@ -24,7 +24,7 @@
       "provider": "github",
       "owner": "avcode-exe",
       "repo": "Tower-Defense",
-      "releaseType": "release"
+      "releaseType": "prerelease"
     },
     "files": [
       "electron-main.js",
