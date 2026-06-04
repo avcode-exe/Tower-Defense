@@ -15,7 +15,7 @@ class Game {
     this.lastTime = 0;
     this.selectedSpec = null;
     this.selectedTroopIndex = -1;
-    this.sellCooldown = new Map(); // troopId -> seconds remaining
+    this.sellCooldownTimer = 0; // global seconds remaining before next sell allowed
 
     // Wave transition animation.
     this.waveCompleteAnim = { active: false, t: 0, waveNum: 0 };
@@ -24,6 +24,7 @@ class Game {
     this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.waypoints = generatePath(this.seed);
+    this.pathSegments = this._buildPathSegments(this.waypoints);
     this.markPathTiles();
 
     // Entities.
@@ -31,6 +32,9 @@ class Game {
     this.troops = [];
     this.projectiles = [];
     this.popups = []; // floating text popups ({text, x, y, t, color})
+
+    // Reusable buffer for chain lightning (avoids allocation per hit).
+    this._chainBuf = [];
 
     this.wave = new WaveManager();
 
@@ -40,12 +44,27 @@ class Game {
     window.addEventListener('resize', () => RENDERER.resize(canvas));
 
     this.devMode = false;
-    this.devWarningTimer = 0;
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = -1;
     this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0};
+  }
+
+  _buildPathSegments(waypoints) {
+    const segments = [];
+    let total = 0;
+    const T = CONFIG.TILE_SIZE;
+    for (let i = 1; i < waypoints.length; i++) {
+      const [ax, ay] = waypoints[i - 1];
+      const [bx, by] = waypoints[i];
+      const axp = ax * T + T / 2, ayp = ay * T + T / 2;
+      const bxp = bx * T + T / 2, byp = by * T + T / 2;
+      const len = dist(axp, ayp, bxp, byp);
+      total += len;
+      segments.push({ ax: axp, ay: ayp, bx: bxp, by: byp, len, cumStart: total - len });
+    }
+    return { segments, totalLength: total };
   }
 
   markPathTiles() {
@@ -75,8 +94,7 @@ class Game {
   sellTroop(index) {
     const t = this.troops[index];
     if (!t || !t.alive) return;
-    const cd = this.sellCooldown.get(t._id) || 0;
-    if (cd > 0) return;
+    if (this.sellCooldownTimer > 0) return;
     t.alive = false;
     this.grid.set(t.gx, t.gy, TILE.EMPTY);
     RENDERER.markCacheDirty();
@@ -85,8 +103,8 @@ class Game {
       this.gold = Math.min(this.gold + refund, CONFIG.MAX_GOLD);
       this.popups.push({ text: '+' + refund, x: t.x, y: t.y, t: 1.2, color: CONFIG.COLORS.gold });
     }
-    // Set sell cooldown (3 seconds per sell, as mentioned in selling being a "cooldown")
-    this.sellCooldown.set(t._id, CONFIG.SELL_COOLDOWN);
+    // Set global sell cooldown (3 seconds between sells).
+    this.sellCooldownTimer = CONFIG.SELL_COOLDOWN;
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
   }
 
@@ -102,7 +120,7 @@ class Game {
   }
 
   spawnMonster(level) {
-    const m = new Monster(level, this.waypoints);
+    const m = new Monster(level, this.waypoints, this.pathSegments);
     m._id = this._idCounter++;
     this.monsters.push(m);
   }
@@ -118,7 +136,7 @@ class Game {
       if (m.level !== 'B' && m.level > 1) {
         const childLvl = m.level - 1;
         for (let i = 0; i < 2; i++) {
-          const child = new Monster(childLvl, this.waypoints);
+          const child = new Monster(childLvl, this.waypoints, this.pathSegments);
           child._id = this._idCounter++;
           child.distance = m.distance;
           child.segIdx = m.segIdx;
@@ -207,20 +225,22 @@ class Game {
     if (this.state === 'WAVE_ACTIVE' && this.wave.spawnIndex >= this.wave.queue.length
         && this.monsters.length === 0) {
       const waveNum = this.wave.currentWave + 1;
-      this.waveCompleteAnim = { active: true, t: 2.5, waveNum: waveNum };
+      this.waveCompleteAnim = { active: true, t: 2.5, waveNum: waveNum, startMs: performance.now() };
       this.wave.onAllSpawnedAndCleared();
       this.state = 'PRE_WAVE';
     }
 
     // Update popups.
     for (const p of this.popups) p.t -= dt;
-    this.popups = this.popups.filter(p => p.t > 0);
+    let ppw = 0;
+    for (let i = 0; i < this.popups.length; i++) {
+      if (this.popups[i].t > 0) this.popups[ppw++] = this.popups[i];
+    }
+    this.popups.length = ppw;
 
-    // Update sell cooldowns.
-    for (const [id, cd] of this.sellCooldown) {
-      const v = cd - dt;
-      if (v <= 0) this.sellCooldown.delete(id);
-      else this.sellCooldown.set(id, v);
+    // Update global sell cooldown.
+    if (this.sellCooldownTimer > 0) {
+      this.sellCooldownTimer = Math.max(0, this.sellCooldownTimer - dt);
     }
   }
 
@@ -252,14 +272,22 @@ class Game {
     const chainCount = troop.getChain();
     const stunDuration = troop.spec.stun || 0;
 
-    // Find alive monsters sorted by proximity to impact point.
-    const alive = this.monsters.filter(m => m.alive);
-    alive.sort((a, b) => dist(a.x, a.y, x, y) - dist(b.x, b.y, x, y));
+    // Fill reusable buffer with alive monsters, sorted by proximity.
+    const buf = this._chainBuf;
+    buf.length = 0;
+    for (const m of this.monsters) {
+      if (m.alive) buf.push(m);
+    }
+    if (buf.length === 0) return;
+    // Closure-capture x,y for sort comparison (avoids per-call allocation).
+    const dx = x, dy = y;
+    buf.sort((a, b) => {
+      const da = (a.x - dx) * (a.x - dx) + (a.y - dy) * (a.y - dy);
+      const db = (b.x - dx) * (b.x - dx) + (b.y - dy) * (b.y - dy);
+      return da - db;
+    });
 
-    // Hit the closest one first as primary, then pick the next chainCount
-    // monsters with lower progress (behind it along the path).
-    if (alive.length === 0) return;
-    const primary = alive[0];
+    const primary = buf[0];
     // Apply stun + damage to a single target. Returns true if it split.
     const hitAndStun = (m) => {
       if (!m.alive) return false;
@@ -278,11 +306,14 @@ class Game {
 
     hitAndStun(primary);
 
-    // Chain: monsters behind the primary (lower progress), sorted by progress descending.
-    const rest = alive.slice(1).filter(m => m.alive && m.progress < primary.progress);
-    rest.sort((a, b) => b.progress - a.progress);
-    for (let i = 0; i < chainCount && i < rest.length; i++) {
-      hitAndStun(rest[i]);
+    // Chain: monsters behind the primary (lower progress), iterated in-place.
+    let chained = 0;
+    for (let i = 1; i < buf.length && chained < chainCount; i++) {
+      const m = buf[i];
+      if (m.alive && m.progress < primary.progress) {
+        hitAndStun(m);
+        chained++;
+      }
     }
   }
 
@@ -581,11 +612,24 @@ class Game {
       const t = this.troops[this.selectedTroopIndex];
       if (t && t.alive) {
         const stats = ['dmg', 'range', 'speed', 'chain'];
-        const statBtnW = 49;
+        const btnPad = 8;
+        const btnGap = 2;
+        // Count visible buttons first to compute dynamic width.
+        let visibleCount = 0;
+        for (const stat of stats) {
+          if (stat === 'range' && t.spec.type === 'melee') continue;
+          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
+          visibleCount++;
+        }
+        const statBtnW = visibleCount > 0 ? Math.floor((UI_LAYOUT.SHOP_WIDTH - btnPad * 2 - btnGap * (visibleCount - 1)) / visibleCount) : 49;
+        let visibleBtnIdx = 0;
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
+          if (stat === 'range' && t.spec.type === 'melee') continue;
+          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
           if (t.isMaxed(stat)) continue;
-          const btn = { x: 8 + i * (statBtnW + 2), y: RENDERER.height - 102, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 102, w: statBtnW, h: 36 };
+          visibleBtnIdx++;
           if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
             this.upgradeTroopStat(this.selectedTroopIndex, stat);
             return;
@@ -659,7 +703,10 @@ class Game {
       else if (this.state === 'PAUSED') { this.paused = false; this.state = 'WAVE_ACTIVE'; }
     }
     if (e.key === 'Enter' && this.state === 'PRE_WAVE') {
-      if (this.wave.startNextWave()) this.state = 'WAVE_ACTIVE';
+      if (this.wave.startNextWave()) {
+        if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
+        this.state = 'WAVE_ACTIVE';
+      }
     }
     // Panel toggle shortcuts: Alt+H (HUD), Alt+S (Shop), Alt+P (Preview), Alt+C (Controls/Help)
     if (e.altKey) {
@@ -697,6 +744,7 @@ class Game {
     this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.waypoints = generatePath(this.seed);
+    this.pathSegments = this._buildPathSegments(this.waypoints);
     this.markPathTiles();
     RENDERER.markCacheDirty();
     this.monsters = [];

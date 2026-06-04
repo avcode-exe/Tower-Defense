@@ -287,7 +287,7 @@ const UI = {
       c.fillStyle = UI_COLORS.textDim;
       c.font = '11px system-ui, sans-serif';
       c.textAlign = 'left'; c.textBaseline = 'middle';
-      c.fillText(game.wave.monstersRemainingThisWave + ' monsters', sx - 130, 28);
+      c.fillText((game.monsters.length + game.wave.monstersRemainingThisWave) + ' monsters', sx - 130, 28);
     }
 
     // Wave 10+ scaling indicator.
@@ -423,13 +423,27 @@ const UI = {
         const stats = ['dmg', 'range', 'speed', 'chain'];
         const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN' };
         const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold };
-        const statBtnW = 49;
         const btnY = RENDERER.height - 100;
+        const btnPad = 8;
+        const btnGap = 2;
+        // Count visible buttons first to compute dynamic width.
+        let visibleCount = 0;
+        for (const stat of stats) {
+          if (stat === 'range' && t.spec.type === 'melee') continue;
+          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
+          visibleCount++;
+        }
+        const statBtnW = visibleCount > 0 ? Math.floor((UI_LAYOUT.SHOP_WIDTH - btnPad * 2 - btnGap * (visibleCount - 1)) / visibleCount) : 49;
+        let visibleBtnIdx = 0;
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
+          // Skip inapplicable stats entirely.
+          if (stat === 'range' && t.spec.type === 'melee') continue;
+          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
           const cost = t.getUpgradeCost(stat);
           const affordable = game.devMode || game.gold >= cost;
-          const btn = { x: 8 + i * (statBtnW + 2), y: btnY, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: btnY, w: statBtnW, h: 36 };
+          visibleBtnIdx++;
 
           if (t.isMaxed(stat)) {
             c.fillStyle = 'rgba(255,255,255,0.04)';
@@ -465,7 +479,7 @@ const UI = {
         // Sell button with cooldown indicator.
         const sellBtn = { x: 8, y: RENDERER.height - 58, w: 200, h: 34 };
         const isDevDelete = game.devMode;
-        const cd = game.sellCooldown.get(t._id) || 0;
+        const cd = game.sellCooldownTimer || 0;
         const onCooldown = cd > 0 && !isDevDelete;
 
         if (isDevDelete) {
@@ -680,15 +694,15 @@ const UI = {
   drawWaveTransition(game) {
     if (!game.waveCompleteAnim || !game.waveCompleteAnim.active) return;
     const a = game.waveCompleteAnim;
-    const fixedDt = CONFIG.FIXED_TIMESTEP || 1 / 60;
-    a.t -= fixedDt;
+    const elapsed = (performance.now() - a.startMs) / 1000;
+    const totalTime = 2.5;
+    a.t = totalTime - elapsed;
     if (a.t <= 0) {
       a.active = false;
       return;
     }
 
     const c = RENDERER.ctx;
-    const totalTime = 2.5;
     const progress = 1 - a.t / totalTime;
     // Fade in 0.0-0.2, hold 0.2-0.8, fade out 0.8-1.0
     let alpha = 0;

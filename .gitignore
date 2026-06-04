@@ -3,3 +3,4 @@ dist/
 .kilo/
 *.exe
 electron-*.zip
+commit.txt

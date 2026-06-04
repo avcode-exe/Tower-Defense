@@ -3,7 +3,7 @@
 // path) rather than per-segment progress to make speed uniform.
 
 class Monster {
-  constructor(level, waypoints) {
+  constructor(level, waypoints, sharedPath) {
     this.level = level;
     const key = level === 'B' ? 'B' : level;
     this.spec = MONSTER_SPECS[key];
@@ -15,24 +15,12 @@ class Monster {
     this.reward = this.spec ? this.spec.reward : 0;
     this.leak = this.spec ? this.spec.leak : 1;
 
-    // Build cumulative segment lengths for fast lookup.
+    // Use shared path data (avoids rebuilding per monster).
     this.waypoints = waypoints;
-    this.segments = [];
-    let total = 0;
-    for (let i = 1; i < waypoints.length; i++) {
-      const [ax, ay] = waypoints[i - 1];
-      const [bx, by] = waypoints[i];
-      const axp = ax * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-      const ayp = ay * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-      const bxp = bx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-      const byp = by * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-      const len = dist(axp, ayp, bxp, byp);
-      total += len;
-      this.segments.push({ ax: axp, ay: ayp, bx: bxp, by: byp, len, cumStart: total - len });
-    }
-    this.totalLength = total;
-    this.distance = 0; // px travelled along the path
-    this.segIdx = 0;   // current segment index (monotonic, only advances)
+    this.segments = sharedPath.segments;
+    this.totalLength = sharedPath.totalLength;
+    this.distance = 0;
+    this.segIdx = 0;
     this.alive = true;
     this.reachedEnd = false;
     this.stunTimer = 0;
