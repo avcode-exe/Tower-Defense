@@ -23,6 +23,8 @@ const CONFIG = {
   // Waves
   SPAWN_INTERVAL: 0.7,     // seconds between monster spawns
   RUNNER_SPAWN_INTERVAL: 0.4,
+  MAX_WAVE_SCALE: 5,       // cap on _getScaling to keep late-game counts bounded
+  MAX_SPAWNS_PER_TYPE: 60, // cap on per-type spawn count per wave for UI / perf
 
   // Visual
   COLORS: {
@@ -58,7 +60,7 @@ const TROOP_SPECS = [
   { id: 'swordsman', name: 'Swordsman', type: 'melee',  cost: 50,  damage: 12, range: 1, attackSpeed: 0.67, splash: 0, color: '#3498db', hotkey: '1', desc: 'Basic melee defender. Cheap and reliable for early waves.' },
   { id: 'knight',    name: 'Knight',    type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 0.9, splash: 0, color: '#2980b9', hotkey: '2', desc: 'Heavy melee with high damage. Great for holding choke points.' },
   { id: 'archer',    name: 'Archer',    type: 'ranged', cost: 70,  damage: 10, range: 3, attackSpeed: 1.2, splash: 0, color: '#27ae60', hotkey: '3', desc: 'Fast-firing ranged unit. Good DPS for its cost.' },
-  { id: 'crossbow',  name: 'Machine Gun',  type: 'ranged', cost: 200, damage: 6, range: 4, attackSpeed: 0.25, splash: 0, color: '#e74c3c', hotkey: '4', desc: 'Rapid-fire ranged unit. Shreds groups with its fast attack rate.' },
+  { id: 'machinegun', name: 'Machine Gun',  type: 'ranged', cost: 200, damage: 6, range: 4, attackSpeed: 0.25, splash: 0, color: '#e74c3c', hotkey: '4', desc: 'Rapid-fire ranged unit. Shreds groups with its fast attack rate.' },
   { id: 'mage',      name: 'Mage',      type: 'ranged', cost: 200, damage: 20, range: 3, attackSpeed: 1.3, splash: 1.5, color: '#9b59b6', hotkey: '5', desc: 'Ranged unit with splash damage. Effective against dense groups.' },
   { id: 'sniper',    name: 'Sniper',    type: 'ranged', cost: 250, damage: 100, range: 10, attackSpeed: 2.5, splash: 0, color: '#2c3e50', hotkey: '6', desc: 'Extreme range and burst damage. Picks off enemies from afar.' },
   { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 180, damage: 15, range: 1, attackSpeed: 1.5, splash: 0, color: '#e67e22', hotkey: '7', aoe: true, desc: 'Melee unit with AoE attacks. Clears swarms around her.' },
@@ -82,10 +84,10 @@ const WAVES = [
 
 // Projectile visuals per troop id (small set of shapes).
 const PROJECTILE_STYLES = {
-  archer:   { color: '#f1c40f', size: 3, speed: 12, kind: 'arrow' },
-  crossbow: { color: '#e74c3c', size: 2, speed: 20, kind: 'bolt' },
-  mage:     { color: '#9b59b6', size: 6, speed: 10, kind: 'orb' },
-  sniper:   { color: '#e74c3c', size: 2, speed: 18, kind: 'bolt' },
-  lightning:{ color: '#f1c40f', size: 3, speed: 22, kind: 'bolt' },
-  mortar:   { color: '#8B4513', size: 5, speed: 8,  kind: 'orb' },
+  archer:    { color: '#f1c40f', size: 3, speed: 12, kind: 'arrow' },
+  machinegun:{ color: '#e74c3c', size: 2, speed: 20, kind: 'bolt' },
+  mage:      { color: '#9b59b6', size: 6, speed: 10, kind: 'orb' },
+  sniper:    { color: '#e74c3c', size: 2, speed: 18, kind: 'bolt' },
+  lightning: { color: '#f1c40f', size: 3, speed: 22, kind: 'bolt' },
+  mortar:    { color: '#8B4513', size: 5, speed: 8,  kind: 'orb' },
 };

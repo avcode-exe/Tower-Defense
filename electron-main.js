@@ -25,6 +25,7 @@ autoUpdater.logger = {
 };
 
 let mainWindow = null;
+let updateCheckInterval = null;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -138,7 +139,7 @@ function checkForUpdates() {
       });
     }
   });
-  setInterval(() => {
+  updateCheckInterval = setInterval(() => {
     try {
       autoUpdater.checkForUpdates();
     } catch (err) {
@@ -163,6 +164,13 @@ app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
   app.quit();
+});
+
+app.on('before-quit', () => {
+  if (updateCheckInterval) {
+    clearInterval(updateCheckInterval);
+    updateCheckInterval = null;
+  }
 });
 
 app.on('activate', () => {

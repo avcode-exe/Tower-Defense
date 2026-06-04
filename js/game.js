@@ -7,7 +7,6 @@ class Game {
     RENDERER.init(canvas);
 
     this.state = 'PRE_WAVE';   // PRE_WAVE | WAVE_ACTIVE | PAUSED | VICTORY | DEFEAT
-    this.paused = false;
     this.speed = 1;
     this.gold = CONFIG.STARTING_GOLD;
     this.lives = CONFIG.STARTING_LIVES;
@@ -19,6 +18,10 @@ class Game {
 
     // Wave transition animation.
     this.waveCompleteAnim = { active: false, t: 0, waveNum: 0 };
+
+    // Web Worker + blob URL (URL must be revoked when the worker terminates).
+    this._simWorker = null;
+    this._simWorkerURL = null;
 
     // World.
     this.grid = new Grid();
@@ -182,13 +185,11 @@ class Game {
     // Monsters.
     for (const m of this.monsters) {
       if (!m.alive) continue;
-      // Safety: force-kill if HP dropped below zero without being caught.
+      // Defensive kill: if HP somehow reached <=0 outside the damage path,
+      // route through damageMonster so split-on-kill / particles / reward
+      // all fire consistently.
       if (m.hp <= 0) {
-        m.alive = false;
-        if (m.hp < 0) {
-          this.gold = Math.min(this.gold + m.reward, CONFIG.MAX_GOLD);
-          this.popups.push({ text: '+' + m.reward, x: m.x, y: m.y - 8, t: 1.2, color: CONFIG.COLORS.gold });
-        }
+        this.damageMonster(m, 1);
         continue;
       }
       m.update(dt);
@@ -249,6 +250,19 @@ class Game {
     PARTICLES.update(dt);
   }
 
+  // Module-scope sort comparator factory for chain lightning: compares by
+  // squared distance to a fixed point (x, y). Built once per call but the
+  // resulting closure is reused for each comparator invocation, so we
+  // avoid allocating a new comparator object per call.
+  _chainSortFor(x, y) {
+    const dx = x, dy = y;
+    return function chainSort(a, b) {
+      const da = (a.x - dx) * (a.x - dx) + (a.y - dy) * (a.y - dy);
+      const db = (b.x - dx) * (b.x - dx) + (b.y - dy) * (b.y - dy);
+      return da - db;
+    };
+  }
+
   // Apply damage + optional AoE from a projectile. Also handles reward.
   applyProjectileImpact(proj) {
     if (!proj.target || !proj.target.alive) {
@@ -284,13 +298,7 @@ class Game {
       if (m.alive) buf.push(m);
     }
     if (buf.length === 0) return;
-    // Closure-capture x,y for sort comparison (avoids per-call allocation).
-    const dx = x, dy = y;
-    buf.sort((a, b) => {
-      const da = (a.x - dx) * (a.x - dx) + (a.y - dy) * (a.y - dy);
-      const db = (b.x - dx) * (b.x - dx) + (b.y - dy) * (b.y - dy);
-      return da - db;
-    });
+    buf.sort(this._chainSortFor(x, y));
 
     const primary = buf[0];
     // Apply stun + damage to a single target. Returns true if it split.
@@ -346,7 +354,8 @@ class Game {
 
     // Spawn the sim worker.
     const blob = new Blob([this._simWorkerScript()], { type: 'application/javascript' });
-    this._simWorker = new Worker(URL.createObjectURL(blob));
+    this._simWorkerURL = URL.createObjectURL(blob);
+    this._simWorker = new Worker(this._simWorkerURL);
     this._simWorker.onmessage = (e) => {
       if (e.data === 'tick') {
         if (!this._running) return;
@@ -600,10 +609,8 @@ class Game {
           this.state = 'WAVE_ACTIVE';
         }
       } else if (this.state === 'WAVE_ACTIVE') {
-        this.paused = !this.paused;
-        this.state = this.paused ? 'PAUSED' : 'WAVE_ACTIVE';
+        this.state = 'PAUSED';
       } else if (this.state === 'PAUSED') {
-        this.paused = false;
         this.state = 'WAVE_ACTIVE';
       }
       return;
@@ -643,16 +650,14 @@ class Game {
         // Count visible buttons first to compute dynamic width.
         let visibleCount = 0;
         for (const stat of stats) {
-          if (stat === 'range' && t.spec.type === 'melee') continue;
-          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
+          if (!t.canUpgrade(stat)) continue;
           visibleCount++;
         }
         const statBtnW = visibleCount > 0 ? Math.floor((UI_LAYOUT.SHOP_WIDTH - btnPad * 2 - btnGap * (visibleCount - 1)) / visibleCount) : 49;
         let visibleBtnIdx = 0;
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
-          if (stat === 'range' && t.spec.type === 'melee') continue;
-          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
+          if (!t.canUpgrade(stat)) continue;
           if (t.isMaxed(stat)) continue;
           const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 90, w: statBtnW, h: 36 };
           visibleBtnIdx++;
@@ -725,8 +730,8 @@ class Game {
     }
     if (e.key === ' ') {
       e.preventDefault();
-      if (this.state === 'WAVE_ACTIVE') { this.paused = true; this.state = 'PAUSED'; }
-      else if (this.state === 'PAUSED') { this.paused = false; this.state = 'WAVE_ACTIVE'; }
+      if (this.state === 'WAVE_ACTIVE') { this.state = 'PAUSED'; }
+      else if (this.state === 'PAUSED') { this.state = 'WAVE_ACTIVE'; }
     }
     if (e.key === 'Enter' && this.state === 'PRE_WAVE') {
       if (this.wave.startNextWave()) {
@@ -771,10 +776,10 @@ class Game {
   }
 
   restart() {
-    if (this._simWorker) { this._simWorker.postMessage('stop'); this._simWorker.terminate(); this._simWorker = null; }
+    if (this._simWorker) { this._simWorker.terminate(); this._simWorker = null; }
+    if (this._simWorkerURL) { URL.revokeObjectURL(this._simWorkerURL); this._simWorkerURL = null; }
     this._running = false;
     this.state = 'PRE_WAVE';
-    this.paused = false;
     this.speed = 1;
     this.gold = this.devMode ? 999999 : CONFIG.STARTING_GOLD;
     this.lives = CONFIG.STARTING_LIVES;
@@ -790,6 +795,7 @@ class Game {
     this.troops = [];
     this.projectiles = [];
     this.popups = [];
+    this.waveCompleteAnim = { active: false, t: 0, waveNum: 0 };
     PARTICLES.clear();
     UI.shopScrollY = 0;
     this.wave = new WaveManager();

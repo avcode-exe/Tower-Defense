@@ -470,8 +470,7 @@ const UI = {
         // Count visible buttons first to compute dynamic width.
         let visibleCount = 0;
         for (const stat of stats) {
-          if (stat === 'range' && t.spec.type === 'melee') continue;
-          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
+          if (!t.canUpgrade(stat)) continue;
           visibleCount++;
         }
         const statBtnW = visibleCount > 0 ? Math.floor((UI_LAYOUT.SHOP_WIDTH - btnPad * 2 - btnGap * (visibleCount - 1)) / visibleCount) : 49;
@@ -479,8 +478,7 @@ const UI = {
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
           // Skip inapplicable stats entirely.
-          if (stat === 'range' && t.spec.type === 'melee') continue;
-          if (stat === 'chain' && t.spec.id !== 'lightning') continue;
+          if (!t.canUpgrade(stat)) continue;
           const cost = t.getUpgradeCost(stat);
           const affordable = game.devMode || game.gold >= cost;
           const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: btnY, w: statBtnW, h: 36 };
@@ -594,6 +592,7 @@ const UI = {
   },
 
   _wrapText(c, text, maxW, fontSize, font) {
+    c.save();
     c.font = fontSize + 'px ' + font;
     const words = text.split(' ');
     const lines = [];
@@ -613,6 +612,7 @@ const UI = {
       }
     }
     if (current) lines.push(current);
+    c.restore();
     return lines;
   },
 
@@ -661,7 +661,9 @@ const UI = {
       return;
     }
     let cx = UI_LAYOUT.shopWidth + 90;
+    const rightEdge = w - 30; // leave room for collapse toggle
     for (const [level, count] of preview) {
+      if (cx + 80 > rightEdge) break;
       const key = level === 'B' ? 'B' : level;
       const spec = MONSTER_SPECS[key];
       c.fillStyle = spec.color;

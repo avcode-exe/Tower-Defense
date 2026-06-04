@@ -98,7 +98,8 @@ class WaveManager {
     if (cycle <= 2) return Math.pow(1.35, cycle);
     // After cycle 2 (wave 20+), switch to linear growth to avoid runaway scaling.
     const base = Math.pow(1.35, 2);
-    return base + (cycle - 2) * 0.3;
+    const linear = base + (cycle - 2) * 0.3;
+    return Math.min(linear, CONFIG.MAX_WAVE_SCALE);
   }
 
   _previewForWave(number) {
@@ -106,9 +107,10 @@ class WaveManager {
     const base = this.waves[number % this.waves.length];
     const cycle = Math.floor(number / this.waves.length);
     const scale = this._getScaling(cycle);
+    const cap = CONFIG.MAX_SPAWNS_PER_TYPE;
     const out = base.map(([level, count]) => [
       level,
-      Math.max(1, Math.round((count + cycle * 2) * scale)),
+      Math.max(1, Math.min(cap, Math.round((count + cycle * 2) * scale))),
     ]);
     return out;
   }

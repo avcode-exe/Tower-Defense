@@ -28,7 +28,7 @@ class Troop {
     return this.spec.range + (this.rangeLevel - 1) * 1;
   }
   getAttackSpeed(){ return +(this.spec.attackSpeed * Math.pow(0.9, this.speedLevel - 1)).toFixed(2); }
-  getChain()      { return this.spec.chain + (this.chainLevel - 1); }
+  getChain()      { return (this.spec.chain || 0) + (this.chainLevel - 1); }
 
   // Cost for next upgrade of a stat: base cost * 2^(level-1).
   getUpgradeCost(stat) {
@@ -41,12 +41,17 @@ class Troop {
     return this.spec.cost * Math.pow(2, level - 1);
   }
 
+  // Returns true when the stat is even visible/upgradable for this troop type
+  // (melee troops hide range, non-lightning hide chain).
+  canUpgrade(stat) {
+    if (stat === 'range' && this.spec.type === 'melee') return false;
+    if (stat === 'chain' && this.spec.id !== 'lightning') return false;
+    return true;
+  }
+
   // Upgrade a specific stat. Returns false if already maxed or invalid for this troop type.
   upgradeStat(stat) {
-    // Melee troops cannot upgrade range.
-    if (stat === 'range' && this.spec.type === 'melee') return false;
-    // Only lightning troop can upgrade chain.
-    if (stat === 'chain' && this.spec.id !== 'lightning') return false;
+    if (!this.canUpgrade(stat)) return false;
     if (stat === 'dmg' && this.dmgLevel < this.maxUpgradeLevel) { this.dmgLevel++; return true; }
     if (stat === 'range' && this.rangeLevel < this.maxUpgradeLevel) { this.rangeLevel++; return true; }
     if (stat === 'speed' && this.speedLevel < this.maxUpgradeLevel) { this.speedLevel++; return true; }
@@ -55,10 +60,8 @@ class Troop {
   }
 
   isMaxed(stat) {
-    // Melee troops cannot upgrade range — always report it as maxed (hidden).
-    if (stat === 'range' && this.spec.type === 'melee') return true;
-    // Only lightning troop has chain stat.
-    if (stat === 'chain' && this.spec.id !== 'lightning') return true;
+    // Hidden stats are reported as maxed so the UI button collapses cleanly.
+    if (!this.canUpgrade(stat)) return true;
     if (stat === 'dmg') return this.dmgLevel >= this.maxUpgradeLevel;
     if (stat === 'range') return this.rangeLevel >= this.maxUpgradeLevel;
     if (stat === 'speed') return this.speedLevel >= this.maxUpgradeLevel;
