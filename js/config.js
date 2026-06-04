@@ -46,13 +46,13 @@ const CONFIG = {
 
 // Monster specs. Index = level (1-5). boss is level 'B' keyed separately.
 const MONSTER_SPECS = {
-  1: { name: 'Grunt',    hp: 35,   speed: 1.0, reward: 3,  leak: 1, color: '#7ec07e', size: 11 },
-  2: { name: 'Runner',   hp: 28,   speed: 1.8, reward: 5,  leak: 1, color: '#9be37a', size: 10 },
-  3: { name: 'Brute',    hp: 139,  speed: 0.7, reward: 10, leak: 1, color: '#c0a060', size: 14 },
-  4: { name: 'Elite',    hp: 255,  speed: 1.0, reward: 16, leak: 2, color: '#d96a6a', size: 13 },
-  5: { name: 'Champion', hp: 695,  speed: 0.9, reward: 35, leak: 3, color: '#a86ad9', size: 16 },
-  B: { name: 'Boss',     hp: 1737, speed: 0.6, reward: 80, leak: 5, color: '#e74c3c', size: 22 },
-  S: { name: 'Shielded', hp: 120,  speed: 0.8, reward: 14, leak: 1, color: '#5dade2', size: 14, shield: 60 },
+  1: { name: 'Grunt',    hp: 34,   speed: 1.0, reward: 4,  leak: 1, color: '#7ec07e', size: 11 },
+  2: { name: 'Runner',   hp: 27,   speed: 1.8, reward: 6,  leak: 1, color: '#9be37a', size: 10 },
+  3: { name: 'Brute',    hp: 133,  speed: 0.7, reward: 11, leak: 1, color: '#c0a060', size: 14 },
+  4: { name: 'Elite',    hp: 245,  speed: 1.0, reward: 17, leak: 2, color: '#d96a6a', size: 13 },
+  5: { name: 'Champion', hp: 667,  speed: 0.9, reward: 36, leak: 3, color: '#a86ad9', size: 16 },
+  B: { name: 'Boss',     hp: 1668, speed: 0.6, reward: 81, leak: 5, color: '#e74c3c', size: 22 },
+  S: { name: 'Shielded', hp: 115,  speed: 0.8, reward: 15, leak: 1, color: '#5dade2', size: 14, shield: 60 },
 };
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).

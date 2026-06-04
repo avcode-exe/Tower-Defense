@@ -225,6 +225,10 @@ class Game {
         && this.monsters.length === 0) {
       const waveNum = this.wave.currentWave + 1;
       this.waveCompleteAnim = { active: true, waveNum: waveNum, startMs: performance.now() };
+      if (waveNum % 10 === 0) {
+        this.gold = Math.min(this.gold + 500, CONFIG.MAX_GOLD);
+        this.popups.push({ text: '+500 Boss Bonus!', x: RENDERER.width / 2, y: RENDERER.height / 2 - 40, t: 2.0, color: CONFIG.COLORS.gold });
+      }
       this.wave.onAllSpawnedAndCleared();
       this.state = 'PRE_WAVE';
     }
