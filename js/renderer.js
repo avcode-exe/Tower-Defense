@@ -33,17 +33,27 @@ const RENDERER = {
     this.width = rect.width;
     this.height = rect.height;
 
+    const MARGIN = 12;
     const mapSize = CONFIG.GRID_SIZE * CONFIG.TILE_SIZE;
     this.mapPixelSize = mapSize;
     this.hudHeight = UI_LAYOUT.hudHeight;
     this.shopWidth = UI_LAYOUT.shopWidth;
-    const availW = this.width - this.shopWidth;
-    const availH = this.height - this.hudHeight - UI_LAYOUT.previewHeight;
+    const availW = this.width - this.shopWidth - MARGIN * 2;
+    const availH = this.height - this.hudHeight - UI_LAYOUT.previewHeight - MARGIN * 2;
     const sX = availW / mapSize;
     const sY = availH / mapSize;
-    this.scale = Math.min(sX, sY, 1);
-    this.offsetX = (this.width - this.shopWidth - mapSize * this.scale) / 2 + this.shopWidth;
-    this.offsetY = (this.height - this.hudHeight - mapSize * this.scale) / 2 + this.hudHeight;
+    this.scale = Math.min(1, Math.max(0.25, Math.min(sX, sY)));
+    this.offsetX = this.shopWidth + MARGIN + (availW - mapSize * this.scale) / 2;
+    this.offsetY = this.hudHeight + MARGIN + (availH - mapSize * this.scale) / 2;
+    const renderedBottom = this.offsetY + mapSize * this.scale;
+    const maxBottom = this.height - UI_LAYOUT.previewHeight - MARGIN;
+    if (renderedBottom > maxBottom) {
+      this.offsetY = maxBottom;
+    }
+    const minTop = this.hudHeight + MARGIN;
+    if (this.offsetY < minTop) {
+      this.offsetY = minTop;
+    }
 
     // Invalidate caches on resize
     this._cacheDirty = true;

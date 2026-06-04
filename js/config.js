@@ -3,7 +3,7 @@
 const CONFIG = {
   // Map
   GRID_SIZE: 16,           // 16x16 grid (smaller, faster to play)
-  TILE_SIZE: 56,           // pixels per tile (doubled visual size)
+  TILE_SIZE: 53,           // pixels per tile (scaled down ~5%)
   MIN_PATH_LENGTH: 18,     // reject and regenerate if shorter
   PATH_REGEN_ATTEMPTS: 30, // how many tries before giving up
 
@@ -30,8 +30,8 @@ const CONFIG = {
     grid: 'rgba(255,255,255,0.04)',
     gridLine: 'rgba(255,255,255,0.06)',
     path: '#3a2a18',
-    buildableHover: 'rgba(120,200,120,0.25)',
-    invalid: 'rgba(220,80,80,0.30)',
+    buildableHover: 'rgba(120,200,120,0.24)',
+    invalid: 'rgba(220,80,80,0.28)',
     hud: '#0a0e12',
     hudText: '#e6edf3',
     hudAccent: '#58a6ff',

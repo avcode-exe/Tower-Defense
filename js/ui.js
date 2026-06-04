@@ -316,7 +316,7 @@ const UI = {
       c.translate(10, (h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight) / 2 + UI_LAYOUT.hudHeight);
       c.rotate(-Math.PI / 2);
       c.fillStyle = UI_COLORS.textDim;
-      c.font = '8px system-ui,淋漓'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.font = '8px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('TROOPS', 0, 0);
       c.restore();
       const btnRect = { x: 2, y: UI_LAYOUT.hudHeight + 4, w: 16, h: 16 };

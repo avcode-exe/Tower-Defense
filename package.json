@@ -1,6 +1,6 @@
 {
   "name": "tower-defense",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Tower Defense Game",
   "main": "electron-main.js",
   "scripts": {

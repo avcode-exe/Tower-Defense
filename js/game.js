@@ -163,7 +163,14 @@ class Game {
     for (const m of this.monsters) {
       if (!m.alive) continue;
       // Safety: force-kill if HP dropped below zero without being caught.
-      if (m.hp <= 0) { m.alive = false; continue; }
+      if (m.hp <= 0) {
+        m.alive = false;
+        if (m.hp < 0) {
+          this.gold = Math.min(this.gold + m.reward, CONFIG.MAX_GOLD);
+          this.popups.push({ text: '+' + m.reward, x: m.x, y: m.y - 8, t: 1.2, color: CONFIG.COLORS.gold });
+        }
+        continue;
+      }
       m.update(dt);
       if (m.reachedEnd) {
         m.alive = false;

@@ -139,7 +139,21 @@ function checkForUpdates() {
     }
   });
   setInterval(() => {
-    autoUpdater.checkForUpdates();
+    try {
+      autoUpdater.checkForUpdates();
+    } catch (err) {
+      const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : 'Unknown error';
+      console.error('[auto-updater] Interval check failed:', errMsg);
+      if (mainWindow) {
+        dialog.showMessageBox(mainWindow, {
+          type: 'error',
+          title: 'Update Check Failed',
+          message: 'checkForUpdates() failed',
+          detail: errMsg,
+          buttons: ['OK']
+        });
+      }
+    }
   }, 60 * 60 * 1000);
 }
 
