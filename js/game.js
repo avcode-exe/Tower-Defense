@@ -594,7 +594,7 @@ class Game {
 
     // Sell button — show confirmation dialog.
     if (this.selectedTroopIndex >= 0) {
-      const sellBtn = { x: 8, y: RENDERER.height - 60, w: 200, h: 36 };
+      const sellBtn = { x: 8, y: RENDERER.height - 48, w: 200, h: 36 };
       if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
           && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
         if (this.devMode) {
@@ -628,7 +628,7 @@ class Game {
           if (stat === 'range' && t.spec.type === 'melee') continue;
           if (stat === 'chain' && t.spec.id !== 'lightning') continue;
           if (t.isMaxed(stat)) continue;
-          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 102, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 90, w: statBtnW, h: 36 };
           visibleBtnIdx++;
           if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
             this.upgradeTroopStat(this.selectedTroopIndex, stat);

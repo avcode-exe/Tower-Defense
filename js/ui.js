@@ -400,30 +400,36 @@ const UI = {
     if (game.selectedTroopIndex >= 0) {
       const t = game.troops[game.selectedTroopIndex];
       if (t && t.alive) {
-        const panelY = RENDERER.height - 174;
+        const panelY = RENDERER.height - 186;
+        const panelH = 72;
         c.fillStyle = UI_COLORS.cardBg;
-        UIRoundRect(c, 8, panelY, 200, 70, 8);
+        UIRoundRect(c, 8, panelY, 200, panelH, 8);
         c.fill();
         c.strokeStyle = UI_COLORS.panelBorder;
         c.lineWidth = 1;
-        UIRoundRect(c, 8, panelY, 200, 70, 8);
+        UIRoundRect(c, 8, panelY, 200, panelH, 8);
         c.stroke();
 
         c.fillStyle = UI_COLORS.textBright;
         c.font = 'bold 12px system-ui, sans-serif';
         c.textAlign = 'left'; c.textBaseline = 'middle';
-        c.fillText(t.spec.name, 18, panelY + 18);
+        c.fillText(t.spec.name, 18, panelY + 14);
 
         c.fillStyle = UI_COLORS.textDim;
         c.font = '10px system-ui, sans-serif';
-        c.fillText('DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel, 18, panelY + 36);
-        c.fillText('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 18, panelY + 52);
+        c.fillText('DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel, 18, panelY + 30);
+        c.fillText('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 18, panelY + 44);
+
+        const dps = (t.getDamage() / t.getAttackSpeed()).toFixed(1);
+        c.fillStyle = UI_COLORS.hudAccent;
+        c.font = 'bold 10px system-ui, sans-serif';
+        c.fillText('DPS ' + dps, 18, panelY + 60);
 
         // Upgrade buttons.
         const stats = ['dmg', 'range', 'speed', 'chain'];
         const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN' };
         const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold };
-        const btnY = RENDERER.height - 100;
+        const btnY = RENDERER.height - 88;
         const btnPad = 8;
         const btnGap = 2;
         // Count visible buttons first to compute dynamic width.
@@ -477,7 +483,7 @@ const UI = {
         }
 
         // Sell button with cooldown indicator.
-        const sellBtn = { x: 8, y: RENDERER.height - 58, w: 200, h: 34 };
+        const sellBtn = { x: 8, y: RENDERER.height - 46, w: 200, h: 34 };
         const isDevDelete = game.devMode;
         const cd = game.sellCooldownTimer || 0;
         const onCooldown = cd > 0 && !isDevDelete;

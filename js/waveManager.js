@@ -93,13 +93,22 @@ class WaveManager {
     return this.currentPreview;
   }
 
+  _getScaling(cycle) {
+    if (cycle <= 0) return 1;
+    if (cycle <= 2) return Math.pow(1.35, cycle);
+    // After cycle 2 (wave 20+), switch to linear growth to avoid runaway scaling.
+    const base = Math.pow(1.35, 2);
+    return base + (cycle - 2) * 0.3;
+  }
+
   _previewForWave(number) {
     // Use the base wave list cyclically and scale counts and level caps for higher waves.
     const base = this.waves[number % this.waves.length];
     const cycle = Math.floor(number / this.waves.length);
+    const scale = this._getScaling(cycle);
     const out = base.map(([level, count]) => [
       level,
-      Math.max(1, Math.round((count + cycle * 2) * Math.pow(1.35, cycle))),
+      Math.max(1, Math.round((count + cycle * 2) * scale)),
     ]);
     return out;
   }
@@ -107,7 +116,7 @@ class WaveManager {
   // Returns the current scaling multiplier for infinite waves (wave 10+).
   get currentMultiplier() {
     const cycle = Math.floor(this.currentWave / this.waves.length);
-    return cycle > 0 ? Math.pow(1.35, cycle) : 1;
+    return this._getScaling(cycle);
   }
 
   get monstersRemainingThisWave() {
