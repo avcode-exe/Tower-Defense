@@ -48,7 +48,7 @@ class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = -1;
-    this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0};
+    this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0};
   }
 
   _buildPathSegments(waypoints) {
@@ -132,6 +132,7 @@ class Game {
     if (r.killed) {
       this.gold = Math.min(this.gold + r.reward, CONFIG.MAX_GOLD);
       this.popups.push({ text: '+' + r.reward, x: m.x, y: m.y - 8, t: 1.2, color: CONFIG.COLORS.gold });
+      PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
       // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
       if (m.level !== 'B' && m.level > 1) {
         const childLvl = m.level - 1;
@@ -147,6 +148,7 @@ class Game {
       }
     } else {
       this.popups.push({ text: String(amount), x: m.x, y: m.y - 6, t: 0.6, color: '#fff' });
+      PARTICLES.spawn(m.x, m.y, PARTICLES.hitSpark('#fff'));
     }
     return r.killed;
   }
@@ -242,6 +244,9 @@ class Game {
     if (this.sellCooldownTimer > 0) {
       this.sellCooldownTimer = Math.max(0, this.sellCooldownTimer - dt);
     }
+
+    // Update particles.
+    PARTICLES.update(dt);
   }
 
   // Apply damage + optional AoE from a projectile. Also handles reward.
@@ -305,6 +310,7 @@ class Game {
     };
 
     hitAndStun(primary);
+    PARTICLES.spawn(x, y, PARTICLES.chainSpark());
 
     // Chain: monsters behind the primary (lower progress), iterated in-place.
     let chained = 0;
@@ -329,7 +335,7 @@ class Game {
         this.damageMonster(m, dmg);
       }
     }
-    // Splash VFX placeholder: just log; visual is the projectile disappearing.
+    PARTICLES.spawn(x, y, PARTICLES.splashImpact(troop ? troop.spec.color : '#9b59b6'));
   }
 
   start() {
@@ -413,15 +419,32 @@ class Game {
       if (!m.alive) continue;
       // Outer shadow/glow.
       RENDERER.fillCircle(m.x, m.y, m.spec.size / 2 + 3, 'rgba(0,0,0,0.4)');
+      // Shield ring (when shield is active).
+      if (m.shield > 0) {
+        const shieldRatio = m.shield / m.maxShield;
+        RENDERER.ctx.strokeStyle = 'rgba(93,173,226,' + (0.3 + 0.5 * shieldRatio) + ')';
+        RENDERER.ctx.lineWidth = 2;
+        RENDERER.ctx.beginPath();
+        RENDERER.ctx.arc(m.x, m.y, m.spec.size / 2 + 2, 0, Math.PI * 2 * shieldRatio);
+        RENDERER.ctx.stroke();
+      }
       // Body.
       RENDERER.fillCircle(m.x, m.y, m.spec.size / 2, m.spec.color);
-      // HP bar: only shown when monster has taken damage.
-      if (m.hp < m.maxHp) {
+      // HP bar: only shown when monster has taken damage or has shield.
+      if (m.hp < m.maxHp || m.shield < m.maxShield) {
         const w = m.spec.size + 6;
         const h = 3;
-        const x = m.x - w / 2, y = m.y - m.spec.size / 2 - 10;
-        RENDERER.fillRect(x, y, w, h, '#400');
-        RENDERER.fillRect(x, y, w * (m.hp / m.maxHp), h, '#2ecc71');
+        const barY = m.y - m.spec.size / 2 - 10;
+        // Shield bar (above HP bar, blue).
+        if (m.maxShield > 0) {
+          const sx = m.x - w / 2;
+          RENDERER.fillRect(sx, barY - 4, w, 2, '#223');
+          RENDERER.fillRect(sx, barY - 4, w * (m.shield / m.maxShield), 2, '#5dade2');
+        }
+        // HP bar.
+        const hx = m.x - w / 2;
+        RENDERER.fillRect(hx, barY, w, h, '#400');
+        RENDERER.fillRect(hx, barY, w * (m.hp / m.maxHp), h, '#2ecc71');
       }
     }
 
@@ -452,6 +475,9 @@ class Game {
     }
     RENDERER.ctx.globalAlpha = 1;
     RENDERER.ctx.textAlign = 'left';
+
+    // Particles (world space).
+    PARTICLES.draw(RENDERER.ctx);
 
     RENDERER.restoreTransform();
 
@@ -725,7 +751,20 @@ class Game {
       } else if (e.key === 'c' || e.key === 'C') {
         UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
         const helpEl = document.getElementById('help');
-        if (helpEl) helpEl.style.display = UI_LAYOUT.collapsed.help ? 'none' : '';
+        if (helpEl) {
+          helpEl.classList.toggle('collapsed', UI_LAYOUT.collapsed.help);
+          const tab = document.getElementById('help-toggle');
+          if (tab) tab.textContent = UI_LAYOUT.collapsed.help ? 'Controls ▸' : 'Controls ▾';
+        }
+        e.preventDefault();
+      } else if (e.key === 'm' || e.key === 'M') {
+        UI_LAYOUT.collapsed.monsterInfo = !UI_LAYOUT.collapsed.monsterInfo;
+        const el = document.getElementById('monster-info');
+        if (el) {
+          el.classList.toggle('collapsed', UI_LAYOUT.collapsed.monsterInfo);
+          const tab = document.getElementById('monster-info-toggle');
+          if (tab) tab.textContent = UI_LAYOUT.collapsed.monsterInfo ? 'Monsters ▸' : 'Monsters ▾';
+        }
         e.preventDefault();
       }
     }
@@ -751,6 +790,8 @@ class Game {
     this.troops = [];
     this.projectiles = [];
     this.popups = [];
+    PARTICLES.clear();
+    UI.shopScrollY = 0;
     this.wave = new WaveManager();
     this.devMonsterCounts = this._defaultDevCounts();
     this.start(); // re-start the background loop
@@ -768,7 +809,7 @@ class Game {
   }
 
   _defaultDevCounts() {
-    const counts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0};
+    const counts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0};
     const preview = this.wave.getNextWavePreview();
     if (preview) {
       for (const [level, count] of preview) {

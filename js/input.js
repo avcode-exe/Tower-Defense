@@ -29,6 +29,16 @@ class Input {
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      if (!UI_LAYOUT.collapsed.shop && px < UI_LAYOUT.shopWidth && py > UI_LAYOUT.hudHeight) {
+        UI.shopScrollY += e.deltaY * 0.5;
+      }
+    }, { passive: false });
+
     window.addEventListener('keydown', (e) => {
       this.game.onKeyDown(e);
     });

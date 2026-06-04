@@ -24,6 +24,13 @@ class Monster {
     this.alive = true;
     this.reachedEnd = false;
     this.stunTimer = 0;
+
+    // Shield mechanics (Shielded monster type).
+    this.shield = this.spec.shield || 0;
+    this.maxShield = this.shield;
+    this.shieldRegenTimer = 0;
+    this.shieldRegenDelay = 3;
+
     this._updatePosition();
   }
 
@@ -82,6 +89,13 @@ class Monster {
 
   takeDamage(amount) {
     if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return { killed: false };
+    // Shield absorbs flat damage before HP.
+    if (this.shield > 0) {
+      const absorbed = Math.min(this.shield, amount);
+      this.shield -= absorbed;
+      amount -= absorbed;
+      if (absorbed > 0) this.shieldRegenTimer = 0;
+    }
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
@@ -100,5 +114,13 @@ class Monster {
     }
     this.distance += this.speed * CONFIG.TILE_SIZE * dt;
     this._updatePosition();
+
+    // Shield regeneration after delay.
+    if (this.shield < this.maxShield) {
+      this.shieldRegenTimer += dt;
+      if (this.shieldRegenTimer >= this.shieldRegenDelay) {
+        this.shield = this.maxShield;
+      }
+    }
   }
 }

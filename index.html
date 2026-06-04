@@ -9,19 +9,29 @@
 <body>
   <div id="wrap">
     <canvas id="game"></canvas>
-    <div id="help">
-      <div id="help-toggle" class="help-toggle">_</div>
-      <strong>Controls</strong>
-      <ul>
-        <li>Click a shop card (or press 1-8) then click a tile to place</li>
-        <li>Click an existing troop to select; press Sell to remove (50% refund)</li>
-        <li>Right-click or Esc to cancel selection</li>
-        <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
-        <li>Alt+H/S/P/C = toggle HUD / Shop / Preview / Controls panels</li>
-      </ul>
-      <strong>Hotkeys</strong>
-      <ul id="hotkey-list">
-      </ul>
+    <div id="help" class="game-panel">
+      <div id="help-toggle" class="panel-tab">Controls ▾</div>
+      <div id="help-body" class="panel-body">
+        <strong>Controls</strong>
+        <ul>
+          <li>Click a shop card (or press 1-9) then click a tile to place</li>
+          <li>Click an existing troop to select; press Sell to remove (50% refund)</li>
+          <li>Right-click or Esc to cancel selection</li>
+          <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
+          <li>Alt+H/S/P/C/M = toggle HUD / Shop / Preview / Controls / Monsters</li>
+        </ul>
+        <strong>Hotkeys</strong>
+        <ul id="hotkey-list">
+        </ul>
+      </div>
+    </div>
+
+    <div id="monster-info" class="game-panel">
+      <div id="monster-info-toggle" class="panel-tab">Monsters ▾</div>
+      <div id="monster-info-body" class="panel-body">
+        <strong>Monster Info</strong>
+        <div id="monster-info-content"></div>
+      </div>
     </div>
   </div>
 
@@ -30,6 +40,7 @@
   <script src="js/utils.js"></script>
   <script src="js/grid.js"></script>
   <script src="js/pathGenerator.js"></script>
+  <script src="js/particles.js"></script>
   <script src="js/monster.js"></script>
   <script src="js/projectile.js"></script>
   <script src="js/troop.js"></script>

@@ -36,12 +36,12 @@ class WaveManager {
     }
   }
 
-  // Build a custom queue from a counts object {1:N, 2:N, 3:N, 4:N, 5:N, B:N}.
+  // Build a custom queue from a counts object {1:N, 2:N, 3:N, 4:N, 5:N, B:N, S:N}.
   buildCustomFromCounts(counts) {
     this.queue = [];
     this.spawnIndex = 0;
     this.elapsed = 0;
-    const order = [1, 2, 3, 4, 5, 'B'];
+    const order = [1, 2, 3, 4, 5, 'B', 'S'];
     let t = 0.2;
     for (const level of order) {
       const count = counts[level] || 0;

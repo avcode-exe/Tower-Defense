@@ -50,6 +50,7 @@ const MONSTER_SPECS = {
   4: { name: 'Elite',    hp: 255,  speed: 1.0, reward: 16, leak: 2, color: '#d96a6a', size: 13 },
   5: { name: 'Champion', hp: 695,  speed: 0.9, reward: 35, leak: 3, color: '#a86ad9', size: 16 },
   B: { name: 'Boss',     hp: 1737, speed: 0.6, reward: 80, leak: 5, color: '#e74c3c', size: 22 },
+  S: { name: 'Shielded', hp: 120,  speed: 0.8, reward: 14, leak: 1, color: '#5dade2', size: 14, shield: 60 },
 };
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).
@@ -62,6 +63,7 @@ const TROOP_SPECS = [
   { id: 'sniper',    name: 'Sniper',    type: 'ranged', cost: 250, damage: 100, range: 10, attackSpeed: 2.5, splash: 0, color: '#2c3e50', hotkey: '6', desc: 'Extreme range and burst damage. Picks off enemies from afar.' },
   { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 180, damage: 15, range: 1, attackSpeed: 1.5, splash: 0, color: '#e67e22', hotkey: '7', aoe: true, desc: 'Melee unit with AoE attacks. Clears swarms around her.' },
   { id: 'lightning', name: 'Lightning', type: 'ranged', cost: 300, damage: 100, range: 2, attackSpeed: 3, splash: 0, color: '#f1c40f', hotkey: '8', chain: 4, stun: 0.5, desc: 'Chain lightning that stuns and jumps to multiple enemies.' },
+  { id: 'mortar',   name: 'Mortar',   type: 'ranged', cost: 250, damage: 35,  range: 8, attackSpeed: 3.0, splash: 2.0, color: '#8B4513', hotkey: '9', desc: 'Long-range siege unit. Slow but devastating splash damage.' },
 ];
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.
@@ -75,7 +77,7 @@ const WAVES = [
   [[4, 12]],
   [[4, 10], [2, 8]],
   [[4, 15], [5, 4]],
-  [[5, 6], ['B', 1]],
+  [[5, 6], ['S', 4], ['B', 1]],
 ];
 
 // Projectile visuals per troop id (small set of shapes).
@@ -85,4 +87,5 @@ const PROJECTILE_STYLES = {
   mage:     { color: '#9b59b6', size: 6, speed: 10, kind: 'orb' },
   sniper:   { color: '#e74c3c', size: 2, speed: 18, kind: 'bolt' },
   lightning:{ color: '#f1c40f', size: 3, speed: 22, kind: 'bolt' },
+  mortar:   { color: '#8B4513', size: 5, speed: 8,  kind: 'orb' },
 };

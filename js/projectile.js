@@ -44,5 +44,9 @@ class Projectile {
     }
     this.x += (dx / d) * step;
     this.y += (dy / d) * step;
+    // Trail particle (every frame while in flight).
+    if (typeof PARTICLES !== 'undefined') {
+      PARTICLES.spawnTrail(this.x, this.y, this.color);
+    }
   }
 }

@@ -12,6 +12,7 @@ const UI_LAYOUT = {
     hud: false,
     preview: false,
     help: false,
+    monsterInfo: false,
   },
 
   // Effective dimensions accounting for collapsed state
@@ -82,6 +83,8 @@ function hitToggleButton(px, py, rect) {
 const UI = {
   hoveredShopIndex: -1,
   hoveredTroopIndex: -1,
+  shopScrollY: 0,
+  _cardAreaBottom: 0,
 
   _toggleShop: null,
   _toggleHud: null,
@@ -97,16 +100,21 @@ const UI = {
   },
 
   shopCardRect(i) {
-    const cardW = 200, cardH = 58, gap = 4;
+    const gap = 4;
     const x = 8;
-    const y = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
-    return { x, y, w: cardW, h: cardH };
+    const cardH = 58;
+    const cardW = 200;
+    const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
+    return { x, y: baseY - this.shopScrollY, w: cardW, h: cardH };
   },
 
   hitShop(px, py) {
     if (UI_LAYOUT.collapsed.shop) return -1;
+    const areaTop = UI_LAYOUT.hudHeight + 8;
+    const areaBottom = this._cardAreaBottom || RENDERER.height;
     for (let i = 0; i < TROOP_SPECS.length; i++) {
       const r = this.shopCardRect(i);
+      if (r.y + r.h < areaTop || r.y > areaBottom) continue;
       if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
     }
     return -1;
@@ -339,6 +347,22 @@ const UI = {
     c.textAlign = 'left'; c.textBaseline = 'middle';
     c.fillText('TROOPS', 12, UI_LAYOUT.hudHeight + 16);
 
+    // Compute card area bounds and clamp scroll
+    const CARD_H = 58, CARD_GAP = 4;
+    const totalContentH = TROOP_SPECS.length * (CARD_H + CARD_GAP) - CARD_GAP;
+    const areaTop = UI_LAYOUT.hudHeight + 8;
+    const areaBottom = game.selectedTroopIndex >= 0 ? RENDERER.height - 194 : RENDERER.height - UI_LAYOUT.previewHeight;
+    this._cardAreaBottom = areaBottom;
+    const visibleH = Math.max(0, areaBottom - areaTop);
+    const maxScroll = Math.max(0, totalContentH - visibleH);
+    this.shopScrollY = clamp(this.shopScrollY, 0, maxScroll);
+
+    // Clip to card area (extended for tooltips)
+    c.save();
+    c.beginPath();
+    c.rect(0, areaTop, RENDERER.width, visibleH + 100);
+    c.clip();
+
     for (let i = 0; i < TROOP_SPECS.length; i++) {
       const spec = TROOP_SPECS[i];
       const r = this.shopCardRect(i);
@@ -379,7 +403,7 @@ const UI = {
       c.fillStyle = UI_COLORS.textDim;
       c.font = '10px system-ui, sans-serif';
       c.textAlign = 'left'; c.textBaseline = 'middle';
-      const statsStr = spec.type.charAt(0).toUpperCase() + spec.type.slice(1) + ' \u00B7 ' + spec.damage + 'dmg \u00B7 ' + spec.range + 'rng \u00B7 ' + spec.attackSpeed + 's';
+      const statsStr = spec.type.charAt(0).toUpperCase() + spec.type.slice(1) + ' \u00B7 ' + spec.damage + 'dmg \u00B7 ' + spec.range + 'rng \u00B7 ' + spec.attackSpeed + 's' + (spec.splash ? ' \u00B7 ' + spec.splash + 'splash' : '') + (spec.chain ? ' \u00B7 ' + spec.chain + 'chain' : '');
       c.fillText(statsStr, r.x + 14, r.y + 48);
 
       // Selected outline.
@@ -394,6 +418,17 @@ const UI = {
       if (isHovered && spec.desc) {
         this._drawShopTooltip(c, r, spec);
       }
+    }
+
+    c.restore();
+
+    // Scroll indicator
+    if (maxScroll > 0) {
+      const barH = Math.max(20, visibleH * (visibleH / totalContentH));
+      const barY = areaTop + (visibleH - barH) * (this.shopScrollY / maxScroll);
+      c.fillStyle = 'rgba(255,255,255,0.15)';
+      UIRoundRect(c, UI_LAYOUT.SHOP_WIDTH - 5, barY, 3, barH, 1.5);
+      c.fill();
     }
 
     // ── Selected troop info panel ──
@@ -849,7 +884,7 @@ const UI = {
     c.textAlign = 'left'; c.textBaseline = 'middle';
     c.fillText('Spawn Monsters', pX + 12, pY + 18);
 
-    const levels = [1, 2, 3, 4, 5, 'B'];
+    const levels = [1, 2, 3, 4, 5, 'B', 'S'];
     const rowH = 28;
     const btnW = 22;
     this._devRightButtons = [];

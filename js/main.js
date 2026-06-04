@@ -17,10 +17,51 @@ window.addEventListener('DOMContentLoaded', () => {
   const helpEl = document.getElementById('help');
   if (helpToggle && helpEl) {
     helpToggle.addEventListener('click', () => {
-      const collapsed = UI_LAYOUT.collapsed.help;
-      UI_LAYOUT.collapsed.help = !collapsed;
-      helpEl.style.display = collapsed ? '' : 'none';
+      UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
+      helpEl.classList.toggle('collapsed', UI_LAYOUT.collapsed.help);
+      helpToggle.textContent = UI_LAYOUT.collapsed.help ? 'Controls ▸' : 'Controls ▾';
     });
+  }
+
+  // Wire up the monster info toggle button
+  const monsterInfoToggle = document.getElementById('monster-info-toggle');
+  const monsterInfoEl = document.getElementById('monster-info');
+  if (monsterInfoToggle && monsterInfoEl) {
+    monsterInfoToggle.addEventListener('click', () => {
+      UI_LAYOUT.collapsed.monsterInfo = !UI_LAYOUT.collapsed.monsterInfo;
+      monsterInfoEl.classList.toggle('collapsed', UI_LAYOUT.collapsed.monsterInfo);
+      monsterInfoToggle.textContent = UI_LAYOUT.collapsed.monsterInfo ? 'Monsters ▸' : 'Monsters ▾';
+    });
+  }
+
+  // Populate monster info table from MONSTER_SPECS
+  const monsterInfoContent = document.getElementById('monster-info-content');
+  if (monsterInfoContent && typeof MONSTER_SPECS !== 'undefined') {
+    const order = [1, 2, 'S', 3, 4, 5, 'B'];
+    for (const key of order) {
+      const spec = MONSTER_SPECS[key];
+      if (!spec) continue;
+      const row = document.createElement('div');
+      row.className = 'monster-row';
+      const dot = document.createElement('span');
+      dot.className = 'monster-dot';
+      dot.style.background = spec.color;
+      const name = document.createElement('span');
+      name.className = 'monster-name';
+      name.textContent = spec.name;
+      const stats = document.createElement('span');
+      stats.className = 'monster-stats';
+      let html = '<span>HP:' + spec.hp + '</span>';
+      html += '<span>Spd:' + spec.speed + '</span>';
+      html += '<span>+' + spec.reward + 'g</span>';
+      html += '<span>Leak:' + spec.leak + '</span>';
+      if (spec.shield) html += '<span>Shield:' + spec.shield + '</span>';
+      stats.innerHTML = html;
+      row.appendChild(dot);
+      row.appendChild(name);
+      row.appendChild(stats);
+      monsterInfoContent.appendChild(row);
+    }
   }
 
   // Populate hotkey list in the help panel.
