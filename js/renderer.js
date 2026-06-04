@@ -14,6 +14,7 @@ const RENDERER = {
   _bgCache: null,     // ground + grid lines
   _pathCache: null,   // path tiles only
   _cacheDirty: true,  // set to true when grid changes
+  _dpr: 1,            // cached devicePixelRatio
 
   markCacheDirty() { this._cacheDirty = true; },
 
@@ -26,6 +27,7 @@ const RENDERER = {
 
   resize(canvas) {
     const dpr = window.devicePixelRatio || 1;
+    this._dpr = dpr;
     const rect = canvas.getBoundingClientRect();
     canvas.width = Math.floor(rect.width * dpr);
     canvas.height = Math.floor(rect.height * dpr);
@@ -63,7 +65,7 @@ const RENDERER = {
     if (!this._bgCache || !this._pathCache) return;
     const T = CONFIG.TILE_SIZE;
     const ms = CONFIG.GRID_SIZE * T;
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = this._dpr;
     const cacheW = Math.floor(ms * dpr);
     const cacheH = Math.floor(ms * dpr);
 
@@ -126,6 +128,13 @@ const RENDERER = {
     };
   },
 
+  // Zero-allocation variant: writes into an existing {x,y} object.
+  toWorldInto(px, py, out) {
+    out.x = (px - this.offsetX) / this.scale;
+    out.y = (py - this.offsetY) / this.scale;
+    return out;
+  },
+
   beginFrame() {
     const c = this.ctx;
     c.fillStyle = CONFIG.COLORS.background;
@@ -173,8 +182,13 @@ const RENDERER = {
 
   fillCircle(x, y, r, color) {
     this.ctx.fillStyle = color;
-    this.ctx.beginPath();
-    this.ctx.arc(x, y, r, 0, Math.PI * 2);
-    this.ctx.fill();
+    if (r <= 2) {
+      // For tiny circles, fillRect avoids arc path setup overhead.
+      this.ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    } else {
+      this.ctx.beginPath();
+      this.ctx.arc(x, y, r, 0, 6.2832);
+      this.ctx.fill();
+    }
   },
 };

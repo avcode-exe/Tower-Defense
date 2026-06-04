@@ -68,6 +68,12 @@ const TROOP_SPECS = [
   { id: 'mortar',   name: 'Mortar',   type: 'ranged', cost: 250, damage: 35,  range: 8, attackSpeed: 3.0, splash: 2.0, color: '#8B4513', hotkey: '9', desc: 'Long-range siege unit. Slow but devastating splash damage.' },
 ];
 
+// Pre-compute stats strings per troop (avoids string concat every frame).
+for (let i = 0; i < TROOP_SPECS.length; i++) {
+  const s = TROOP_SPECS[i];
+  s._statsStr = s.type.charAt(0).toUpperCase() + s.type.slice(1) + ' \u00B7 ' + s.damage + 'dmg \u00B7 ' + s.range + 'rng \u00B7 ' + s.attackSpeed + 's' + (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') + (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+}
+
 // 10 waves. Each entry is an array of [levelKey, count] tuples.
 const WAVES = [
   [[1, 8]],

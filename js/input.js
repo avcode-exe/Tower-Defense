@@ -7,11 +7,13 @@ class Input {
     this.game = game;
     this.hoverPx = null;
     this.hoverPy = null;
+    this._rect = canvas.getBoundingClientRect();
 
     canvas.addEventListener('mousemove', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      this.hoverPx = e.clientX - rect.left;
-      this.hoverPy = e.clientY - rect.top;
+      // Only recalc layout on resize; mousemove should not force layout.
+      const r = this._rect;
+      this.hoverPx = e.clientX - r.left;
+      this.hoverPy = e.clientY - r.top;
       RENDERER.hoverPx = this.hoverPx;
       RENDERER.hoverPy = this.hoverPy;
     });
@@ -22,18 +24,19 @@ class Input {
       RENDERER.hoverPy = null;
     });
     canvas.addEventListener('mousedown', (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
+      // Recalc rect on mousedown for accuracy after window resize.
+      const r = this.canvas.getBoundingClientRect();
+      const px = e.clientX - r.left;
+      const py = e.clientY - r.top;
       this.game.onMouseDown(px, py, e.button);
     });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
 
     canvas.addEventListener('wheel', (e) => {
       e.preventDefault();
-      const rect = canvas.getBoundingClientRect();
-      const px = e.clientX - rect.left;
-      const py = e.clientY - rect.top;
+      const r = this._rect;
+      const px = e.clientX - r.left;
+      const py = e.clientY - r.top;
       if (!UI_LAYOUT.collapsed.shop && px < UI_LAYOUT.shopWidth && py > UI_LAYOUT.hudHeight) {
         UI.shopScrollY += e.deltaY * 0.5;
       }
@@ -42,5 +45,13 @@ class Input {
     window.addEventListener('keydown', (e) => {
       this.game.onKeyDown(e);
     });
+
+    // Recalc cached rect on window resize.
+    this._resizeListener = () => { this._rect = this.canvas.getBoundingClientRect(); };
+    window.addEventListener('resize', this._resizeListener);
+  }
+
+  destroy() {
+    window.removeEventListener('resize', this._resizeListener);
   }
 }

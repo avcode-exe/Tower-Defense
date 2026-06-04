@@ -1,0 +1,91 @@
+perf: zero-allocation hot loops, cached stats, and UI layout fix
+
+This is a comprehensive performance optimization pass across 9 files
+(350 additions, 204 deletions). The goal was to eliminate per-frame
+heap allocations, reduce method call overhead in hot loops, and batch
+canvas state changes — targeting the simulation step, rendering, and
+input handling paths that execute every frame.
+
+## Allocation Elimination
+
+- utils.js: Added `tileCenterInto()` and `pixelToTileInto()` zero-
+  allocation variants that write into a caller-provided object instead
+  of creating new `{x,y}` / `{gx,gy}` objects. Removed unused module-
+  level scratch objects `_tcOut` and `_pttOut`.
+- monster.js: Shared static `_dmgResult` object in `takeDamage()` resets
+  fields at the top of each call instead of allocating a new object per
+  hit. Removed the `tile` getter that created `{gx,gy}` per invocation.
+- particles.js: Full rewrite with a pre-allocated Particle pool (300 max)
+  using `reset()` method for reuse. Single-pass update+compact halves
+  iteration count. `_getParticle()` scans for dead particles before
+  allocating. Index-based draw loop.
+- game.js: Stored `_onProjectileImpact` closure once in the constructor,
+  reused across all projectiles per frame (was creating a new closure per
+  projectile impact). Inlined `chainHitAt` logic directly — no closure
+  allocation per chain hit. `shopCardRectInto()` zero-alloc variant for
+  the shop rendering loop.
+- renderer.js: Added `toWorldInto()` zero-allocation variant. Cached
+  device pixel ratio (`_dpr`) instead of reading `window.devicePixelRatio`
+  on every resize/rebuild.
+
+## Hot Loop Optimization
+
+- All hot-path `for...of` loops converted to index-based `for` loops:
+  troops, monsters, projectiles, particles, popups, hotkeys, canPlace,
+  dev panel buttons, shop cards.
+- Hoisted loop-invariant constants: `tx/ty/rangePxSq` in troop ranged
+  targeting, `font/textAlign` in popup rendering, `font/textAlign` in
+  HUD drawing (set once per batch, not per element).
+- Bitwise `|0` replacing `Math.floor` for positive pixel-coordinate
+  floor operations in utils.js, monster.js, and game.js splashAt.
+- Squared distance pre-check in `splashAt` — `sqrt` only called for
+  alive monsters that pass the squared-radius test.
+- Arrow/bolt projectile rendering uses normalized direction vector
+  instead of `atan2`/`cos`/`sin` trig calls.
+
+## Method Call Elimination
+
+- troop.js: Direct property access (`_cachedDamage`, `_cachedRange`,
+  `_cachedAttackSpeed`, `_cachedChain`) in `pickTarget` and `update`
+  instead of `getDamage()`/`getRange()`/`getAttackSpeed()` method calls.
+  Stats are recomputed via `_recomputeStats()` only on upgrade.
+- game.js: `applyProjectileImpact` and `chainHitAt` use `_cachedDamage`
+  /`_cachedChain` directly instead of method calls.
+- config.js: Pre-computed `_statsStr` string per TROOP_SPECS entry at
+  load time (avoids string concatenation per frame in the shop UI).
+
+## Canvas / Rendering Optimization
+
+- renderer.js: `fillCircle` uses `fillRect` for tiny radii (r <= 2),
+  avoiding arc path setup overhead.
+- ui.js: Batched `fillStyle`/`textAlign`/`font` setting in `drawHUD` —
+  set once per batch instead of per element. `textBaseline` set once at
+  the top and reset at the end (including all 3 collapsed-panel early
+  return paths that were leaking `textBaseline='middle'`).
+- game.js render: Cached `ctx` reference at render start. `fillRect` for
+  small indicator dots instead of arc. Popup font/textAlign set once for
+  the entire popup loop.
+
+## DOM / Layout
+
+- input.js: Cached `getBoundingClientRect()` in `_rect` property.
+  Only recalculates on `mousedown` (for accuracy after resize) and via
+  a `resize` event listener. `mousemove` and `wheel` use the cached
+  value to avoid per-event layout thrashing.
+- ui.js: `SHOP_WIDTH` increased from 220px to 240px to prevent the
+  sidebar collapse/expand button from being partially hidden behind
+  troop cards. Button x-coordinate shifted from 201 to 221.
+
+## Files Modified
+
+- utils.js: zero-alloc helpers, dead code removal
+- monster.js: bitwise floor, inlined distance, shared _dmgResult
+- troop.js: cached stats, inlined ranged targeting, index loops
+- particles.js: full pool rewrite, single-pass update+compact
+- game.js: reusable closure, inlined chain/splash, index loops, render opts
+- ui.js: pre-computed statsStr, drawHUD batching, textBaseline fixes, wider sidebar
+- renderer.js: DPR cache, toWorldInto, fillCircle optimization
+- input.js: cached getBoundingClientRect
+- config.js: pre-computed _statsStr per TROOP_SPECS
+
+All 14 JS files pass `node --check` syntax validation.

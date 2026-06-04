@@ -55,8 +55,8 @@ class Monster {
       this.x = last.bx;
       this.y = last.by;
       this.reachedEnd = true;
-      this._tileGx = Math.floor(this.x / CONFIG.TILE_SIZE);
-      this._tileGy = Math.floor(this.y / CONFIG.TILE_SIZE);
+      this._tileGx = (this.x / CONFIG.TILE_SIZE) | 0;
+      this._tileGy = (this.y / CONFIG.TILE_SIZE) | 0;
       return;
     }
     // Advance segIdx while distance has passed the end of the current segment.
@@ -69,9 +69,9 @@ class Monster {
     const t = seg.len === 0 ? 0 : clamp((this.distance - seg.cumStart) / seg.len, 0, 1);
     this.x = lerp(seg.ax, seg.bx, t);
     this.y = lerp(seg.ay, seg.by, t);
-    // Cache tile coordinates.
-    this._tileGx = Math.floor(this.x / CONFIG.TILE_SIZE);
-    this._tileGy = Math.floor(this.y / CONFIG.TILE_SIZE);
+    // Cache tile coordinates (bitwise OR for fast floor on positive values).
+    this._tileGx = (this.x / CONFIG.TILE_SIZE) | 0;
+    this._tileGy = (this.y / CONFIG.TILE_SIZE) | 0;
   }
 
   // Progress as 0..1 along the whole path. Used to pick "leads" target.
@@ -79,25 +79,28 @@ class Monster {
     return this.totalLength === 0 ? 1 : this.distance / this.totalLength;
   }
 
-  // Tile the monster currently occupies (used by melee troops).
-  // Uses cached coordinates from _updatePosition to avoid allocation.
-  get tile() {
-    return { gx: this._tileGx, gy: this._tileGy };
-  }
-
   // Tile-distance to another tile (Chebyshev so diagonals feel fair).
   tileDistanceTo(gx, gy) {
     return Math.max(Math.abs(this._tileGx - gx), Math.abs(this._tileGy - gy));
   }
 
-  // Tile distance from a troop tile (for ranged targeting).
+  // Tile distance from a troop tile (for ranged targeting). Inlines tileCenter to avoid allocation.
   worldDistanceFromTile(gx, gy) {
-    const c = tileCenter(gx, gy);
-    return dist(this.x, this.y, c.x, c.y);
+    const tx = gx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const ty = gy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const dx = this.x - tx, dy = this.y - ty;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
+  // Shared result object for takeDamage — avoids allocating per hit.
+  static _dmgResult = { killed: false, reward: 0, hpDamage: 0 };
+
   takeDamage(amount) {
-    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return { killed: false };
+    const r = Monster._dmgResult;
+    r.killed = false;
+    r.reward = 0;
+    r.hpDamage = 0;
+    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return r;
     // Shield absorbs flat damage before HP.
     if (this.shield > 0) {
       const absorbed = Math.min(this.shield, amount);
@@ -105,14 +108,15 @@ class Monster {
       amount -= absorbed;
       if (absorbed > 0) this.shieldRegenTimer = 0;
     }
-    const hpDamage = amount;
+    r.hpDamage = amount;
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;
-      return { killed: true, reward: this.reward };
+      r.killed = true;
+      r.reward = this.reward;
     }
-    return { killed: false, hpDamage };
+    return r;
   }
 
   update(dt) {

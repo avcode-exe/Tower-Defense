@@ -94,13 +94,16 @@ class Troop {
   }
 
   pickTarget(monsters) {
-    const range = this.getRange();
+    const range = this._cachedRange;
+    const rangePx = (range + 0.5) * CONFIG.TILE_SIZE;
+    const tgx = this.gx, tgy = this.gy;
     if (this.spec.type === 'melee') {
       let best = null;
       let bestDist = range + 0.5 + 1;
-      for (const m of monsters) {
+      for (let i = 0; i < monsters.length; i++) {
+        const m = monsters[i];
         if (!m.alive) continue;
-        const d = m.tileDistanceTo(this.gx, this.gy);
+        const d = m.tileDistanceTo(tgx, tgy);
         if (d <= range + 0.5 && d < bestDist) {
           bestDist = d;
           best = m;
@@ -110,12 +113,19 @@ class Troop {
     }
     let best = null;
     let bestProgress = -1;
-    for (const m of monsters) {
+    const tx = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const ty = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const rangePxSq = rangePx * rangePx;
+    for (let i = 0; i < monsters.length; i++) {
+      const m = monsters[i];
       if (!m.alive) continue;
-      const px = m.worldDistanceFromTile(this.gx, this.gy);
-      if (px <= (range + 0.5) * CONFIG.TILE_SIZE) {
-        if (m.progress > bestProgress) {
-          bestProgress = m.progress;
+      // Inline worldDistanceFromTile to avoid tileCenter allocation.
+      const dx = m.x - tx, dy = m.y - ty;
+      const pxSq = dx * dx + dy * dy;
+      if (pxSq <= rangePxSq) {
+        const prog = m.progress;
+        if (prog > bestProgress) {
+          bestProgress = prog;
           best = m;
         }
       }
@@ -134,24 +144,28 @@ class Troop {
     if (!this.target || !this.target.alive) return;
     if (this.cooldown > 0) return;
 
+    const dmg = this._cachedDamage;
+    const atkSpd = this._cachedAttackSpeed;
     if (this.spec.type === 'melee') {
       if (game) {
         if (this.spec.aoe) {
           // Hit all monsters in range (360-degree swing).
-          for (const m of monsters) {
+          const rng = this._cachedRange;
+          for (let i = 0; i < monsters.length; i++) {
+            const m = monsters[i];
             if (!m.alive) continue;
-            if (m.tileDistanceTo(this.gx, this.gy) <= this.getRange() + 0.5) {
-              game.damageMonster(m, this.getDamage());
+            if (m.tileDistanceTo(this.gx, this.gy) <= rng + 0.5) {
+              game.damageMonster(m, dmg);
             }
           }
         } else {
-          game.damageMonster(this.target, this.getDamage());
+          game.damageMonster(this.target, dmg);
         }
       }
-      this.cooldown = this.getAttackSpeed();
+      this.cooldown = atkSpd;
     } else {
       projectiles.push(new Projectile(this, this.target, this.x, this.y));
-      this.cooldown = this.getAttackSpeed();
+      this.cooldown = atkSpd;
     }
   }
 }

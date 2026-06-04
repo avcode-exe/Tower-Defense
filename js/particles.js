@@ -3,15 +3,20 @@
 // world space during the render pass.
 
 class Particle {
-  constructor(x, y, vx, vy, life, color, size, gravity) {
-    this.x = x;
-    this.y = y;
-    this.vx = vx;
-    this.vy = vy;
-    this.life = life;
-    this.maxLife = life;
-    this.color = color;
-    this.size = size;
+  constructor() {
+    this.x = 0; this.y = 0;
+    this.vx = 0; this.vy = 0;
+    this.life = 0; this.maxLife = 1;
+    this.color = '#fff'; this.size = 2;
+    this.gravity = false;
+    this.alive = false;
+  }
+
+  reset(x, y, vx, vy, life, color, size, gravity) {
+    this.x = x; this.y = y;
+    this.vx = vx; this.vy = vy;
+    this.life = life; this.maxLife = life;
+    this.color = color; this.size = size;
     this.gravity = gravity;
     this.alive = true;
   }
@@ -27,7 +32,21 @@ class Particle {
 
 const PARTICLES = {
   _pool: [],
+  _activeCount: 0,
   _maxPool: 300,
+
+  _getParticle() {
+    // Reuse dead particles from the pool; only allocate when pool is empty.
+    for (let i = 0; i < this._activeCount; i++) {
+      if (!this._pool[i].alive) return this._pool[i];
+    }
+    if (this._activeCount < this._maxPool) {
+      const p = new Particle();
+      this._pool[this._activeCount++] = p;
+      return p;
+    }
+    return null;
+  },
 
   // Spawn particles at a world position with a config.
   // config: { count, color, minSize, maxSize, minSpeed, maxSpeed, minLife, maxLife, gravity }
@@ -43,52 +62,53 @@ const PARTICLES = {
     const useGravity = config.gravity !== false;
 
     for (let i = 0; i < count; i++) {
-      if (this._pool.length >= this._maxPool) break;
+      const p = this._getParticle();
+      if (!p) break;
       const angle = Math.random() * Math.PI * 2;
       const speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
-      const vx = Math.cos(angle) * speed;
-      const vy = Math.sin(angle) * speed;
-      const size = minSize + Math.random() * (maxSize - minSize);
-      const life = minLife + Math.random() * (maxLife - minLife);
-      this._pool.push(new Particle(x, y, vx, vy, life, color, size, useGravity));
+      p.reset(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
+        minLife + Math.random() * (maxLife - minLife),
+        color, minSize + Math.random() * (maxSize - minSize), useGravity);
     }
   },
 
   // Spawn a trail particle (no gravity, short life).
   spawnTrail(x, y, color) {
-    if (this._pool.length >= this._maxPool) return;
-    const size = 1 + Math.random() * 1.5;
-    const life = 0.1 + Math.random() * 0.15;
-    this._pool.push(new Particle(x, y, 0, 0, life, color, size, false));
+    const p = this._getParticle();
+    if (!p) return;
+    p.reset(x, y, 0, 0, 0.1 + Math.random() * 0.15,
+      color, 1 + Math.random() * 1.5, false);
   },
 
   update(dt) {
-    for (let i = 0; i < this._pool.length; i++) {
-      const p = this._pool[i];
-      if (p.alive) p.update(dt);
-    }
-    // In-place compaction.
+    // Single-pass: update alive, compact dead in one loop.
     let w = 0;
-    for (let i = 0; i < this._pool.length; i++) {
-      if (this._pool[i].alive) this._pool[w++] = this._pool[i];
+    for (let i = 0; i < this._activeCount; i++) {
+      const p = this._pool[i];
+      if (p.alive) {
+        p.update(dt);
+        if (p.alive) {
+          this._pool[w++] = p;
+        }
+      }
     }
-    this._pool.length = w;
+    this._activeCount = w;
   },
 
   draw(ctx) {
-    for (const p of this._pool) {
-      if (!p.alive) continue;
+    for (let i = 0; i < this._activeCount; i++) {
+      const p = this._pool[i];
       const alpha = clamp(p.life / p.maxLife, 0, 1);
       ctx.globalAlpha = alpha;
       ctx.fillStyle = p.color;
-      const half = p.size / 2;
+      const half = p.size * 0.5;
       ctx.fillRect(p.x - half, p.y - half, p.size, p.size);
     }
     ctx.globalAlpha = 1;
   },
 
   clear() {
-    this._pool.length = 0;
+    this._activeCount = 0;
   },
 
   // Predefined effect configs.

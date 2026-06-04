@@ -3,7 +3,7 @@
 
 const UI_LAYOUT = {
   HUD_HEIGHT: 56,
-  SHOP_WIDTH: 220,
+  SHOP_WIDTH: 240,
   PREVIEW_HEIGHT: 80,
 
   // Collapsible section states
@@ -101,6 +101,20 @@ const UI = {
     return { x, y: baseY - this.shopScrollY, w: cardW, h: cardH };
   },
 
+  // Zero-allocation variant for rendering loops.
+  shopCardRectInto(i, out) {
+    const gap = 4;
+    const x = 8;
+    const cardH = 58;
+    const cardW = 200;
+    const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
+    out.x = x;
+    out.y = baseY - this.shopScrollY;
+    out.w = cardW;
+    out.h = cardH;
+    return out;
+  },
+
   hitShop(px, py) {
     if (UI_LAYOUT.collapsed.shop) return -1;
     const areaTop = UI_LAYOUT.hudHeight + 8;
@@ -150,6 +164,7 @@ const UI = {
       const btnRect = { x: w - 22, y: 2, w: 16, h: 16 };
       this._toggleHud = btnRect;
       drawToggleButton(c, btnRect, true, 'down');
+      c.textBaseline = 'alphabetic';
       return;
     }
 
@@ -162,25 +177,28 @@ const UI = {
     this._toggleHud = btnRect;
     drawToggleButton(c, btnRect, false, 'up');
 
+    // Set textBaseline once for the whole HUD.
+    c.textBaseline = 'middle';
+
     // Gold.
     const goldX = 14;
     c.fillStyle = UI_COLORS.gold;
     c.beginPath(); c.arc(goldX + 8, 28, 7, 0, Math.PI * 2); c.fill();
     c.fillStyle = '#0c1219';
     c.font = 'bold 10px system-ui, sans-serif';
-    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.textAlign = 'center';
     c.fillText('G', goldX + 8, 28);
     c.fillStyle = UI_COLORS.textBright;
     c.textAlign = 'left';
     c.font = '15px system-ui, sans-serif';
-    c.fillText(game.devMode ? '∞' : String(game.gold), goldX + 20, 28);
+    c.fillText(game.devMode ? '\u221E' : String(game.gold), goldX + 20, 28);
 
     // Lives.
     const livesX = 120;
     c.fillStyle = UI_COLORS.heart;
     c.font = '16px system-ui, sans-serif';
     c.textAlign = 'left';
-    c.fillText('❤', livesX, 28);
+    c.fillText('\u2764', livesX, 28);
     c.fillStyle = UI_COLORS.textBright;
     c.font = '15px system-ui, sans-serif';
     c.fillText(String(game.lives), livesX + 18, 28);
@@ -189,7 +207,7 @@ const UI = {
     const waveX = 200;
     c.fillStyle = UI_COLORS.textBright;
     c.font = 'bold 15px system-ui, sans-serif';
-    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.textAlign = 'left';
     c.fillText('Wave ' + (game.wave.currentWave + 1), waveX, 28);
 
     // DEV button.
@@ -204,7 +222,7 @@ const UI = {
     c.stroke();
     c.fillStyle = devActive ? UI_COLORS.gold : UI_COLORS.textDim;
     c.font = 'bold 10px system-ui, sans-serif';
-    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.textAlign = 'center';
     c.fillText('DEV', devX + devW / 2, 28);
 
     // Reset button.
@@ -218,7 +236,7 @@ const UI = {
     c.stroke();
     c.fillStyle = UI_COLORS.textDim;
     c.font = 'bold 10px system-ui, sans-serif';
-    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.textAlign = 'center';
     c.fillText('RST', rstX + rstW / 2, 28);
 
     // Speed.
@@ -226,7 +244,7 @@ const UI = {
     let sx = w - 370;
     c.fillStyle = UI_COLORS.textDim;
     c.font = '11px system-ui, sans-serif';
-    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.textAlign = 'left';
     c.fillText('Speed:', sx - 50, 28);
     for (let i = 0; i < speeds.length; i++) {
       const rx = sx + i * 28;
@@ -242,7 +260,7 @@ const UI = {
       }
       c.fillStyle = active ? UI_COLORS.accent : UI_COLORS.textDim;
       c.font = '10px system-ui, sans-serif';
-      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.textAlign = 'center';
       c.fillText(speeds[i] + 'x', rx + 13, 28);
     }
 
@@ -263,7 +281,7 @@ const UI = {
       c.stroke();
       c.fillStyle = isStart ? UI_COLORS.green : UI_COLORS.red;
       c.font = 'bold 11px system-ui, sans-serif';
-      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.textAlign = 'center';
       c.fillText(label, ctrlBtn.x + ctrlBtn.w / 2, ctrlBtn.y + ctrlBtn.h / 2 + 1);
     }
 
@@ -271,7 +289,7 @@ const UI = {
     if (game.state === 'WAVE_ACTIVE' || game.state === 'PAUSED') {
       c.fillStyle = UI_COLORS.textDim;
       c.font = '11px system-ui, sans-serif';
-      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.textAlign = 'left';
       c.fillText((game.monsters.length + game.wave.monstersRemainingThisWave) + ' monsters', sx - 130, 28);
     }
 
@@ -279,7 +297,7 @@ const UI = {
     if (game.wave.currentWave >= 10) {
       c.fillStyle = UI_COLORS.red;
       c.font = 'bold 11px system-ui, sans-serif';
-      c.textAlign = 'left'; c.textBaseline = 'middle';
+      c.textAlign = 'left';
       c.fillText('x' + game.wave.currentMultiplier.toFixed(2), 375, 28);
     }
 
@@ -307,6 +325,7 @@ const UI = {
       const btnRect = { x: 2, y: UI_LAYOUT.hudHeight + 4, w: 16, h: 16 };
       this._toggleShop = btnRect;
       drawToggleButton(c, btnRect, true, 'right');
+      c.textBaseline = 'alphabetic';
       return;
     }
 
@@ -314,7 +333,7 @@ const UI = {
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(0, UI_LAYOUT.hudHeight, UI_LAYOUT.SHOP_WIDTH, h - UI_LAYOUT.hudHeight);
 
-    const btnRect = { x: 201, y: UI_LAYOUT.hudHeight + 5, w: 16, h: 16 };
+    const btnRect = { x: 221, y: UI_LAYOUT.hudHeight + 5, w: 16, h: 16 };
     this._toggleShop = btnRect;
     drawToggleButton(c, btnRect, false, 'left');
 
@@ -340,9 +359,10 @@ const UI = {
     c.rect(0, areaTop, RENDERER.width, visibleH + 100);
     c.clip();
 
+    const _shopScratch = this._shopScratch || (this._shopScratch = { x: 0, y: 0, w: 0, h: 0 });
     for (let i = 0; i < TROOP_SPECS.length; i++) {
       const spec = TROOP_SPECS[i];
-      const r = this.shopCardRect(i);
+      const r = this.shopCardRectInto(i, _shopScratch);
       const affordable = game.gold >= spec.cost;
       const isSelected = game.selectedSpec === spec;
       const isHovered = this.hoveredShopIndex === i;
@@ -380,8 +400,7 @@ const UI = {
       c.fillStyle = UI_COLORS.textDim;
       c.font = '10px system-ui, sans-serif';
       c.textAlign = 'left'; c.textBaseline = 'middle';
-      const statsStr = spec.type.charAt(0).toUpperCase() + spec.type.slice(1) + ' \u00B7 ' + spec.damage + 'dmg \u00B7 ' + spec.range + 'rng \u00B7 ' + spec.attackSpeed + 's' + (spec.splash ? ' \u00B7 ' + spec.splash + 'splash' : '') + (spec.chain ? ' \u00B7 ' + spec.chain + 'chain' : '');
-      c.fillText(statsStr, r.x + 14, r.y + 48);
+      c.fillText(spec._statsStr, r.x + 14, r.y + 48);
 
       // Selected outline.
       if (isSelected) {
@@ -622,6 +641,7 @@ const UI = {
       const btnRect = { x: w - 22, y: y + 2, w: 16, h: 16 };
       this._togglePreview = btnRect;
       drawToggleButton(c, btnRect, true, 'up');
+      c.textBaseline = 'alphabetic';
       return;
     }
 

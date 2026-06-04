@@ -38,6 +38,8 @@ class Game {
 
     // Reusable buffer for chain lightning (avoids allocation per hit).
     this._chainBuf = [];
+    // Reusable projectile impact callback (avoids closure allocation per projectile per frame).
+    this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
 
     this.wave = new WaveManager();
 
@@ -77,7 +79,8 @@ class Game {
   canPlace(gx, gy, spec) {
     if (!this.devMode && this.gold < spec.cost) return false;
     if (!this.grid.isBuildable(gx, gy)) return false;
-    for (const t of this.troops) {
+    for (let i = 0; i < this.troops.length; i++) {
+      const t = this.troops[i];
       if (t.alive && t.gx === gx && t.gy === gy) return false;
     }
     return true;
@@ -166,20 +169,23 @@ class Game {
       this.spawnMonster(lvl);
     }
 
-    // Troops.
-    for (const t of this.troops) {
+    // Troops (index loop for speed).
+    for (let i = 0; i < this.troops.length; i++) {
+      const t = this.troops[i];
       if (!t.alive) continue;
       t.update(dt, this.monsters, this.projectiles, this);
     }
 
-    // Projectiles.
-    for (const p of this.projectiles) {
+    // Projectiles (index loop for speed).
+    for (let i = 0; i < this.projectiles.length; i++) {
+      const p = this.projectiles[i];
       if (!p.alive) continue;
-      p.update(dt, this.monsters, (proj) => this.applyProjectileImpact(proj));
+      p.update(dt, this.monsters, this._onProjectileImpact);
     }
 
-    // Monsters.
-    for (const m of this.monsters) {
+    // Monsters (index loop for speed).
+    for (let i = 0; i < this.monsters.length; i++) {
+      const m = this.monsters[i];
       if (!m.alive) continue;
       // Defensive kill: if HP somehow reached <=0 outside the damage path,
       // route through damageMonster so split-on-kill / particles / reward
@@ -233,8 +239,8 @@ class Game {
       this.state = 'PRE_WAVE';
     }
 
-    // Update popups.
-    for (const p of this.popups) p.t -= dt;
+    // Update popups (index loop).
+    for (let i = 0; i < this.popups.length; i++) this.popups[i].t -= dt;
     let ppw = 0;
     for (let i = 0; i < this.popups.length; i++) {
       if (this.popups[i].t > 0) this.popups[ppw++] = this.popups[i];
@@ -265,45 +271,47 @@ class Game {
 
   // Apply damage + optional AoE from a projectile. Also handles reward.
   applyProjectileImpact(proj) {
+    const dmg = proj.troop._cachedDamage;
     if (!proj.target || !proj.target.alive) {
       // Dead before impact: resolve at last known position.
       if (proj.troop.spec.chain > 0) {
         this.chainHitAt(proj.lastTargetX, proj.lastTargetY, proj.troop);
       } else if (proj.troop.spec.splash > 0) {
-        this.splashAt(proj.lastTargetX, proj.lastTargetY, proj.troop.getDamage(), proj.troop.spec.splash, proj.troop);
+        this.splashAt(proj.lastTargetX, proj.lastTargetY, dmg, proj.troop.spec.splash, proj.troop);
       } else {
         // Direct hit: find closest alive monster to impact point.
         let closest = null, closestDist = CONFIG.TILE_SIZE;
-        for (const m of this.monsters) {
+        for (let i = 0; i < this.monsters.length; i++) {
+          const m = this.monsters[i];
           if (!m.alive) continue;
           const d = dist(proj.lastTargetX, proj.lastTargetY, m.x, m.y);
           if (d < closestDist) { closestDist = d; closest = m; }
         }
-        if (closest) this.damageMonster(closest, proj.troop.getDamage());
+        if (closest) this.damageMonster(closest, dmg);
       }
       return;
     }
     if (proj.troop.spec.chain > 0) {
-      // Chain lightning: hit primary target, then chain to consecutive monsters behind it.
       this.chainHitAt(proj.target.x, proj.target.y, proj.troop);
     } else if (proj.troop.spec.splash > 0) {
-      this.splashAt(proj.target.x, proj.target.y, proj.troop.getDamage(), proj.troop.spec.splash, proj.troop);
+      this.splashAt(proj.target.x, proj.target.y, dmg, proj.troop.spec.splash, proj.troop);
     } else {
-      this.damageMonster(proj.target, proj.troop.getDamage());
+      this.damageMonster(proj.target, dmg);
     }
   }
 
   // Chain lightning: damages the nearest monster to (x,y) then chains to
   // consecutive monsters behind it (lower progress = further from end).
   chainHitAt(x, y, troop) {
-    const damage = troop.getDamage();
-    const chainCount = troop.getChain();
+    const damage = troop._cachedDamage;
+    const chainCount = troop._cachedChain;
     const stunDuration = troop.spec.stun || 0;
 
     // Fill reusable buffer with alive monsters, sorted by proximity.
     const buf = this._chainBuf;
     buf.length = 0;
-    for (const m of this.monsters) {
+    for (let i = 0; i < this.monsters.length; i++) {
+      const m = this.monsters[i];
       if (m.alive) buf.push(m);
     }
     if (buf.length === 0) return;
@@ -311,31 +319,33 @@ class Game {
 
     const primary = buf[0];
     // Apply stun + damage to a single target. Returns true if it split.
-    const hitAndStun = (m) => {
-      if (!m.alive) return false;
-      const countBefore = this.monsters.length;
-      if (stunDuration > 0) m.stunTimer = Math.max(m.stunTimer, stunDuration);
-      this.damageMonster(m, damage);
-      this.popups.push({ text: '⚡', x: m.x, y: m.y - 12, t: 0.6, color: '#f1c40f' });
-      // Apply stun to any split children (last entries pushed).
-      if (stunDuration > 0) {
-        for (let i = countBefore; i < this.monsters.length; i++) {
-          this.monsters[i].stunTimer = Math.max(this.monsters[i].stunTimer, stunDuration);
-        }
+    const countBefore0 = this.monsters.length;
+    if (stunDuration > 0) primary.stunTimer = Math.max(primary.stunTimer, stunDuration);
+    this.damageMonster(primary, damage);
+    this.popups.push({ text: '\u26A1', x: primary.x, y: primary.y - 12, t: 0.6, color: '#f1c40f' });
+    if (stunDuration > 0) {
+      for (let i = countBefore0; i < this.monsters.length; i++) {
+        this.monsters[i].stunTimer = Math.max(this.monsters[i].stunTimer, stunDuration);
       }
-      return this.monsters.length > countBefore;
-    };
-
-    hitAndStun(primary);
+    }
     PARTICLES.spawn(x, y, PARTICLES.chainSpark());
 
     // Chain: find up to chainCount monsters behind the primary (lower progress = further from end).
+    const primaryProgress = primary.progress;
     let chained = 0;
     for (let i = 0; i < buf.length && chained < chainCount; i++) {
       const m = buf[i];
       if (m === primary || !m.alive) continue;
-      if (m.progress < primary.progress) {
-        hitAndStun(m);
+      if (m.progress < primaryProgress) {
+        const countBefore = this.monsters.length;
+        if (stunDuration > 0) m.stunTimer = Math.max(m.stunTimer, stunDuration);
+        this.damageMonster(m, damage);
+        this.popups.push({ text: '\u26A1', x: m.x, y: m.y - 12, t: 0.6, color: '#f1c40f' });
+        if (stunDuration > 0) {
+          for (let j = countBefore; j < this.monsters.length; j++) {
+            this.monsters[j].stunTimer = Math.max(this.monsters[j].stunTimer, stunDuration);
+          }
+        }
         chained++;
       }
     }
@@ -343,13 +353,17 @@ class Game {
 
   splashAt(x, y, damage, radiusTiles, troop) {
     const r = radiusTiles * CONFIG.TILE_SIZE;
-    for (const m of this.monsters) {
+    const rSq = r * r;
+    const rInv = 1 / r;
+    for (let i = 0; i < this.monsters.length; i++) {
+      const m = this.monsters[i];
       if (!m.alive) continue;
-      const d = dist(x, y, m.x, m.y);
-      if (d <= r) {
+      const dx = x - m.x, dy = y - m.y;
+      const dSq = dx * dx + dy * dy;
+      if (dSq <= rSq) {
         // Falloff: 100% at center, 50% at edge. Simple linear.
-        const falloff = 1 - 0.5 * (d / r);
-        const dmg = Math.max(1, Math.floor(damage * falloff));
+        const falloff = 1 - 0.5 * (Math.sqrt(dSq) * rInv);
+            const dmg = Math.max(1, (damage * falloff) | 0);
         this.damageMonster(m, dmg);
       }
     }
@@ -433,98 +447,122 @@ class Game {
     RENDERER.applyMapTransform();
 
     const T = CONFIG.TILE_SIZE;
+    const ctx = RENDERER.ctx;
 
-    // Troops.
-    for (const t of this.troops) {
+    // Troops (index loop).
+    for (let i = 0; i < this.troops.length; i++) {
+      const t = this.troops[i];
       if (!t.alive) continue;
       const x = t.gx * T + 6, y = t.gy * T + 6, s = T - 12;
       // Rounded rect for troops.
-      const c = RENDERER.ctx;
       const rr = 4;
-      c.beginPath();
-      c.moveTo(x + rr, y);
-      c.lineTo(x + s - rr, y);
-      c.quadraticCurveTo(x + s, y, x + s, y + rr);
-      c.lineTo(x + s, y + s - rr);
-      c.quadraticCurveTo(x + s, y + s, x + s - rr, y + s);
-      c.lineTo(x + rr, y + s);
-      c.quadraticCurveTo(x, y + s, x, y + s - rr);
-      c.lineTo(x, y + rr);
-      c.quadraticCurveTo(x, y, x + rr, y);
-      c.closePath();
-      c.fillStyle = t.spec.color;
-      c.fill();
-      c.strokeStyle = 'rgba(255,255,255,0.12)';
-      c.lineWidth = 1.5;
-      c.stroke();
-      // Type indicator dot.
-      RENDERER.fillCircle(t.x, t.y - 3, 2.5, t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7');
+      ctx.beginPath();
+      ctx.moveTo(x + rr, y);
+      ctx.lineTo(x + s - rr, y);
+      ctx.quadraticCurveTo(x + s, y, x + s, y + rr);
+      ctx.lineTo(x + s, y + s - rr);
+      ctx.quadraticCurveTo(x + s, y + s, x + s - rr, y + s);
+      ctx.lineTo(x + rr, y + s);
+      ctx.quadraticCurveTo(x, y + s, x, y + s - rr);
+      ctx.lineTo(x, y + rr);
+      ctx.quadraticCurveTo(x, y, x + rr, y);
+      ctx.closePath();
+      ctx.fillStyle = t.spec.color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      // Type indicator dot — use fillRect for small radius instead of arc.
+      const dotColor = t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7';
+      ctx.fillStyle = dotColor;
+      ctx.fillRect(t.x - 2.5, t.y - 5.5, 5, 5);
     }
 
-    // Monsters.
-    for (const m of this.monsters) {
+    // Monsters — batch HP bars by pass.
+    for (let i = 0; i < this.monsters.length; i++) {
+      const m = this.monsters[i];
       if (!m.alive) continue;
-      // Outer shadow/glow.
-      RENDERER.fillCircle(m.x, m.y, m.spec.size / 2 + 3, 'rgba(0,0,0,0.4)');
+      // Outer shadow/glow — use fillRect for the shadow ring approximation.
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      const shadowR = m.spec.size * 0.5 + 3;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, shadowR, 0, 6.2832);
+      ctx.fill();
       // Shield ring (when shield is active).
       if (m.shield > 0) {
         const shieldRatio = m.shield / m.maxShield;
-        RENDERER.ctx.strokeStyle = 'rgba(93,173,226,' + (0.3 + 0.5 * shieldRatio) + ')';
-        RENDERER.ctx.lineWidth = 2;
-        RENDERER.ctx.beginPath();
-        RENDERER.ctx.arc(m.x, m.y, m.spec.size / 2 + 2, 0, Math.PI * 2 * shieldRatio);
-        RENDERER.ctx.stroke();
+        ctx.strokeStyle = 'rgba(93,173,226,' + (0.3 + 0.5 * shieldRatio) + ')';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.spec.size * 0.5 + 2, 0, 6.2832 * shieldRatio);
+        ctx.stroke();
       }
       // Body.
-      RENDERER.fillCircle(m.x, m.y, m.spec.size / 2, m.spec.color);
+      ctx.fillStyle = m.spec.color;
+      const bodyR = m.spec.size * 0.5;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, bodyR, 0, 6.2832);
+      ctx.fill();
       // HP bar: only shown when monster has taken damage or has shield.
       if (m.hp < m.maxHp || m.shield < m.maxShield) {
         const w = m.spec.size + 6;
-        const h = 3;
-        const barY = m.y - m.spec.size / 2 - 10;
+        const barY = m.y - m.spec.size * 0.5 - 10;
+        const hx = m.x - w * 0.5;
         // Shield bar (above HP bar, blue).
         if (m.maxShield > 0) {
-          const sx = m.x - w / 2;
-          RENDERER.fillRect(sx, barY - 4, w, 2, '#223');
-          RENDERER.fillRect(sx, barY - 4, w * (m.shield / m.maxShield), 2, '#5dade2');
+          ctx.fillStyle = '#223';
+          ctx.fillRect(hx, barY - 4, w, 2);
+          ctx.fillStyle = '#5dade2';
+          ctx.fillRect(hx, barY - 4, w * (m.shield / m.maxShield), 2);
         }
         // HP bar.
-        const hx = m.x - w / 2;
-        RENDERER.fillRect(hx, barY, w, h, '#400');
-        RENDERER.fillRect(hx, barY, w * (m.hp / m.maxHp), h, '#2ecc71');
+        ctx.fillStyle = '#400';
+        ctx.fillRect(hx, barY, w, 3);
+        ctx.fillStyle = '#2ecc71';
+        ctx.fillRect(hx, barY, w * (m.hp / m.maxHp), 3);
       }
     }
 
-    // Projectiles (world space, no extra transform).
-    for (const p of this.projectiles) {
+    // Projectiles (world space) — index loop, no trig for arrows when possible.
+    for (let i = 0; i < this.projectiles.length; i++) {
+      const p = this.projectiles[i];
       if (!p.alive) continue;
       if (p.kind === 'arrow' || p.kind === 'bolt') {
-        const angle = Math.atan2(p.lastTargetY - p.y, p.lastTargetX - p.x);
-        RENDERER.ctx.strokeStyle = p.color;
-        RENDERER.ctx.lineWidth = 2;
-        RENDERER.ctx.beginPath();
-        RENDERER.ctx.moveTo(p.x - Math.cos(angle) * 6, p.y - Math.sin(angle) * 6);
-        RENDERER.ctx.lineTo(p.x, p.y);
-        RENDERER.ctx.stroke();
+        const tdx = p.lastTargetX - p.x;
+        const tdy = p.lastTargetY - p.y;
+        const d = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
+        const nx = tdx / d, ny = tdy / d;
+        ctx.strokeStyle = p.color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(p.x - nx * 6, p.y - ny * 6);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
       } else {
-        RENDERER.fillCircle(p.x, p.y, p.size / 2, p.color);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size * 0.5, 0, 6.2832);
+        ctx.fill();
       }
     }
 
-    // Popups (world space).
-    for (const p of this.popups) {
-      const a = clamp(p.t / 0.6, 0, 1);
-      RENDERER.ctx.globalAlpha = a;
-      RENDERER.ctx.fillStyle = p.color;
-      RENDERER.ctx.font = 'bold 12px system-ui, sans-serif';
-      RENDERER.ctx.textAlign = 'center';
-      RENDERER.ctx.fillText(p.text, p.x, p.y - (1.2 - p.t) * 14);
+    // Popups (world space) — set font/textAlign once.
+    if (this.popups.length > 0) {
+      ctx.font = 'bold 12px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      for (let i = 0; i < this.popups.length; i++) {
+        const p = this.popups[i];
+        const a = clamp(p.t * 1.667, 0, 1); // 1/0.6
+        ctx.globalAlpha = a;
+        ctx.fillStyle = p.color;
+        ctx.fillText(p.text, p.x, p.y - (1.2 - p.t) * 14);
+      }
+      ctx.globalAlpha = 1;
+      ctx.textAlign = 'left';
     }
-    RENDERER.ctx.globalAlpha = 1;
-    RENDERER.ctx.textAlign = 'left';
 
     // Particles (world space).
-    PARTICLES.draw(RENDERER.ctx);
+    PARTICLES.draw(ctx);
 
     RENDERER.restoreTransform();
 
@@ -590,16 +628,22 @@ class Game {
       if (px >= UI._devRightPanelRect.x && px <= UI._devRightPanelRect.x + UI._devRightPanelRect.w
           && py >= UI._devRightPanelRect.y && py <= UI._devRightPanelRect.y + UI._devRightPanelRect.h) {
         // Inside the panel — check buttons.
-        for (const row of UI._devRightButtons || []) {
-          for (const tag of ['m10','m1','p1','p10']) {
-            const b = row[tag];
+        const rows = UI._devRightButtons;
+        if (rows) {
+          for (let i = 0; i < rows.length; i++) {
+            const row = rows[i];
+            const tags = ['m10','m1','p1','p10'];
+            for (let j = 0; j < tags.length; j++) {
+              const b = row[tags[j]];
             if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
-              const delta = tag === 'm10' ? -10 : tag === 'm1' ? -1 : tag === 'p1' ? 1 : 10;
+              const delta = tags[j] === 'm10' ? -10 : tags[j] === 'm1' ? -1 : tags[j] === 'p1' ? 1 : 10;
               this.devMonsterCounts[row.level] = Math.max(0, (this.devMonsterCounts[row.level] || 0) + delta);
               return;
             }
           }
         }
+        }
+
         if (UI._devRightStartBtn && px >= UI._devRightStartBtn.x && px <= UI._devRightStartBtn.x + UI._devRightStartBtn.w
             && py >= UI._devRightStartBtn.y && py <= UI._devRightStartBtn.y + UI._devRightStartBtn.h) {
           if (this.wave.startNextWave()) {
@@ -762,7 +806,8 @@ class Game {
       return;
     }
     // Hotkeys for shop.
-    for (const spec of TROOP_SPECS) {
+    for (let i = 0; i < TROOP_SPECS.length; i++) {
+      const spec = TROOP_SPECS[i];
       if (e.key === spec.hotkey) {
         this.selectedSpec = (this.selectedSpec === spec) ? null : spec;
         this.selectedTroopIndex = -1;
