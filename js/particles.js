@@ -3,7 +3,7 @@
 // world space during the render pass.
 
 class Particle {
-  constructor(x, y, vx, vy, life, color, size) {
+  constructor(x, y, vx, vy, life, color, size, gravity) {
     this.x = x;
     this.y = y;
     this.vx = vx;
@@ -12,13 +12,14 @@ class Particle {
     this.maxLife = life;
     this.color = color;
     this.size = size;
+    this.gravity = gravity;
     this.alive = true;
   }
 
   update(dt) {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    this.vy += 60 * dt; // gravity
+    if (this.gravity) this.vy += 60 * dt;
     this.life -= dt;
     if (this.life <= 0) this.alive = false;
   }
@@ -49,7 +50,7 @@ const PARTICLES = {
       const vy = Math.sin(angle) * speed;
       const size = minSize + Math.random() * (maxSize - minSize);
       const life = minLife + Math.random() * (maxLife - minLife);
-      this._pool.push(new Particle(x, y, vx, vy, life, color, size));
+      this._pool.push(new Particle(x, y, vx, vy, life, color, size, useGravity));
     }
   },
 
@@ -58,7 +59,7 @@ const PARTICLES = {
     if (this._pool.length >= this._maxPool) return;
     const size = 1 + Math.random() * 1.5;
     const life = 0.1 + Math.random() * 0.15;
-    this._pool.push(new Particle(x, y, 0, 0, life, color, size));
+    this._pool.push(new Particle(x, y, 0, 0, life, color, size, false));
   },
 
   update(dt) {
@@ -92,18 +93,18 @@ const PARTICLES = {
 
   // Predefined effect configs.
   hitSpark(color) {
-    return { count: 4, color: color || '#fff', minSize: 1, maxSize: 2.5, minSpeed: 40, maxSpeed: 90, minLife: 0.15, maxLife: 0.3 };
+    return { count: 4, color: color || '#fff', minSize: 1, maxSize: 2.5, minSpeed: 40, maxSpeed: 90, minLife: 0.15, maxLife: 0.3, gravity: false };
   },
 
   deathBurst(color) {
-    return { count: 10, color: color || '#fff', minSize: 1.5, maxSize: 3.5, minSpeed: 50, maxSpeed: 130, minLife: 0.25, maxLife: 0.55 };
+    return { count: 10, color: color || '#fff', minSize: 1.5, maxSize: 3.5, minSpeed: 50, maxSpeed: 130, minLife: 0.25, maxLife: 0.55, gravity: false };
   },
 
   splashImpact(color) {
-    return { count: 12, color: color || '#9b59b6', minSize: 1.5, maxSize: 3, minSpeed: 60, maxSpeed: 140, minLife: 0.2, maxLife: 0.45 };
+    return { count: 12, color: color || '#9b59b6', minSize: 1.5, maxSize: 3, minSpeed: 60, maxSpeed: 140, minLife: 0.2, maxLife: 0.45, gravity: false };
   },
 
   chainSpark() {
-    return { count: 3, color: '#f1c40f', minSize: 1, maxSize: 2, minSpeed: 30, maxSpeed: 70, minLife: 0.1, maxLife: 0.2 };
+    return { count: 3, color: '#f1c40f', minSize: 1, maxSize: 2, minSpeed: 30, maxSpeed: 70, minLife: 0.1, maxLife: 0.2, gravity: false };
   },
 };

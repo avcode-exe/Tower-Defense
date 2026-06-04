@@ -19,16 +19,26 @@ class Troop {
     this.target = null;
     this.targetRefresh = 0;
     this.alive = true;
+    // Cached computed stats (recomputed on upgrade).
+    this._cachedDamage = this.spec.damage;
+    this._cachedRange = this.spec.range;
+    this._cachedAttackSpeed = this.spec.attackSpeed;
+    this._cachedChain = this.spec.chain || 0;
   }
 
-  // Scaled stats (1.2x per level).
-  getDamage()     { return Math.round(this.spec.damage * Math.pow(1.2, this.dmgLevel - 1)); }
-  getRange()      {
-    if (this.spec.type === 'melee') return this.spec.range;
-    return this.spec.range + (this.rangeLevel - 1) * 1;
+  // Scaled stats (1.2x per level). Cached for performance.
+  getDamage()     { return this._cachedDamage; }
+  getRange()      { return this._cachedRange; }
+  getAttackSpeed(){ return this._cachedAttackSpeed; }
+  getChain()      { return this._cachedChain; }
+
+  // Recompute cached stats (called after upgrade).
+  _recomputeStats() {
+    this._cachedDamage = Math.round(this.spec.damage * Math.pow(1.2, this.dmgLevel - 1));
+    this._cachedRange = this.spec.type === 'melee' ? this.spec.range : this.spec.range + (this.rangeLevel - 1);
+    this._cachedAttackSpeed = +(this.spec.attackSpeed * Math.pow(0.9, this.speedLevel - 1)).toFixed(2);
+    this._cachedChain = (this.spec.chain || 0) + (this.chainLevel - 1);
   }
-  getAttackSpeed(){ return +(this.spec.attackSpeed * Math.pow(0.9, this.speedLevel - 1)).toFixed(2); }
-  getChain()      { return (this.spec.chain || 0) + (this.chainLevel - 1); }
 
   // Cost for next upgrade of a stat: base cost * 2^(level-1).
   getUpgradeCost(stat) {
@@ -45,18 +55,20 @@ class Troop {
   // (melee troops hide range, non-lightning hide chain).
   canUpgrade(stat) {
     if (stat === 'range' && this.spec.type === 'melee') return false;
-    if (stat === 'chain' && this.spec.id !== 'lightning') return false;
+    if (stat === 'chain' && !this.spec.chain) return false;
     return true;
   }
 
   // Upgrade a specific stat. Returns false if already maxed or invalid for this troop type.
   upgradeStat(stat) {
     if (!this.canUpgrade(stat)) return false;
-    if (stat === 'dmg' && this.dmgLevel < this.maxUpgradeLevel) { this.dmgLevel++; return true; }
-    if (stat === 'range' && this.rangeLevel < this.maxUpgradeLevel) { this.rangeLevel++; return true; }
-    if (stat === 'speed' && this.speedLevel < this.maxUpgradeLevel) { this.speedLevel++; return true; }
-    if (stat === 'chain' && this.chainLevel < this.maxUpgradeLevel) { this.chainLevel++; return true; }
-    return false;
+    let changed = false;
+    if (stat === 'dmg' && this.dmgLevel < this.maxUpgradeLevel) { this.dmgLevel++; changed = true; }
+    if (stat === 'range' && this.rangeLevel < this.maxUpgradeLevel) { this.rangeLevel++; changed = true; }
+    if (stat === 'speed' && this.speedLevel < this.maxUpgradeLevel) { this.speedLevel++; changed = true; }
+    if (stat === 'chain' && this.chainLevel < this.maxUpgradeLevel) { this.chainLevel++; changed = true; }
+    if (changed) this._recomputeStats();
+    return changed;
   }
 
   isMaxed(stat) {
@@ -100,8 +112,6 @@ class Troop {
     let bestProgress = -1;
     for (const m of monsters) {
       if (!m.alive) continue;
-      const mt = m.tile;
-      if (mt.gx === this.gx && mt.gy === this.gy) continue;
       const px = m.worldDistanceFromTile(this.gx, this.gy);
       if (px <= (range + 0.5) * CONFIG.TILE_SIZE) {
         if (m.progress > bestProgress) {

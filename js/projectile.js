@@ -1,6 +1,6 @@
-// Projectile for ranged troops. Stores the target's id at spawn time so that
-// if the target dies mid-flight we resolve on impact at the last known
-// position (or the projectile simply disappears, depending on style).
+// Projectile for ranged troops. Tracks the target by reference; if the target
+// dies mid-flight the projectile continues to the last known position and
+// resolves impact there (splash/chain/direct).
 
 class Projectile {
   constructor(troop, monster, x, y) {
@@ -14,17 +14,22 @@ class Projectile {
     this.x = x;
     this.y = y;
     this.target = monster;
-    this.targetId = monster ? monster._id : -1;
     this.lastTargetX = monster ? monster.x : x;
     this.lastTargetY = monster ? monster.y : y;
     this.alive = true;
+    this.age = 0;
+    this._trailFrame = 0;
   }
 
   update(dt, monsters, onImpact) {
-    // If the target died, fly toward its last known position.
+    this.age += dt;
+    // Kill stale projectiles that have been flying without a target for too long.
     if (!this.target || !this.target.alive) {
-      // Try to re-aim onto any nearby monster in splash radius for nicer feel.
       this.target = null;
+      if (this.age > 1.5) {
+        this.alive = false;
+        return;
+      }
     } else {
       this.lastTargetX = this.target.x;
       this.lastTargetY = this.target.y;
@@ -44,9 +49,12 @@ class Projectile {
     }
     this.x += (dx / d) * step;
     this.y += (dy / d) * step;
-    // Trail particle (every frame while in flight).
+    // Trail particle — throttle to every 3rd frame to reduce pool pressure.
     if (typeof PARTICLES !== 'undefined') {
-      PARTICLES.spawnTrail(this.x, this.y, this.color);
+      this._trailFrame++;
+      if (this._trailFrame % 3 === 0) {
+        PARTICLES.spawnTrail(this.x, this.y, this.color);
+      }
     }
   }
 }

@@ -17,7 +17,7 @@ class Game {
     this.sellCooldownTimer = 0; // global seconds remaining before next sell allowed
 
     // Wave transition animation.
-    this.waveCompleteAnim = { active: false, t: 0, waveNum: 0 };
+    this.waveCompleteAnim = { active: false, waveNum: 0 };
 
     // Web Worker + blob URL (URL must be revoked when the worker terminates).
     this._simWorker = null;
@@ -41,10 +41,8 @@ class Game {
 
     this.wave = new WaveManager();
 
-    // Static 0/1/2/etc. spawn id counter used for popup stability.
-    this._idCounter = 0;
-
-    window.addEventListener('resize', () => RENDERER.resize(canvas));
+    this._resizeHandler = () => RENDERER.resize(canvas);
+    window.addEventListener('resize', this._resizeHandler);
 
     this.devMode = false;
     this.devConfirmPending = false;
@@ -88,7 +86,6 @@ class Game {
   placeTroop(spec, gx, gy) {
     if (!this.canPlace(gx, gy, spec)) return false;
     const t = new Troop(spec, gx, gy);
-    t._id = this._idCounter++;
     this.troops.push(t);
     if (!this.devMode) this.gold -= spec.cost;
     return true;
@@ -124,7 +121,6 @@ class Game {
 
   spawnMonster(level) {
     const m = new Monster(level, this.waypoints, this.pathSegments);
-    m._id = this._idCounter++;
     this.monsters.push(m);
   }
 
@@ -137,11 +133,10 @@ class Game {
       this.popups.push({ text: '+' + r.reward, x: m.x, y: m.y - 8, t: 1.2, color: CONFIG.COLORS.gold });
       PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
       // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
-      if (m.level !== 'B' && m.level > 1) {
+      if (m.level !== 'B' && m.level !== 'S' && m.level > 1) {
         const childLvl = m.level - 1;
         for (let i = 0; i < 2; i++) {
           const child = new Monster(childLvl, this.waypoints, this.pathSegments);
-          child._id = this._idCounter++;
           child.distance = m.distance;
           child.segIdx = m.segIdx;
           child._updatePosition();
@@ -150,7 +145,8 @@ class Game {
         }
       }
     } else {
-      this.popups.push({ text: String(amount), x: m.x, y: m.y - 6, t: 0.6, color: '#fff' });
+      const dmg = r.hpDamage != null ? r.hpDamage : amount;
+      this.popups.push({ text: String(Math.round(dmg)), x: m.x, y: m.y - 6, t: 0.6, color: dmg < amount ? '#5dade2' : '#fff' });
       PARTICLES.spawn(m.x, m.y, PARTICLES.hitSpark('#fff'));
     }
     return r.killed;
@@ -228,7 +224,7 @@ class Game {
     if (this.state === 'WAVE_ACTIVE' && this.wave.spawnIndex >= this.wave.queue.length
         && this.monsters.length === 0) {
       const waveNum = this.wave.currentWave + 1;
-      this.waveCompleteAnim = { active: true, t: 2.5, waveNum: waveNum, startMs: performance.now() };
+      this.waveCompleteAnim = { active: true, waveNum: waveNum, startMs: performance.now() };
       this.wave.onAllSpawnedAndCleared();
       this.state = 'PRE_WAVE';
     }
@@ -266,11 +262,20 @@ class Game {
   // Apply damage + optional AoE from a projectile. Also handles reward.
   applyProjectileImpact(proj) {
     if (!proj.target || !proj.target.alive) {
-      // Dead before impact: do damage at last position with splash only.
+      // Dead before impact: resolve at last known position.
       if (proj.troop.spec.chain > 0) {
         this.chainHitAt(proj.lastTargetX, proj.lastTargetY, proj.troop);
-      } else {
+      } else if (proj.troop.spec.splash > 0) {
         this.splashAt(proj.lastTargetX, proj.lastTargetY, proj.troop.getDamage(), proj.troop.spec.splash, proj.troop);
+      } else {
+        // Direct hit: find closest alive monster to impact point.
+        let closest = null, closestDist = CONFIG.TILE_SIZE;
+        for (const m of this.monsters) {
+          if (!m.alive) continue;
+          const d = dist(proj.lastTargetX, proj.lastTargetY, m.x, m.y);
+          if (d < closestDist) { closestDist = d; closest = m; }
+        }
+        if (closest) this.damageMonster(closest, proj.troop.getDamage());
       }
       return;
     }
@@ -320,11 +325,12 @@ class Game {
     hitAndStun(primary);
     PARTICLES.spawn(x, y, PARTICLES.chainSpark());
 
-    // Chain: monsters behind the primary (lower progress), iterated in-place.
+    // Chain: find up to chainCount monsters behind the primary (lower progress = further from end).
     let chained = 0;
-    for (let i = 1; i < buf.length && chained < chainCount; i++) {
+    for (let i = 0; i < buf.length && chained < chainCount; i++) {
       const m = buf[i];
-      if (m.alive && m.progress < primary.progress) {
+      if (m === primary || !m.alive) continue;
+      if (m.progress < primary.progress) {
         hitAndStun(m);
         chained++;
       }
@@ -349,14 +355,18 @@ class Game {
   start() {
     // Use a Web Worker for simulation so the game runs at full speed
     // even when the tab is in the background (workers are never throttled).
+    if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
+    this._resizeHandler = () => RENDERER.resize(this.canvas || document.getElementById('game'));
+    window.addEventListener('resize', this._resizeHandler);
     this.lastTime = performance.now();
     this._running = true;
 
     // Spawn the sim worker.
-    const blob = new Blob([this._simWorkerScript()], { type: 'application/javascript' });
-    this._simWorkerURL = URL.createObjectURL(blob);
-    this._simWorker = new Worker(this._simWorkerURL);
-    this._simWorker.onmessage = (e) => {
+    try {
+      const blob = new Blob([this._simWorkerScript()], { type: 'application/javascript' });
+      this._simWorkerURL = URL.createObjectURL(blob);
+      this._simWorker = new Worker(this._simWorkerURL);
+      this._simWorker.onmessage = (e) => {
       if (e.data === 'tick') {
         if (!this._running) return;
         const now = performance.now();
@@ -382,6 +392,30 @@ class Game {
       }
     };
     this._simWorker.postMessage('start');
+    } catch (err) {
+      console.warn('Web Worker unavailable, falling back to main-thread loop:', err);
+      this._running = true;
+      this.lastTime = performance.now();
+      const fallbackLoop = () => {
+        if (!this._running) return;
+        const now = performance.now();
+        const realDt = Math.min(0.1, (now - this.lastTime) / 1000);
+        this.lastTime = now;
+        const fixed = CONFIG.FIXED_TIMESTEP;
+        const simDt = realDt * this.speed;
+        this.accumulator += simDt;
+        const maxSteps = Math.max(8, this.speed * 4);
+        this.accumulator = Math.min(this.accumulator, fixed * maxSteps);
+        let safety = maxSteps;
+        while (this.accumulator >= fixed && safety-- > 0) {
+          this.step(fixed);
+          this.accumulator -= fixed;
+        }
+        this.render();
+        requestAnimationFrame(fallbackLoop);
+      };
+      requestAnimationFrame(fallbackLoop);
+    }
   }
 
   _simWorkerScript() {
@@ -570,50 +604,58 @@ class Game {
           }
           return;
         }
+        if (UI._devRightResetBtn && px >= UI._devRightResetBtn.x && px <= UI._devRightResetBtn.x + UI._devRightResetBtn.w
+            && py >= UI._devRightResetBtn.y && py <= UI._devRightResetBtn.y + UI._devRightResetBtn.h) {
+          this.resetDevMonsterCounts();
+          return;
+        }
         // Clicks inside panel but not on a button are consumed.
         return;
       }
     }
 
-    // HUD: DEV mode toggle.
-    const devBtn = { x: 260, y: 14, w: 44, h: 28 };
-    if (px >= devBtn.x && px <= devBtn.x + devBtn.w && py >= devBtn.y && py <= devBtn.y + devBtn.h) {
-      this.devConfirmPending = true;
-      return;
-    }
-
-    // HUD: Reset button.
-    const rstBtn = { x: 310, y: 14, w: 36, h: 28 };
-    if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) {
-      this.resetConfirmPending = true;
-      return;
-    }
-
-    // HUD: speed buttons.
-    const w = RENDERER.width;
-    const speeds = [1, 2, 4, 8, 16, 32, 64, 128];
-    for (let i = 0; i < speeds.length; i++) {
-      const r = { x: w - 370 + i * 28, y: 14, w: 26, h: 28 };
-      if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
-        this.speed = speeds[i];
+    // HUD buttons — only active when HUD is expanded.
+    if (!UI_LAYOUT.collapsed.hud) {
+      // DEV mode toggle.
+      const devBtn = { x: 260, y: 14, w: 44, h: 28 };
+      if (px >= devBtn.x && px <= devBtn.x + devBtn.w && py >= devBtn.y && py <= devBtn.y + devBtn.h) {
+        this.devConfirmPending = true;
         return;
       }
-    }
 
-    // HUD: start wave / pause button.
-    const btn = { x: w - 116, y: 14, w: 90, h: 28 };
-    if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
-      if (this.state === 'PRE_WAVE') {
-        if (this.wave.startNextWave()) {
-          if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
+      // Reset button.
+      const rstBtn = { x: 310, y: 14, w: 36, h: 28 };
+      if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) {
+        this.resetConfirmPending = true;
+        return;
+      }
+
+      // Speed buttons.
+      const w = RENDERER.width;
+      const speeds = [1, 2, 4, 8, 16, 32, 64, 128];
+      for (let i = 0; i < speeds.length; i++) {
+        const r = { x: w - 370 + i * 28, y: 14, w: 26, h: 28 };
+        if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
+          this.speed = speeds[i];
+          return;
+        }
+      }
+
+      // Start wave / pause button.
+      const btn = { x: w - 116, y: 12, w: 90, h: 32 };
+      if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
+        if (this.state === 'PRE_WAVE') {
+          if (this.wave.startNextWave()) {
+            if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
+            this.state = 'WAVE_ACTIVE';
+          }
+        } else if (this.state === 'WAVE_ACTIVE') {
+          this.state = 'PAUSED';
+        } else if (this.state === 'PAUSED') {
           this.state = 'WAVE_ACTIVE';
         }
-      } else if (this.state === 'WAVE_ACTIVE') {
-        this.state = 'PAUSED';
-      } else if (this.state === 'PAUSED') {
-        this.state = 'WAVE_ACTIVE';
+        return;
       }
-      return;
     }
 
     // Shop clicks.
@@ -626,8 +668,8 @@ class Game {
     }
 
     // Sell button — show confirmation dialog.
-    if (this.selectedTroopIndex >= 0) {
-      const sellBtn = { x: 8, y: RENDERER.height - 48, w: 200, h: 36 };
+    if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
+      const sellBtn = { x: 8, y: RENDERER.height - 46, w: 200, h: 34 };
       if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
           && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
         if (this.devMode) {
@@ -641,7 +683,7 @@ class Game {
     }
 
     // Upgrade buttons (4 stats).
-    if (this.selectedTroopIndex >= 0) {
+    if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
       const t = this.troops[this.selectedTroopIndex];
       if (t && t.alive) {
         const stats = ['dmg', 'range', 'speed', 'chain'];
@@ -658,8 +700,7 @@ class Game {
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
           if (!t.canUpgrade(stat)) continue;
-          if (t.isMaxed(stat)) continue;
-          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 90, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 88, w: statBtnW, h: 36 };
           visibleBtnIdx++;
           if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
             this.upgradeTroopStat(this.selectedTroopIndex, stat);
@@ -778,6 +819,7 @@ class Game {
   restart() {
     if (this._simWorker) { this._simWorker.terminate(); this._simWorker = null; }
     if (this._simWorkerURL) { URL.revokeObjectURL(this._simWorkerURL); this._simWorkerURL = null; }
+    if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
     this._running = false;
     this.state = 'PRE_WAVE';
     this.speed = 1;
@@ -785,17 +827,19 @@ class Game {
     this.lives = CONFIG.STARTING_LIVES;
     this.selectedSpec = null;
     this.selectedTroopIndex = -1;
+    this.sellCooldownTimer = 0;
     this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.waypoints = generatePath(this.seed);
     this.pathSegments = this._buildPathSegments(this.waypoints);
     this.markPathTiles();
     RENDERER.markCacheDirty();
+    RENDERER._rebuildCache(this.grid);
     this.monsters = [];
     this.troops = [];
     this.projectiles = [];
     this.popups = [];
-    this.waveCompleteAnim = { active: false, t: 0, waveNum: 0 };
+    this.waveCompleteAnim = { active: false, waveNum: 0 };
     PARTICLES.clear();
     UI.shopScrollY = 0;
     this.wave = new WaveManager();

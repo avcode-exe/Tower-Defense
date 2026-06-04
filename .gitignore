@@ -1,6 +1,9 @@
 node_modules/
 dist/
 .kilo/
+.claude/
+AGENTS.md
+CLAUDE.md
 *.exe
 electron-*.zip
 commit.txt

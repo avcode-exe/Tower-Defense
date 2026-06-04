@@ -26,10 +26,15 @@ class Monster {
     this.stunTimer = 0;
 
     // Shield mechanics (Shielded monster type).
-    this.shield = this.spec.shield || 0;
+    this.shield = this.spec ? (this.spec.shield || 0) : 0;
     this.maxShield = this.shield;
     this.shieldRegenTimer = 0;
     this.shieldRegenDelay = 3;
+    this.shieldRegenActive = false; // true once delay has elapsed
+
+    // Cached tile coordinates (updated in _updatePosition).
+    this._tileGx = 0;
+    this._tileGy = 0;
 
     this._updatePosition();
   }
@@ -41,6 +46,8 @@ class Monster {
       const [gx, gy] = this.waypoints[0];
       this.x = gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
       this.y = gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      this._tileGx = gx;
+      this._tileGy = gy;
       return;
     }
     if (this.distance >= this.totalLength) {
@@ -48,6 +55,8 @@ class Monster {
       this.x = last.bx;
       this.y = last.by;
       this.reachedEnd = true;
+      this._tileGx = Math.floor(this.x / CONFIG.TILE_SIZE);
+      this._tileGy = Math.floor(this.y / CONFIG.TILE_SIZE);
       return;
     }
     // Advance segIdx while distance has passed the end of the current segment.
@@ -57,9 +66,12 @@ class Monster {
       this.segIdx++;
     }
     const seg = segs[this.segIdx];
-    const t = seg.len === 0 ? 0 : (this.distance - seg.cumStart) / seg.len;
+    const t = seg.len === 0 ? 0 : clamp((this.distance - seg.cumStart) / seg.len, 0, 1);
     this.x = lerp(seg.ax, seg.bx, t);
     this.y = lerp(seg.ay, seg.by, t);
+    // Cache tile coordinates.
+    this._tileGx = Math.floor(this.x / CONFIG.TILE_SIZE);
+    this._tileGy = Math.floor(this.y / CONFIG.TILE_SIZE);
   }
 
   // Progress as 0..1 along the whole path. Used to pick "leads" target.
@@ -68,17 +80,14 @@ class Monster {
   }
 
   // Tile the monster currently occupies (used by melee troops).
+  // Uses cached coordinates from _updatePosition to avoid allocation.
   get tile() {
-    return {
-      gx: Math.floor(this.x / CONFIG.TILE_SIZE),
-      gy: Math.floor(this.y / CONFIG.TILE_SIZE),
-    };
+    return { gx: this._tileGx, gy: this._tileGy };
   }
 
   // Tile-distance to another tile (Chebyshev so diagonals feel fair).
   tileDistanceTo(gx, gy) {
-    const mt = this.tile;
-    return Math.max(Math.abs(mt.gx - gx), Math.abs(mt.gy - gy));
+    return Math.max(Math.abs(this._tileGx - gx), Math.abs(this._tileGy - gy));
   }
 
   // Tile distance from a troop tile (for ranged targeting).
@@ -96,17 +105,26 @@ class Monster {
       amount -= absorbed;
       if (absorbed > 0) this.shieldRegenTimer = 0;
     }
+    const hpDamage = amount;
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;
       return { killed: true, reward: this.reward };
     }
-    return { killed: false };
+    return { killed: false, hpDamage };
   }
 
   update(dt) {
     if (!this.alive) return;
+    // Shield regeneration after delay (ticks even during stun).
+    if (this.shield < this.maxShield) {
+      this.shieldRegenTimer += dt;
+      if (this.shieldRegenTimer >= this.shieldRegenDelay) {
+        // Gradual regen: 20 shield per second after delay.
+        this.shield = Math.min(this.maxShield, this.shield + 20 * dt);
+      }
+    }
     // Stunned: count down timer but don't move.
     if (this.stunTimer > 0) {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
@@ -114,13 +132,5 @@ class Monster {
     }
     this.distance += this.speed * CONFIG.TILE_SIZE * dt;
     this._updatePosition();
-
-    // Shield regeneration after delay.
-    if (this.shield < this.maxShield) {
-      this.shieldRegenTimer += dt;
-      if (this.shieldRegenTimer >= this.shieldRegenDelay) {
-        this.shield = this.maxShield;
-      }
-    }
   }
 }

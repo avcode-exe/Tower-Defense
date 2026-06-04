@@ -15,10 +15,11 @@ const UI_LAYOUT = {
     monsterInfo: false,
   },
 
-  // Effective dimensions accounting for collapsed state
-  get hudHeight() { return this.collapsed.hud ? 0 : this.HUD_HEIGHT; },
-  get shopWidth() { return this.collapsed.shop ? 0 : this.SHOP_WIDTH; },
-  get previewHeight() { return this.collapsed.preview ? 0 : this.PREVIEW_HEIGHT; },
+  // Effective dimensions accounting for collapsed state.
+  // Collapsed panels still occupy 20px for their tab bar.
+  get hudHeight() { return this.collapsed.hud ? 20 : this.HUD_HEIGHT; },
+  get shopWidth() { return this.collapsed.shop ? 20 : this.SHOP_WIDTH; },
+  get previewHeight() { return this.collapsed.preview ? 20 : this.PREVIEW_HEIGHT; },
 };
 
 // ── Shared helpers ──
@@ -54,22 +55,15 @@ function UIRoundRect(c, x, y, w, h, r) {
   c.closePath();
 }
 
-// ── Toggle button helper ──
-function toggleBtnRect(side, panelRect) {
-  const s = 16;
-  if (side === 'left') return { x: panelRect.x, y: panelRect.y + 4, w: s, h: s };
-  if (side === 'right') return { x: panelRect.x + panelRect.w - s, y: panelRect.y + 4, w: s, h: s };
-  if (side === 'bottom') return { x: panelRect.x + panelRect.w - s - 4, y: panelRect.y + 4, w: s, h: s };
-  return { x: panelRect.x + panelRect.w - s - 4, y: panelRect.y + 4, w: s, h: s };
-}
-
 function drawToggleButton(c, rect, collapsed, expandDir) {
   c.fillStyle = 'rgba(255,255,255,0.08)';
   c.beginPath(); c.arc(rect.x + rect.w / 2, rect.y + rect.h / 2, 7, 0, Math.PI * 2); c.fill();
   c.fillStyle = 'rgba(255,255,255,0.4)';
   c.font = 'bold 10px system-ui, sans-serif';
   c.textAlign = 'center'; c.textBaseline = 'middle';
-  const arrow = collapsed ? '◀' : expandDir === 'up' ? '▼' : expandDir === 'down' ? '▲' : '▶';
+  const arrow = collapsed
+    ? (expandDir === 'up' ? '▲' : expandDir === 'down' ? '▼' : expandDir === 'left' ? '◀' : '▶')
+    : (expandDir === 'up' ? '▼' : expandDir === 'down' ? '▲' : expandDir === 'left' ? '▶' : '◀');
   c.fillText(arrow, rect.x + rect.w / 2, rect.y + rect.h / 2 + 0.5);
 }
 
@@ -89,7 +83,6 @@ const UI = {
   _toggleShop: null,
   _toggleHud: null,
   _togglePreview: null,
-  _toggleHelp: null,
 
   updateHover(px, py) {
     if (px == null || py == null) {
@@ -120,16 +113,6 @@ const UI = {
     return -1;
   },
 
-  hitTroopOnMap(px, py, game) {
-    for (let i = 0; i < game.troops.length; i++) {
-      const t = game.troops[i];
-      if (!t.alive) continue;
-      const dx = px - t.x, dy = py - t.y;
-      if (dx * dx + dy * dy <= (CONFIG.TILE_SIZE * 0.5) * (CONFIG.TILE_SIZE * 0.5)) return i;
-    }
-    return -1;
-  },
-
   handleToggleClick(px, py) {
     if (this._toggleHud && hitToggleButton(px, py, this._toggleHud)) {
       UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
@@ -139,12 +122,6 @@ const UI = {
     if (this._toggleShop && hitToggleButton(px, py, this._toggleShop)) {
       UI_LAYOUT.collapsed.shop = !UI_LAYOUT.collapsed.shop;
       RENDERER.resize(document.getElementById('game'));
-      return true;
-    }
-    if (this._toggleHelp && hitToggleButton(px, py, this._toggleHelp)) {
-      UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
-      const helpEl = document.getElementById('help');
-      if (helpEl) helpEl.style.display = UI_LAYOUT.collapsed.help ? 'none' : '';
       return true;
     }
     if (this._togglePreview && hitToggleButton(px, py, this._togglePreview)) {
@@ -337,7 +314,7 @@ const UI = {
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(0, UI_LAYOUT.hudHeight, UI_LAYOUT.SHOP_WIDTH, h - UI_LAYOUT.hudHeight);
 
-    const btnRect = { x: 209, y: UI_LAYOUT.hudHeight + 7, w: 10, h: 10 };
+    const btnRect = { x: 201, y: UI_LAYOUT.hudHeight + 5, w: 16, h: 16 };
     this._toggleShop = btnRect;
     drawToggleButton(c, btnRect, false, 'left');
 
@@ -456,7 +433,7 @@ const UI = {
         c.fillText('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 18, panelY + 44);
 
         const dps = (t.getDamage() / t.getAttackSpeed()).toFixed(1);
-        c.fillStyle = UI_COLORS.hudAccent;
+        c.fillStyle = UI_COLORS.accent;
         c.font = 'bold 10px system-ui, sans-serif';
         c.fillText('DPS ' + dps, 18, panelY + 60);
 
@@ -565,11 +542,21 @@ const UI = {
 
   _drawShopTooltip(c, r, spec) {
     if (!spec.desc) return;
-    const lines = this._wrapText(c, spec.desc, r.w + 40, 11, 'system-ui, sans-serif');
-    const lineH = 14;
     const tipW = r.w + 40;
+    // Cache wrapped lines per spec to avoid measureText every frame.
+    const cacheKey = spec.id + '_' + tipW;
+    if (!this._tooltipCache) this._tooltipCache = {};
+    let lines = this._tooltipCache[cacheKey];
+    if (!lines) {
+      lines = this._wrapText(c, spec.desc, tipW, 11, 'system-ui, sans-serif');
+      this._tooltipCache[cacheKey] = lines;
+    }
+    const lineH = 14;
     const tipH = 20 + lines.length * lineH;
-    const tipX = r.x + r.w + 4;
+    // Flip tooltip to the left side when it would overflow the canvas.
+    const tipX = (r.x + r.w + 4 + tipW > RENDERER.width)
+      ? r.x - tipW - 4
+      : r.x + r.w + 4;
     const tipY = r.y;
 
     c.save();
@@ -677,6 +664,7 @@ const UI = {
       c.fillText(spec.name, cx + 18, y + 34);
       cx += 80;
     }
+    c.textBaseline = 'alphabetic';
   },
 
   drawPlacementGhost(game) {
@@ -867,7 +855,7 @@ const UI = {
     if (game.state === 'WAVE_ACTIVE') return;
     const c = RENDERER.ctx;
     const pW = 180;
-    const pH = 240;
+    const pH = 310;
     const pX = RENDERER.width - pW - 12;
     const pY = UI_LAYOUT.hudHeight + 50;
 
@@ -932,6 +920,7 @@ const UI = {
     c.fillText('Start Custom Wave', stX + stW / 2, stY + stH / 2);
 
     const rstX = pX + 12, rstY = stY - 32, rstW = pW - 24, rstH = 22;
+    this._devRightResetBtn = { x: rstX, y: rstY, w: rstW, h: rstH };
     c.fillStyle = 'rgba(255,255,255,0.04)';
     UIRoundRect(c, rstX, rstY, rstW, rstH, 6);
     c.fill();

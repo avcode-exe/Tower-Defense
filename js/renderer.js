@@ -57,17 +57,21 @@ const RENDERER = {
     this._cacheDirty = true;
   },
 
-  // (Re)build static background + path caches at tile-scale resolution
+  // (Re)build static background + path caches at device-pixel resolution for
+  // sharp rendering on HiDPI displays.
   _rebuildCache(grid) {
     if (!this._bgCache || !this._pathCache) return;
     const T = CONFIG.TILE_SIZE;
     const ms = CONFIG.GRID_SIZE * T;
+    const dpr = window.devicePixelRatio || 1;
+    const cacheW = Math.floor(ms * dpr);
+    const cacheH = Math.floor(ms * dpr);
 
-    // Ground + grid lines — 1× CSS pixel resolution
-    this._bgCache.width = Math.floor(ms);
-    this._bgCache.height = Math.floor(ms);
+    // Ground + grid lines — device-pixel resolution
+    this._bgCache.width = cacheW;
+    this._bgCache.height = cacheH;
     const bgCtx = this._bgCache.getContext('2d');
-    bgCtx.setTransform(1, 0, 0, 1, 0, 0);
+    bgCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     bgCtx.fillStyle = '#1c2a22';
     bgCtx.fillRect(0, 0, ms, ms);
     // Buildable overlay (very faint)
@@ -96,10 +100,10 @@ const RENDERER = {
     }
 
     // Path tiles (drawn on transparent background)
-    this._pathCache.width = Math.floor(ms);
-    this._pathCache.height = Math.floor(ms);
+    this._pathCache.width = cacheW;
+    this._pathCache.height = cacheH;
     const pCtx = this._pathCache.getContext('2d');
-    pCtx.setTransform(1, 0, 0, 1, 0, 0);
+    pCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (grid) {
       pCtx.fillStyle = CONFIG.COLORS.path;
       for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
@@ -148,8 +152,11 @@ const RENDERER = {
     c.save();
     c.translate(this.offsetX, this.offsetY);
     c.scale(this.scale, this.scale);
-    c.drawImage(this._bgCache, 0, 0);
-    c.drawImage(this._pathCache, 0, 0);
+    // Cache is DPR-scaled internally; draw at CSS-pixel size so the
+    // main canvas DPR transform maps it to device-pixel sharpness.
+    const ms = CONFIG.GRID_SIZE * CONFIG.TILE_SIZE;
+    c.drawImage(this._bgCache, 0, 0, ms, ms);
+    c.drawImage(this._pathCache, 0, 0, ms, ms);
     c.restore();
   },
 
