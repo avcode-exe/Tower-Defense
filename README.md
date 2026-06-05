@@ -1,6 +1,6 @@
 # Tower Defense
 
-A 2D tower defense game — **framed Electron desktop app** for Windows with auto-update support.
+A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electron.
 
 ![Icon](icon.png)
 
@@ -8,49 +8,48 @@ A 2D tower defense game — **framed Electron desktop app** for Windows with aut
 
 ## Features
 
-- **16×16 grid** with procedurally generated winding paths (regenerates each game)
-- **8 troop types** — melee, ranged, splash AoE, chain lightning with stun
-- **Monster splitting** — monsters above level 1 split into 2 of level-1 on death (cascading down to level 1)
-- **10 waves** + infinite wave cycling (boss on wave 10)
-- **Per-stat upgrade system** — each troop has 3-4 upgradable stats (DMG, RNG, SPD, CHN) with independent level tracks
-- **Speed controls** — 1× / 2× / 4× / 8× / 16× / 32× / 64× / 128×
-- **Sell confirmation dialog** — prevents accidental sells (50% refund) with 3-second cooldown
-- **DEV mode** (F2) — unlimited gold + custom wave composition editor
-- **Collapsible panels** — minimize HUD / Shop / Preview / Controls for a full-screen map view (click toggle buttons or use Alt+H/S/P/C)
+- **9 troop types** (hotkeys 1-9) — melee, ranged, splash, chain lightning, and siege
+- **Multiple monster types** — Grunt, Runner, Brute, Elite, Champion, Boss, Shielded
+- **Upgradeable troops** — up to level 5 each with increasing stats
+- **Dev mode** (F2) — unlimited gold + custom wave composition editor
+- **Adjustable game speed** — 1x / 2x / 4x / 8x / 16x / 32x / 64x / 128x
+- **Web Worker simulation** — fixed 60Hz timestep for smooth 60fps rendering
 - **Auto-update** — built-in update checker via GitHub Releases
-- **Renders at native resolution** with `devicePixelRatio` support and offscreen canvas caching for static map layers
-- **Wave 10+ scaling indicator** — shows current multiplier (1.35× per cycle) in the HUD
-- **Hover tooltips** — hover over any troop card to see its tactical description
+- **16x16 grid** with procedurally generated winding paths
+- **Monster splitting** — Elite monsters split into 2 Grunts on death
+- **Sell confirmation** — 50% refund with 3-second cooldown
 
 ## Troops
 
 | # | Name | Type | Cost | Damage | Range | Speed | Special |
 |---|------|------|------|--------|-------|-------|---------|
-| 1 | Swordsman | Melee | 50 | 12 | 1 | 0.67s | — |
+| 1 | Swordsman | Melee | 70 | 12 | 1 | 0.67s | — |
 | 2 | Knight | Melee | 150 | 22 | 1 | 0.9s | — |
 | 3 | Archer | Ranged | 70 | 10 | 3 | 1.2s | — |
 | 4 | Machine Gun | Ranged | 200 | 6 | 4 | 0.25s | High fire rate |
-| 5 | Mage | Ranged | 200 | 20 | 3 | 1.3s | Splash 1.5 tiles |
+| 5 | Mage | Ranged | 200 | 28 | 3 | 1.3s | Splash 2.0 tiles |
 | 6 | Sniper | Ranged | 250 | 100 | 10 | 2.5s | Long range |
 | 7 | Valkyrie | Melee | 180 | 15 | 1 | 1.5s | AoE 360° swing |
 | 8 | Lightning | Ranged | 300 | 100 | 2 | 3s | Chain 4 + stun 0.5s |
+| 9 | Mortar | Ranged | 250 | 35 | 8 | 3.0s | Splash 2.0 tiles |
 
 **Upgradeable stats per troop:**
-- All troops: **DMG** (1.2× per level), **RNG** (ranged only, +1 tile/level), **SPD** (0.9× multiplier per level)
+- All troops: **DMG** (1.2x per level), **RNG** (ranged only, +1 tile/level), **SPD** (0.9x multiplier per level)
 - Lightning: also **CHN** (+1 chain target per level)
 
 ## Monsters
 
-| Level | Name | HP | Speed | Reward | Leak DMG |
-|-------|------|----|-------|--------|----------|
-| 1 | Grunt | 35 | 1.0 | 3g | 1 |
-| 2 | Runner | 28 | 1.8 | 5g | 1 |
-| 3 | Brute | 139 | 0.7 | 10g | 1 |
-| 4 | Elite | 255 | 1.0 | 16g | 2 |
-| 5 | Champion | 695 | 0.9 | 35g | 3 |
-| B | Boss | 1737 | 0.6 | 80g | 5 |
+| Level | Name | HP | Speed | Reward | Leak DMG | Special |
+|-------|------|----|-------|--------|----------|---------|
+| 1 | Grunt | 34 | 1.0 | 4g | 1 | — |
+| 2 | Runner | 27 | 1.8 | 6g | 1 | Fast |
+| 3 | Brute | 133 | 0.7 | 11g | 1 | Tanky |
+| 4 | Elite | 245 | 1.0 | 17g | 2 | Splits into 2 Grunts on death |
+| 5 | Champion | 667 | 0.9 | 36g | 3 | Very tanky |
+| B | Boss | 1668 | 0.6 | 81g | 5 | 2x HP, appears wave 10/20/30 |
+| S | Shielded | 115 | 0.8 | 15g | 1 | Regenerating shield (60 HP) |
 
-Boss HP is doubled at spawn (3474 effective). Monsters above level 1 split into 2 of level-1 on death.
+Boss HP is doubled at spawn (3336 effective). Monsters above level 1 split into 2 of level-1 on death.
 
 ## Economy
 
@@ -58,70 +57,42 @@ Boss HP is doubled at spawn (3474 effective). Monsters above level 1 split into 
 - **Max gold**: 1,000,000
 - **Starting lives**: 20
 - **Sell refund**: 50% of total gold invested, rounded up
-- **Upgrade costs**: `base × 2^(level-1)` (1→2: base cost, 2→3: 2× base, 3→4: 4× base, 4→5: 8× base)
+- **Upgrade costs**: `base x 2^(level-1)` (1->2: base cost, 2->3: 2x base, 3->4: 4x base, 4->5: 8x base)
 
 ## Controls
 
 | Key | Action |
 |-----|--------|
-| Click shop card (or 1-8) | Select troop to place |
+| Click shop card (or 1-9) | Select troop to place |
 | Click tile | Place selected troop |
 | Click existing troop | Select for upgrade / sell |
 | Right-click / Esc | Cancel selection |
 | Space | Pause / Resume |
 | Enter | Start wave |
 | R | Restart (on win/lose) |
-| F2 → Confirm | Toggle DEV mode |
-| Alt+H | Toggle HUD panel |
-| Alt+S | Toggle Shop panel |
-| Alt+P | Toggle Preview panel |
+| F2 | Toggle Dev mode |
+| F3 | Toggle monster info |
 | Alt+C | Toggle Controls panel |
+| Alt+M | Toggle Monster Info panel |
+| Speed buttons | Adjust game speed (1x-128x) in HUD |
 
-## Installation
+## Tech Stack
 
-### Option 1 — Installer (recommended)
-
-Download the latest `Tower Defense Setup X.X.X.exe` from the [Releases](https://github.com/avcode-exe/Tower-Defense/releases) page and run it. The app will auto-check for updates on each launch.
-
-### Option 2 — Run from source
-
-```bash
-git clone https://github.com/avcode-exe/Tower-Defense.git
-cd Tower-Defense
-npm install
-npm start
-```
+- **Vanilla JavaScript (ES6+)** — no frameworks, all UI drawn directly on canvas
+- **HTML5 Canvas 2D** rendering with `devicePixelRatio` scaling and offscreen canvas caching
+- **Web Worker** for fixed-timestep simulation (60Hz)
+- **Electron 42** desktop app with electron-builder (NSIS)
+- **electron-updater** for auto-update via GitHub Releases
 
 ## Building
 
 ```bash
-# Build installer only (creates dist/Tower Defense Setup X.X.X.exe)
-npm run build
-
-# Build + publish to GitHub Releases (requires GH_TOKEN env var)
-npm run release
+npm install        # Install dependencies
+npm start          # Run in dev mode
+npm run build      # Build NSIS installer (dist/Tower Defense Setup X.X.X.exe)
+npm run release    # Build + publish to GitHub Releases (requires GH_TOKEN)
 ```
 
-The installer is an NSIS package with:
-- Custom install directory
-- Desktop shortcut
-- Windows Apps & Features uninstall entry
+## License
 
-## Publishing updates
-
-1. Bump the `"version"` field in `package.json`
-2. `git tag vX.X.X` and `git push origin vX.X.X`
-3. `npm run release` (requires `GH_TOKEN` env var with `repo` scope)
-
-All users on the previous version will be prompted to update on their next launch.
-
-## Development
-
-All balance values are in `js/config.js`. Edit `MONSTER_SPECS`, `TROOP_SPECS`, `CONFIG`, or `WAVES` to tune the game.
-
-## Tech Stack
-
-- **Engine**: Vanilla JavaScript, Canvas 2D, Web Worker (render loop)
-- **Desktop**: Electron 42, electron-builder (NSIS), electron-updater
-- **Rendering**: Fixed-timestep simulation, `devicePixelRatio` scaling, offscreen canvas caching
-- **No frameworks** — all UI is drawn directly on the canvas
+Apache 2.0 — see [LICENSE](LICENSE) for details.

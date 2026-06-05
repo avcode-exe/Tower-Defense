@@ -36,7 +36,7 @@ class Troop {
   _recomputeStats() {
     this._cachedDamage = Math.round(this.spec.damage * Math.pow(1.2, this.dmgLevel - 1));
     this._cachedRange = this.spec.type === 'melee' ? this.spec.range : this.spec.range + (this.rangeLevel - 1);
-    this._cachedAttackSpeed = +(this.spec.attackSpeed * Math.pow(0.9, this.speedLevel - 1)).toFixed(2);
+    this._cachedAttackSpeed = Math.round(this.spec.attackSpeed * Math.pow(0.9, this.speedLevel - 1) * 100) / 100;
     this._cachedChain = (this.spec.chain || 0) + (this.chainLevel - 1);
   }
 
@@ -48,7 +48,7 @@ class Troop {
     else if (stat === 'speed') level = this.speedLevel;
     else if (stat === 'chain') level = this.chainLevel;
     else return Infinity;
-    return this.spec.cost * Math.pow(2, level - 1);
+    return Math.round(this.spec.cost * Math.pow(1.6, level - 1));
   }
 
   // Returns true when the stat is even visible/upgradable for this troop type
@@ -87,7 +87,7 @@ class Troop {
     for (const stat of ['dmg', 'range', 'speed', 'chain']) {
       const level = stat === 'dmg' ? this.dmgLevel : stat === 'range' ? this.rangeLevel : stat === 'speed' ? this.speedLevel : this.chainLevel;
       for (let l = 1; l < level; l++) {
-        total += this.spec.cost * Math.pow(2, l - 1);
+        total += Math.round(this.spec.cost * Math.pow(1.6, l - 1));
       }
     }
     return total;

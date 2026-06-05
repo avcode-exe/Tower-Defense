@@ -72,6 +72,8 @@ function hitToggleButton(px, py, rect) {
   return px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
 }
 
+const SPEEDS = [1, 2, 4, 8, 16, 32, 64, 128];
+
 // ── UI object ──
 
 const UI = {
@@ -83,6 +85,7 @@ const UI = {
   _toggleShop: null,
   _toggleHud: null,
   _togglePreview: null,
+  _ghostPos: {x:0, y:0},
 
   updateHover(px, py) {
     if (px == null || py == null) {
@@ -240,15 +243,14 @@ const UI = {
     c.fillText('RST', rstX + rstW / 2, 28);
 
     // Speed.
-    const speeds = [1, 2, 4, 8, 16, 32, 64, 128];
     let sx = w - 370;
     c.fillStyle = UI_COLORS.textDim;
     c.font = '11px system-ui, sans-serif';
     c.textAlign = 'left';
     c.fillText('Speed:', sx - 50, 28);
-    for (let i = 0; i < speeds.length; i++) {
+    for (let i = 0; i < SPEEDS.length; i++) {
       const rx = sx + i * 28;
-      const active = game.speed === speeds[i];
+      const active = game.speed === SPEEDS[i];
       c.fillStyle = active ? 'rgba(88,166,255,0.15)' : 'rgba(255,255,255,0.04)';
       UIRoundRect(c, rx, 14, 26, 28, 5);
       c.fill();
@@ -261,7 +263,7 @@ const UI = {
       c.fillStyle = active ? UI_COLORS.accent : UI_COLORS.textDim;
       c.font = '10px system-ui, sans-serif';
       c.textAlign = 'center';
-      c.fillText(speeds[i] + 'x', rx + 13, 28);
+      c.fillText(SPEEDS[i] + 'x', rx + 13, 28);
     }
 
     // Start / pause / resume.
@@ -690,7 +692,7 @@ const UI = {
   drawPlacementGhost(game) {
     if (!game.selectedSpec) return;
     if (RENDERER.hoverPx == null) return;
-    const w = RENDERER.toWorld(RENDERER.hoverPx, RENDERER.hoverPy);
+    const w = RENDERER.toWorldInto(RENDERER.hoverPx, RENDERER.hoverPy, this._ghostPos);
     const tile = pixelToTile(w.x, w.y);
     if (!inBounds(tile.gx, tile.gy)) return;
     if (RENDERER.hoverPx < UI_LAYOUT.shopWidth) return;
@@ -707,7 +709,8 @@ const UI = {
     c.fillRect(tile.gx * CONFIG.TILE_SIZE, tile.gy * CONFIG.TILE_SIZE,
       CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
 
-    const center = tileCenter(tile.gx, tile.gy);
+    tileCenterInto(tile.gx, tile.gy, this._ghostPos);
+    const center = this._ghostPos;
     c.strokeStyle = valid ? 'rgba(88,166,255,0.5)' : 'rgba(220,80,80,0.5)';
     c.lineWidth = 1.5;
     c.setLineDash([4, 4]);
@@ -732,11 +735,13 @@ const UI = {
     c.save();
     c.translate(RENDERER.offsetX, RENDERER.offsetY);
     c.scale(RENDERER.scale, RENDERER.scale);
-    c.strokeStyle = 'rgba(88,166,255,0.35)';
+    c.strokeStyle = 'rgba(88,166,255,0.5)';
     c.lineWidth = 1.5;
     c.setLineDash([5, 5]);
     c.beginPath();
     c.arc(t.x, t.y, (t.getRange() + 0.5) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(88,166,255,0.08)';
+    c.fill();
     c.stroke();
     c.setLineDash([]);
     c.restore();
@@ -792,15 +797,14 @@ const UI = {
   },
 
   drawOverlay(game) {
-    if (game.state !== 'VICTORY' && game.state !== 'DEFEAT') return;
+    if (game.state !== 'DEFEAT') return;
     const c = RENDERER.ctx;
     c.fillStyle = 'rgba(0,0,0,0.7)';
     c.fillRect(0, 0, RENDERER.width, RENDERER.height);
-    c.fillStyle = game.state === 'VICTORY' ? UI_COLORS.green : UI_COLORS.red;
+    c.fillStyle = UI_COLORS.red;
     c.font = 'bold 52px system-ui, sans-serif';
     c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText(game.state === 'VICTORY' ? 'VICTORY' : 'DEFEAT',
-      RENDERER.width / 2, RENDERER.height / 2 - 14);
+    c.fillText('DEFEAT', RENDERER.width / 2, RENDERER.height / 2 - 14);
     c.fillStyle = UI_COLORS.textDim;
     c.font = '14px system-ui, sans-serif';
     c.fillText('Press R to restart', RENDERER.width / 2, RENDERER.height / 2 + 28);

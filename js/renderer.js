@@ -19,7 +19,9 @@ const RENDERER = {
   markCacheDirty() { this._cacheDirty = true; },
 
   init(canvas) {
-    this.ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get 2D canvas context');
+    this.ctx = ctx;
     this._bgCache = document.createElement('canvas');
     this._pathCache = document.createElement('canvas');
     this.resize(canvas);

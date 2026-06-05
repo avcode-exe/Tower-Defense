@@ -6,7 +6,7 @@ class Game {
     this.canvas = canvas;
     RENDERER.init(canvas);
 
-    this.state = 'PRE_WAVE';   // PRE_WAVE | WAVE_ACTIVE | PAUSED | VICTORY | DEFEAT
+    this.state = 'PRE_WAVE';   // PRE_WAVE | WAVE_ACTIVE | PAUSED | DEFEAT
     this.speed = 1;
     this.gold = CONFIG.STARTING_GOLD;
     this.lives = CONFIG.STARTING_LIVES;
@@ -109,6 +109,7 @@ class Game {
     // Set global sell cooldown (3 seconds between sells).
     this.sellCooldownTimer = CONFIG.SELL_COOLDOWN;
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
+    this.selectedSpec = null;
   }
 
   upgradeTroopStat(index, stat) {
@@ -148,8 +149,12 @@ class Game {
         }
       }
     } else {
-      const dmg = r.hpDamage != null ? r.hpDamage : amount;
-      this.popups.push({ text: String(Math.round(dmg)), x: m.x, y: m.y - 6, t: 0.6, color: dmg < amount ? '#5dade2' : '#fff' });
+      // Shield absorbed all damage — show shield indicator.
+      if (r.hpDamage === 0 && amount > 0) {
+        this.popups.push({ text: 'Shield!', x: m.x, y: m.y - 6, t: 0.6, color: '#5dade2' });
+      } else {
+        this.popups.push({ text: String(Math.round(r.hpDamage)), x: m.x, y: m.y - 6, t: 0.6, color: '#fff' });
+      }
       PARTICLES.spawn(m.x, m.y, PARTICLES.hitSpark('#fff'));
     }
     return r.killed;
@@ -157,7 +162,7 @@ class Game {
 
   // One fixed-timestep simulation step.
   step(dt) {
-    if (this.state === 'PAUSED' || this.state === 'VICTORY' || this.state === 'DEFEAT') return;
+    if (this.state === 'PAUSED' || this.state === 'DEFEAT') return;
 
     // Wave timer.
     this.wave.update(dt);
@@ -302,52 +307,72 @@ class Game {
 
   // Chain lightning: damages the nearest monster to (x,y) then chains to
   // consecutive monsters behind it (lower progress = further from end).
+  // Each chain link must be within 1 tile of the previous target.
   chainHitAt(x, y, troop) {
     const damage = troop._cachedDamage;
     const chainCount = troop._cachedChain;
     const stunDuration = troop.spec.stun || 0;
+    const maxChainDist = CONFIG.TILE_SIZE * 1.5; // 1.5 tiles max between chain links
 
-    // Fill reusable buffer with alive monsters, sorted by proximity.
+    // Apply stun + damage to a single target. Returns true if it split.
+    const applyHit = (m, srcX, srcY) => {
+      if (!m.alive) return null;
+      const countBefore = this.monsters.length;
+      if (stunDuration > 0) m.stunTimer = Math.max(m.stunTimer, stunDuration);
+      this.damageMonster(m, damage);
+      this.popups.push({ text: '\u26A1', x: m.x, y: m.y - 12, t: 0.6, color: '#f1c40f' });
+      // Stun any children spawned by split.
+      if (stunDuration > 0) {
+        for (let j = countBefore; j < this.monsters.length; j++) {
+          this.monsters[j].stunTimer = Math.max(this.monsters[j].stunTimer, stunDuration);
+        }
+      }
+      PARTICLES.spawn(srcX, srcY, PARTICLES.chainSpark());
+      return m;
+    };
+
+    // Find primary target — closest alive monster to (x, y).
+    let closestDist = Infinity;
+    let closest = null;
+    for (let i = 0; i < this.monsters.length; i++) {
+      const m = this.monsters[i];
+      if (!m.alive) continue;
+      const dx = m.x - x, dy = m.y - y;
+      const dSq = dx * dx + dy * dy;
+      if (dSq < closestDist) { closestDist = dSq; closest = m; }
+    }
+    if (!closest) return;
+
+    let lastX = closest.x, lastY = closest.y;
+    applyHit(closest, x, y);
+
+    // Chain: find up to chainCount monsters behind the primary,
+    // each within 1 tile of the previous chain target.
+    const primaryProgress = closest.progress;
+    let chained = 0;
+    // Snapshot alive monsters after primary hit (includes any split children).
     const buf = this._chainBuf;
     buf.length = 0;
     for (let i = 0; i < this.monsters.length; i++) {
       const m = this.monsters[i];
-      if (m.alive) buf.push(m);
+      if (m.alive && m !== closest) buf.push(m);
     }
-    if (buf.length === 0) return;
-    buf.sort(this._chainSortFor(x, y));
 
-    const primary = buf[0];
-    // Apply stun + damage to a single target. Returns true if it split.
-    const countBefore0 = this.monsters.length;
-    if (stunDuration > 0) primary.stunTimer = Math.max(primary.stunTimer, stunDuration);
-    this.damageMonster(primary, damage);
-    this.popups.push({ text: '\u26A1', x: primary.x, y: primary.y - 12, t: 0.6, color: '#f1c40f' });
-    if (stunDuration > 0) {
-      for (let i = countBefore0; i < this.monsters.length; i++) {
-        this.monsters[i].stunTimer = Math.max(this.monsters[i].stunTimer, stunDuration);
-      }
-    }
-    PARTICLES.spawn(x, y, PARTICLES.chainSpark());
-
-    // Chain: find up to chainCount monsters behind the primary (lower progress = further from end).
-    const primaryProgress = primary.progress;
-    let chained = 0;
     for (let i = 0; i < buf.length && chained < chainCount; i++) {
-      const m = buf[i];
-      if (m === primary || !m.alive) continue;
-      if (m.progress < primaryProgress) {
-        const countBefore = this.monsters.length;
-        if (stunDuration > 0) m.stunTimer = Math.max(m.stunTimer, stunDuration);
-        this.damageMonster(m, damage);
-        this.popups.push({ text: '\u26A1', x: m.x, y: m.y - 12, t: 0.6, color: '#f1c40f' });
-        if (stunDuration > 0) {
-          for (let j = countBefore; j < this.monsters.length; j++) {
-            this.monsters[j].stunTimer = Math.max(this.monsters[j].stunTimer, stunDuration);
-          }
-        }
-        chained++;
+      // Find closest candidate to last chain target that has lower progress.
+      let bestDist = Infinity;
+      let best = null;
+      for (let j = 0; j < buf.length; j++) {
+        const m = buf[j];
+        if (!m.alive || m.progress >= primaryProgress) continue;
+        const dx = m.x - lastX, dy = m.y - lastY;
+        const dSq = dx * dx + dy * dy;
+        if (dSq < bestDist) { bestDist = dSq; best = m; }
       }
+      if (!best || bestDist > maxChainDist * maxChainDist) break; // too far, stop chaining
+      lastX = best.x; lastY = best.y;
+      applyHit(best, best.x, best.y);
+      chained++;
     }
   }
 
@@ -408,6 +433,10 @@ class Game {
           this.accumulator = fixed * 4;
         }
       }
+    };
+    this._simWorker.onerror = (e) => {
+      console.error('Sim worker error, falling back to main thread:', e);
+      this._simWorker = null;
     };
     this._simWorker.postMessage('start');
     } catch (err) {
@@ -503,6 +532,13 @@ class Game {
       ctx.beginPath();
       ctx.arc(m.x, m.y, bodyR, 0, 6.2832);
       ctx.fill();
+      // Stun visual indicator.
+      if (m.stunTimer > 0) {
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, bodyR, 0, Math.PI * 2);
+        ctx.fill();
+      }
       // HP bar: only shown when monster has taken damage or has shield.
       if (m.hp < m.maxHp || m.shield < m.maxShield) {
         const w = m.spec.size + 6;
@@ -582,7 +618,7 @@ class Game {
   // ===== Input =====
   onMouseDown(px, py, button) {
     // Block all interaction during victory/defeat overlay (only keyboard restart works).
-    if (this.state === 'VICTORY' || this.state === 'DEFEAT') return;
+    if (this.state === 'DEFEAT') return;
 
     if (button === 2) {
       this.selectedSpec = null;
@@ -680,11 +716,10 @@ class Game {
 
       // Speed buttons.
       const w = RENDERER.width;
-      const speeds = [1, 2, 4, 8, 16, 32, 64, 128];
-      for (let i = 0; i < speeds.length; i++) {
+      for (let i = 0; i < SPEEDS.length; i++) {
         const r = { x: w - 370 + i * 28, y: 14, w: 26, h: 28 };
         if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
-          this.speed = speeds[i];
+          this.speed = SPEEDS[i];
           return;
         }
       }
@@ -776,6 +811,8 @@ class Game {
           if (this.placeTroop(this.selectedSpec, tile.gx, tile.gy)) {
             // Keep selected for repeat placement.
           } else {
+            const center = tileCenter(tile.gx, tile.gy);
+            this.popups.push({ text: 'Invalid!', x: center.x, y: center.y, t: 1.0, color: '#da3633' });
             this.selectedTroopIndex = -1;
           }
           return;
@@ -801,7 +838,7 @@ class Game {
     }
     // Restart.
     if ((e.key === 'r' || e.key === 'R')
-        && (this.state === 'VICTORY' || this.state === 'DEFEAT')) {
+        && this.state === 'DEFEAT') {
       this.restart();
       return;
     }

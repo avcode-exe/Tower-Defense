@@ -14,7 +14,6 @@ class WaveManager {
     this.spawnIndex = 0;
     this.waveActive = false;
     this.waveComplete = false;
-    this.gameWon = false;
     this.currentPreview = this._previewForWave(this.currentWave);
     this.buildQueue();           // pre-build queue for wave 1
   }
@@ -95,11 +94,9 @@ class WaveManager {
 
   _getScaling(cycle) {
     if (cycle <= 0) return 1;
-    if (cycle <= 2) return Math.pow(1.35, cycle);
-    // After cycle 2 (wave 20+), switch to linear growth to avoid runaway scaling.
-    const base = Math.pow(1.35, 2);
-    const linear = base + (cycle - 2) * 0.3;
-    return Math.min(linear, CONFIG.MAX_WAVE_SCALE);
+    // Each group of 10 waves: cycle 1 = 1.35x, cycle 2 = 1.65x, etc.
+    // Linear growth keeps it challenging but not impossible.
+    return 1 + cycle * 0.35;
   }
 
   _previewForWave(number) {

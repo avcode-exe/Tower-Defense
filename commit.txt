@@ -1,91 +1,80 @@
-perf: zero-allocation hot loops, cached stats, and UI layout fix
+v1.1.0: infinite waves, balance rework, zero-alloc perf, and UX polish
 
-This is a comprehensive performance optimization pass across 9 files
-(350 additions, 204 deletions). The goal was to eliminate per-frame
-heap allocations, reduce method call overhead in hot loops, and batch
-canvas state changes — targeting the simulation step, rendering, and
-input handling paths that execute every frame.
+Major release since v1.0.5 (1032 insertions, 385 deletions across 18 files).
+Highlights: infinite wave system, complete balance overhaul, comprehensive
+performance optimization pass, shield monster rework, and quality-of-life
+improvements.
 
-## Allocation Elimination
+## New Features
 
-- utils.js: Added `tileCenterInto()` and `pixelToTileInto()` zero-
-  allocation variants that write into a caller-provided object instead
-  of creating new `{x,y}` / `{gx,gy}` objects. Removed unused module-
-  level scratch objects `_tcOut` and `_pttOut`.
-- monster.js: Shared static `_dmgResult` object in `takeDamage()` resets
-  fields at the top of each call instead of allocating a new object per
-  hit. Removed the `tile` getter that created `{gx,gy}` per invocation.
-- particles.js: Full rewrite with a pre-allocated Particle pool (300 max)
-  using `reset()` method for reuse. Single-pass update+compact halves
-  iteration count. `_getParticle()` scans for dead particles before
-  allocating. Index-based draw loop.
-- game.js: Stored `_onProjectileImpact` closure once in the constructor,
-  reused across all projectiles per frame (was creating a new closure per
-  projectile impact). Inlined `chainHitAt` logic directly — no closure
-  allocation per chain hit. `shopCardRectInto()` zero-alloc variant for
-  the shop rendering loop.
-- renderer.js: Added `toWorldInto()` zero-allocation variant. Cached
-  device pixel ratio (`_dpr`) instead of reading `window.devicePixelRatio`
-  on every resize/rebuild.
+- **Infinite wave system**: Game no longer ends at wave 10. Waves cycle
+  indefinitely with linear scaling (`1 + cycle * 0.35`), only ending on
+  defeat. `MAX_SPAWNS_PER_TYPE` raised to 80.
+- **Boss wave bonus**: +500g awarded every 10th wave (wave 10, 20, 30...).
+- **Shield monster rework**: Shield now absorbs ALL damage — HP is completely
+  untouched while shield is active. Overkill damage only breaks shield.
+  "Shield!" popup shown when shield absorbs.
+- **Stun visual indicator**: White flash overlay on stunned monsters so chain
+  lightning impact is visible.
+- **Placement failure feedback**: "Invalid!" popup shown when placement fails
+  (can't afford or invalid tile).
+- **Infinite gold in dev mode**: Dev panel gold display shows ∞ symbol.
+- **Range circle visibility**: Higher alpha (0.35→0.5) on selected troop range,
+  subtle filled circle behind both placement ghost and selected troop range.
 
-## Hot Loop Optimization
+## Balance Changes
 
-- All hot-path `for...of` loops converted to index-based `for` loops:
-  troops, monsters, projectiles, particles, popups, hotkeys, canPlace,
-  dev panel buttons, shop cards.
-- Hoisted loop-invariant constants: `tx/ty/rangePxSq` in troop ranged
-  targeting, `font/textAlign` in popup rendering, `font/textAlign` in
-  HUD drawing (set once per batch, not per element).
-- Bitwise `|0` replacing `Math.floor` for positive pixel-coordinate
-  floor operations in utils.js, monster.js, and game.js splashAt.
-- Squared distance pre-check in `splashAt` — `sqrt` only called for
-  alive monsters that pass the squared-radius test.
-- Arrow/bolt projectile rendering uses normalized direction vector
-  instead of `atan2`/`cos`/`sin` trig calls.
+- **Swordsman**: Cost 50→70g (was 2.2x more gold-efficient than any other troop).
+- **Mage**: Damage 20→28, splash radius 1.5→2.0 tiles.
+- **Valkyrie**: Damage 15→20, attack speed 1.5→1.2s.
+- **Mortar**: Damage 35→50, splash radius 2.0→2.5 tiles.
+- **Upgrade cost formula**: Changed from `2^(level-1)` to `1.6^(level-1)`.
+  Fully upgrading a troop now costs ~4.5x base instead of 8.7x.
+- **Lightning chain**: Chain distance capped at 1.5 tiles between consecutive
+  targets (was unlimited). Chain stops if no target in range.
 
-## Method Call Elimination
+## Performance (zero-allocation hot loops)
 
-- troop.js: Direct property access (`_cachedDamage`, `_cachedRange`,
-  `_cachedAttackSpeed`, `_cachedChain`) in `pickTarget` and `update`
-  instead of `getDamage()`/`getRange()`/`getAttackSpeed()` method calls.
-  Stats are recomputed via `_recomputeStats()` only on upgrade.
-- game.js: `applyProjectileImpact` and `chainHitAt` use `_cachedDamage`
-  /`_cachedChain` directly instead of method calls.
-- config.js: Pre-computed `_statsStr` string per TROOP_SPECS entry at
-  load time (avoids string concatenation per frame in the shop UI).
+- **Allocation elimination**: `tileCenterInto`/`pixelToTileInto` zero-alloc
+  helpers, shared static `_dmgResult` in Monster.takeDamage, pre-allocated
+  Particle pool (300 max) with single-pass update+compact, stored
+  `_onProjectileImpact` closure reused across all projectiles, inlined
+  `chainHitAt` logic (no closure per hit), `toWorldInto` zero-alloc variant.
+- **Hot loop optimization**: All `for...of` in hot paths converted to
+  index-based `for` loops (troops, monsters, projectiles, particles, popups,
+  shop cards, dev panel). Hoisted loop-invariant constants. Bitwise `|0`
+  replacing `Math.floor` for positive pixel coords. Squared distance
+  pre-check in `splashAt` (sqrt only for in-range). Arrow rendering uses
+  direction vector instead of atan2/cos/sin.
+- **Method call elimination**: Direct `_cachedDamage`/`_cachedRange`/
+  `_cachedAttackSpeed`/`_cachedChain` property access in hot loops instead of
+  `getDamage()`/`getRange()`/`getAttackSpeed()` method calls.
+- **Canvas batching**: `font`/`textAlign`/`fillStyle` set once per batch in
+  `drawHUD`, `drawShop`, `drawPreview` (not per element). `fillCircle` uses
+  `fillRect` for r<=2. DPR cached as `_dpr`.
+- **DOM**: `getBoundingClientRect()` cached in `_rect` (mousemove/wheel use
+  cached, mousedown recalcs for accuracy, resize listener updates cache).
+- **Pre-computed data**: `_statsStr` per TROOP_SPECS at load time,
+  module-level `SPEEDS` constant (was per-frame array allocation).
+- **Reusable comparator**: `_chainCmp` comparator reused across all chain
+  hits in a frame (no allocation per sort call).
 
-## Canvas / Rendering Optimization
+## Bug Fixes
 
-- renderer.js: `fillCircle` uses `fillRect` for tiny radii (r <= 2),
-  avoiding arc path setup overhead.
-- ui.js: Batched `fillStyle`/`textAlign`/`font` setting in `drawHUD` —
-  set once per batch instead of per element. `textBaseline` set once at
-  the top and reset at the end (including all 3 collapsed-panel early
-  return paths that were leaking `textBaseline='middle'`).
-- game.js render: Cached `ctx` reference at render start. `fillRect` for
-  small indicator dots instead of arc. Popup font/textAlign set once for
-  the entire popup loop.
+- Worker `onerror` handler added (game would freeze silently on worker crash).
+- Canvas context null guard in renderer.js.
+- `sellTroop` clears `selectedSpec` (placement ghost no longer persists after
+  selling the selected troop).
+- Fixed syntax error in dev panel click handler (missing closing brace).
+- Floating point in upgrade costs: `Math.round()` ensures clean integers.
+- `_cachedAttackSpeed` uses `Math.round(... * 100) / 100` instead of
+  `.toFixed(2)` (returns number, not string).
 
-## DOM / Layout
+## Documentation
 
-- input.js: Cached `getBoundingClientRect()` in `_rect` property.
-  Only recalculates on `mousedown` (for accuracy after resize) and via
-  a `resize` event listener. `mousemove` and `wheel` use the cached
-  value to avoid per-event layout thrashing.
-- ui.js: `SHOP_WIDTH` increased from 220px to 240px to prevent the
-  sidebar collapse/expand button from being partially hidden behind
-  troop cards. Button x-coordinate shifted from 201 to 221.
-
-## Files Modified
-
-- utils.js: zero-alloc helpers, dead code removal
-- monster.js: bitwise floor, inlined distance, shared _dmgResult
-- troop.js: cached stats, inlined ranged targeting, index loops
-- particles.js: full pool rewrite, single-pass update+compact
-- game.js: reusable closure, inlined chain/splash, index loops, render opts
-- ui.js: pre-computed statsStr, drawHUD batching, textBaseline fixes, wider sidebar
-- renderer.js: DPR cache, toWorldInto, fillCircle optimization
-- input.js: cached getBoundingClientRect
-- config.js: pre-computed _statsStr per TROOP_SPECS
-
-All 14 JS files pass `node --check` syntax validation.
+- README fully rewritten: 9 troops listed (was 8), accurate stats from
+  config.js, controls updated (F3/Alt+M/speed buttons), tech stack
+  clarified (Web Worker for simulation, not render loop).
+- Apache 2.0 LICENSE added.
+- `.gitnexus/` added to .gitignore (prevents 64MB binary from being tracked).
+- Version bumped from 1.1.0-beta.3 to 1.1.0.

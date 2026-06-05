@@ -101,13 +101,18 @@ class Monster {
     r.reward = 0;
     r.hpDamage = 0;
     if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return r;
-    // Shield absorbs flat damage before HP.
+    // Shield absorbs all damage — HP is untouched while shield is active.
+    // Even overkill damage only removes the shield, not HP.
     if (this.shield > 0) {
-      const absorbed = Math.min(this.shield, amount);
-      this.shield -= absorbed;
-      amount -= absorbed;
-      if (absorbed > 0) this.shieldRegenTimer = 0;
+      if (amount >= this.shield) {
+        this.shield = 0;
+      } else {
+        this.shield -= amount;
+      }
+      this.shieldRegenTimer = 0;
+      return r;
     }
+    // No shield — damage goes directly to HP.
     r.hpDamage = amount;
     this.hp -= amount;
     if (this.hp <= 0) {

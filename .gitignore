@@ -2,6 +2,7 @@ node_modules/
 dist/
 .kilo/
 .claude/
+.gitnexus/
 AGENTS.md
 CLAUDE.md
 *.exe
