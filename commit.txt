@@ -1,80 +1,15 @@
-v1.1.0: infinite waves, balance rework, zero-alloc perf, and UX polish
+v1.1.1: architecture cleanup — scope, constants, and safety hardening
 
-Major release since v1.0.5 (1032 insertions, 385 deletions across 18 files).
-Highlights: infinite wave system, complete balance overhaul, comprehensive
-performance optimization pass, shield monster rework, and quality-of-life
-improvements.
+MEDIUM impact:
+- Replace Monster._dmgResult shared mutable state with fresh objects per call (monster.js)
+- Scope NEIGHBORS into generatePath() to eliminate module-level leak (pathGenerator.js)
+- IIFE-wrap ui.js to privatize UI_COLORS and helpers; expose only UI, UI_LAYOUT,
+  UIRoundRect, drawToggleButton, hitToggleButton as globals (ui.js)
+- Move SPEEDS to CONFIG.GAME_SPEEDS for consistent global config access (config.js, ui.js, game.js)
 
-## New Features
+LOW impact:
+- Extract particle gravity magic number 60 into CONFIG.PARTICLE_GRAVITY (config.js, particles.js)
+- Extract HP bar and shield bar color literals into CONFIG.COLORS (config.js, game.js)
+- Replace 8 magic +0.5 tile-buffer literals with CONFIG.TILE_BUFFER (config.js, troop.js, ui.js)
 
-- **Infinite wave system**: Game no longer ends at wave 10. Waves cycle
-  indefinitely with linear scaling (`1 + cycle * 0.35`), only ending on
-  defeat. `MAX_SPAWNS_PER_TYPE` raised to 80.
-- **Boss wave bonus**: +500g awarded every 10th wave (wave 10, 20, 30...).
-- **Shield monster rework**: Shield now absorbs ALL damage — HP is completely
-  untouched while shield is active. Overkill damage only breaks shield.
-  "Shield!" popup shown when shield absorbs.
-- **Stun visual indicator**: White flash overlay on stunned monsters so chain
-  lightning impact is visible.
-- **Placement failure feedback**: "Invalid!" popup shown when placement fails
-  (can't afford or invalid tile).
-- **Infinite gold in dev mode**: Dev panel gold display shows ∞ symbol.
-- **Range circle visibility**: Higher alpha (0.35→0.5) on selected troop range,
-  subtle filled circle behind both placement ghost and selected troop range.
-
-## Balance Changes
-
-- **Swordsman**: Cost 50→70g (was 2.2x more gold-efficient than any other troop).
-- **Mage**: Damage 20→28, splash radius 1.5→2.0 tiles.
-- **Valkyrie**: Damage 15→20, attack speed 1.5→1.2s.
-- **Mortar**: Damage 35→50, splash radius 2.0→2.5 tiles.
-- **Upgrade cost formula**: Changed from `2^(level-1)` to `1.6^(level-1)`.
-  Fully upgrading a troop now costs ~4.5x base instead of 8.7x.
-- **Lightning chain**: Chain distance capped at 1.5 tiles between consecutive
-  targets (was unlimited). Chain stops if no target in range.
-
-## Performance (zero-allocation hot loops)
-
-- **Allocation elimination**: `tileCenterInto`/`pixelToTileInto` zero-alloc
-  helpers, shared static `_dmgResult` in Monster.takeDamage, pre-allocated
-  Particle pool (300 max) with single-pass update+compact, stored
-  `_onProjectileImpact` closure reused across all projectiles, inlined
-  `chainHitAt` logic (no closure per hit), `toWorldInto` zero-alloc variant.
-- **Hot loop optimization**: All `for...of` in hot paths converted to
-  index-based `for` loops (troops, monsters, projectiles, particles, popups,
-  shop cards, dev panel). Hoisted loop-invariant constants. Bitwise `|0`
-  replacing `Math.floor` for positive pixel coords. Squared distance
-  pre-check in `splashAt` (sqrt only for in-range). Arrow rendering uses
-  direction vector instead of atan2/cos/sin.
-- **Method call elimination**: Direct `_cachedDamage`/`_cachedRange`/
-  `_cachedAttackSpeed`/`_cachedChain` property access in hot loops instead of
-  `getDamage()`/`getRange()`/`getAttackSpeed()` method calls.
-- **Canvas batching**: `font`/`textAlign`/`fillStyle` set once per batch in
-  `drawHUD`, `drawShop`, `drawPreview` (not per element). `fillCircle` uses
-  `fillRect` for r<=2. DPR cached as `_dpr`.
-- **DOM**: `getBoundingClientRect()` cached in `_rect` (mousemove/wheel use
-  cached, mousedown recalcs for accuracy, resize listener updates cache).
-- **Pre-computed data**: `_statsStr` per TROOP_SPECS at load time,
-  module-level `SPEEDS` constant (was per-frame array allocation).
-- **Reusable comparator**: `_chainCmp` comparator reused across all chain
-  hits in a frame (no allocation per sort call).
-
-## Bug Fixes
-
-- Worker `onerror` handler added (game would freeze silently on worker crash).
-- Canvas context null guard in renderer.js.
-- `sellTroop` clears `selectedSpec` (placement ghost no longer persists after
-  selling the selected troop).
-- Fixed syntax error in dev panel click handler (missing closing brace).
-- Floating point in upgrade costs: `Math.round()` ensures clean integers.
-- `_cachedAttackSpeed` uses `Math.round(... * 100) / 100` instead of
-  `.toFixed(2)` (returns number, not string).
-
-## Documentation
-
-- README fully rewritten: 9 troops listed (was 8), accurate stats from
-  config.js, controls updated (F3/Alt+M/speed buttons), tech stack
-  clarified (Web Worker for simulation, not render loop).
-- Apache 2.0 LICENSE added.
-- `.gitnexus/` added to .gitignore (prevents 64MB binary from being tracked).
-- Version bumped from 1.1.0-beta.3 to 1.1.0.
+Zero behavioral changes — all refactoring verified via syntax check across all 15 JS modules.
