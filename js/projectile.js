@@ -26,7 +26,7 @@ class Projectile {
     // Kill stale projectiles that have been flying without a target for too long.
     if (!this.target || !this.target.alive) {
       this.target = null;
-      if (this.age > 1.5) {
+      if (this.age > CONFIG.PROJECTILE_TIMEOUT) {
         this.alive = false;
         return;
       }

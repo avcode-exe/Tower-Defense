@@ -24,7 +24,7 @@ class Particle {
   update(dt) {
     this.x += this.vx * dt;
     this.y += this.vy * dt;
-    if (this.gravity) this.vy += 60 * dt;
+    if (this.gravity) this.vy += CONFIG.PARTICLE_GRAVITY * dt;
     this.life -= dt;
     if (this.life <= 0) this.alive = false;
   }
@@ -36,10 +36,6 @@ const PARTICLES = {
   _maxPool: 300,
 
   _getParticle() {
-    // Reuse dead particles from the pool; only allocate when pool is empty.
-    for (let i = 0; i < this._activeCount; i++) {
-      if (!this._pool[i].alive) return this._pool[i];
-    }
     if (this._activeCount < this._maxPool) {
       const p = new Particle();
       this._pool[this._activeCount++] = p;
@@ -96,13 +92,24 @@ const PARTICLES = {
   },
 
   draw(ctx) {
+    const buckets = {};
     for (let i = 0; i < this._activeCount; i++) {
       const p = this._pool[i];
-      const alpha = clamp(p.life / p.maxLife, 0, 1);
-      ctx.globalAlpha = alpha;
-      ctx.fillStyle = p.color;
-      const half = p.size * 0.5;
-      ctx.fillRect(p.x - half, p.y - half, p.size, p.size);
+      const alphaKey = Math.round((p.life / p.maxLife) * 10) / 10;
+      const key = p.color + '|' + alphaKey;
+      if (!buckets[key]) buckets[key] = [];
+      buckets[key].push(p);
+    }
+    for (const key in buckets) {
+      const sep = key.indexOf('|');
+      ctx.globalAlpha = parseFloat(key.slice(sep + 1));
+      ctx.fillStyle = key.slice(0, sep);
+      const batch = buckets[key];
+      for (let j = 0; j < batch.length; j++) {
+        const p = batch[j];
+        const half = p.size * 0.5;
+        ctx.fillRect(p.x - half, p.y - half, p.size, p.size);
+      }
     }
     ctx.globalAlpha = 1;
   },

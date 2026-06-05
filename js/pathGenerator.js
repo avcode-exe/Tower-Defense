@@ -8,20 +8,18 @@
 // If a valid path of sufficient length cannot be found after retries, return
 // a straight-line fallback.
 
-const NEIGHBORS = [
-  [ 0, -1],
-  [ 1,  0],
-  [ 0,  1],
-  [-1,  0],
-];
-
 function generatePath(seed) {
+  const NEIGHBORS = [
+    [ 0, -1],
+    [ 1,  0],
+    [ 0,  1],
+    [-1,  0],
+  ];
   const rng = makeRNG(seed);
   const N = CONFIG.GRID_SIZE;
 
   for (let attempt = 0; attempt < CONFIG.PATH_REGEN_ATTEMPTS; attempt++) {
     const startY = Math.floor(rng() * N);
-    const endY = Math.floor(rng() * N);
     const path = [[0, startY]];
     const occupied = new Uint8Array(N * N);
     occupied[startY * N + 0] = 1;
@@ -74,7 +72,7 @@ function generatePath(seed) {
       // Reject edge-hugging runs: only start/end may lie on a side edge.
       const body = path.slice(1, path.length - 1);
       const edgeBody = body.filter(([x,y]) => y === 0 || y === N - 1 || x === 0 || x === N - 1).length;
-      if (edgeBody / Math.max(1, body.length) < 0.35) {
+      if (edgeBody / Math.max(1, body.length) < CONFIG.PATH_EDGE_REJECTION) {
         return path;
       }
     }

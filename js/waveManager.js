@@ -9,7 +9,7 @@ class WaveManager {
   reset() {
     this.currentWave = 0;       // 0-based index; 0 means wave 1 not yet started
     this.waves = WAVES;
-    this.queue = [];            // [{level, spawnAt}, ...]
+    this.queue = [];            // [{level, spawnAt, hpMult}, ...]
     this.elapsed = 0;
     this.spawnIndex = 0;
     this.waveActive = false;
@@ -25,11 +25,14 @@ class WaveManager {
     this.elapsed = 0;
     this.currentPreview = this._previewForWave(this.currentWave);
     const spec = this.currentPreview;
-    let t = 0.2; // small delay after Start
+    const cycle = Math.floor(this.currentWave / this.waves.length);
+    const scaling = this._getScaling(cycle);
+    const hpMult = scaling.hpMult;
+    let t = CONFIG.WAVE_START_DELAY;
     for (const [level, count] of spec) {
       for (let i = 0; i < count; i++) {
         const interval = (level === 2) ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
-        this.queue.push({ level, spawnAt: t });
+        this.queue.push({ level, spawnAt: t, hpMult });
         t += interval;
       }
     }
@@ -40,13 +43,16 @@ class WaveManager {
     this.queue = [];
     this.spawnIndex = 0;
     this.elapsed = 0;
+    const cycle = Math.floor(this.currentWave / this.waves.length);
+    const scaling = this._getScaling(cycle);
+    const hpMult = scaling.hpMult;
     const order = [1, 2, 3, 4, 5, 'B', 'S'];
-    let t = 0.2;
+    let t = CONFIG.WAVE_START_DELAY;
     for (const level of order) {
       const count = counts[level] || 0;
       for (let i = 0; i < count; i++) {
         const interval = (level === 2) ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
-        this.queue.push({ level, spawnAt: t });
+        this.queue.push({ level, spawnAt: t, hpMult });
         t += interval;
       }
     }
@@ -67,7 +73,7 @@ class WaveManager {
     const next = this.queue[this.spawnIndex];
     if (this.elapsed >= next.spawnAt) {
       this.spawnIndex++;
-      return next.level;
+      return { level: next.level, hpMult: next.hpMult };
     }
     return null;
   }
@@ -93,10 +99,11 @@ class WaveManager {
   }
 
   _getScaling(cycle) {
-    if (cycle <= 0) return 1;
-    // Each group of 10 waves: cycle 1 = 1.35x, cycle 2 = 1.65x, etc.
-    // Linear growth keeps it challenging but not impossible.
-    return 1 + cycle * 0.35;
+    if (cycle <= 0) return { countMult: 1, hpMult: 1 };
+    return {
+      countMult: 1 + cycle * CONFIG.WAVE_SCALE_COUNT,
+      hpMult: 1 + cycle * CONFIG.WAVE_SCALE_HP
+    };
   }
 
   _previewForWave(number) {
@@ -107,7 +114,7 @@ class WaveManager {
     const cap = CONFIG.MAX_SPAWNS_PER_TYPE;
     const out = base.map(([level, count]) => [
       level,
-      Math.max(1, Math.min(cap, Math.round((count + cycle * 2) * scale))),
+      Math.max(1, Math.min(cap, Math.round((count + cycle * 2) * scale.countMult))),
     ]);
     return out;
   }
@@ -115,7 +122,7 @@ class WaveManager {
   // Returns the current scaling multiplier for infinite waves (wave 10+).
   get currentMultiplier() {
     const cycle = Math.floor(this.currentWave / this.waves.length);
-    return this._getScaling(cycle);
+    return this._getScaling(cycle).countMult;
   }
 
   get monstersRemainingThisWave() {

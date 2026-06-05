@@ -34,30 +34,14 @@ function dist(ax, ay, bx, by) {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-// Tile coordinates -> pixel center. Allocates an object; prefer tileCenterInto.
-function tileCenter(gx, gy) {
-  return {
-    x: gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-    y: gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-  };
-}
-
 // Write tile center into a reusable output object (zero allocation).
 function tileCenterInto(gx, gy, out) {
   out.x = gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
   out.y = gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
 }
 
-// Pixel -> tile coordinates. Allocates an object; prefer pixelToTileInto.
-function pixelToTile(px, py) {
-  return {
-    gx: (px / CONFIG.TILE_SIZE) | 0,
-    gy: (py / CONFIG.TILE_SIZE) | 0,
-  };
-}
-
 // Write pixel-to-tile into a reusable output object (zero allocation).
-function pixelToTileInto(px, py, out) {
+function pixelToTile(px, py, out) {
   out.gx = (px / CONFIG.TILE_SIZE) | 0;
   out.gy = (py / CONFIG.TILE_SIZE) | 0;
 }

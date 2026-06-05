@@ -7,14 +7,13 @@ class Troop {
     this.spec = spec;
     this.gx = gx;
     this.gy = gy;
-    const c = tileCenter(gx, gy);
-    this.x = c.x;
-    this.y = c.y;
+    this.x = gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+    this.y = gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
     this.dmgLevel = 1;
     this.rangeLevel = 1;
     this.speedLevel = 1;
     this.chainLevel = 1;
-    this.maxUpgradeLevel = 5;
+    this.maxUpgradeLevel = CONFIG.MAX_UPGRADE_LEVEL || 5;
     this.cooldown = 0;
     this.target = null;
     this.targetRefresh = 0;
@@ -34,9 +33,9 @@ class Troop {
 
   // Recompute cached stats (called after upgrade).
   _recomputeStats() {
-    this._cachedDamage = Math.round(this.spec.damage * Math.pow(1.2, this.dmgLevel - 1));
+    this._cachedDamage = Math.round(this.spec.damage * Math.pow(CONFIG.DAMAGE_SCALE_PER_LEVEL, this.dmgLevel - 1));
     this._cachedRange = this.spec.type === 'melee' ? this.spec.range : this.spec.range + (this.rangeLevel - 1);
-    this._cachedAttackSpeed = Math.round(this.spec.attackSpeed * Math.pow(0.9, this.speedLevel - 1) * 100) / 100;
+    this._cachedAttackSpeed = Math.round(this.spec.attackSpeed * Math.pow(CONFIG.SPEED_SCALE_PER_LEVEL, this.speedLevel - 1) * 100) / 100;
     this._cachedChain = (this.spec.chain || 0) + (this.chainLevel - 1);
   }
 
@@ -48,7 +47,7 @@ class Troop {
     else if (stat === 'speed') level = this.speedLevel;
     else if (stat === 'chain') level = this.chainLevel;
     else return Infinity;
-    return Math.round(this.spec.cost * Math.pow(1.6, level - 1));
+    return Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
   }
 
   // Returns true when the stat is even visible/upgradable for this troop type
@@ -87,24 +86,43 @@ class Troop {
     for (const stat of ['dmg', 'range', 'speed', 'chain']) {
       const level = stat === 'dmg' ? this.dmgLevel : stat === 'range' ? this.rangeLevel : stat === 'speed' ? this.speedLevel : this.chainLevel;
       for (let l = 1; l < level; l++) {
-        total += Math.round(this.spec.cost * Math.pow(1.6, l - 1));
+        total += Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, l - 1));
       }
     }
     return total;
   }
 
-  pickTarget(monsters) {
+  pickTarget(monsters, tileIndex) {
     const range = this._cachedRange;
-    const rangePx = (range + 0.5) * CONFIG.TILE_SIZE;
+    const rangePx = (range + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE;
     const tgx = this.gx, tgy = this.gy;
     if (this.spec.type === 'melee') {
       let best = null;
-      let bestDist = range + 0.5 + 1;
+      let bestDist = range + CONFIG.TILE_BUFFER + 1;
+      if (tileIndex) {
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            const idx = (tgy + dy) * CONFIG.GRID_SIZE + (tgx + dx);
+            const tileMonsters = tileIndex[idx];
+            if (!tileMonsters) continue;
+            for (let i = 0; i < tileMonsters.length; i++) {
+              const m = tileMonsters[i];
+              if (!m.alive) continue;
+              const d = m.tileDistanceTo(tgx, tgy);
+              if (d <= range + CONFIG.TILE_BUFFER && d < bestDist) {
+                bestDist = d;
+                best = m;
+              }
+            }
+          }
+        }
+        return best;
+      }
       for (let i = 0; i < monsters.length; i++) {
         const m = monsters[i];
         if (!m.alive) continue;
         const d = m.tileDistanceTo(tgx, tgy);
-        if (d <= range + 0.5 && d < bestDist) {
+        if (d <= range + CONFIG.TILE_BUFFER && d < bestDist) {
           bestDist = d;
           best = m;
         }
@@ -119,7 +137,6 @@ class Troop {
     for (let i = 0; i < monsters.length; i++) {
       const m = monsters[i];
       if (!m.alive) continue;
-      // Inline worldDistanceFromTile to avoid tileCenter allocation.
       const dx = m.x - tx, dy = m.y - ty;
       const pxSq = dx * dx + dy * dy;
       if (pxSq <= rangePxSq) {
@@ -138,7 +155,7 @@ class Troop {
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.targetRefresh -= dt;
     if (this.targetRefresh <= 0) {
-      this.target = this.pickTarget(monsters);
+      this.target = this.pickTarget(monsters, game ? game._monsterTileIndex : null);
       this.targetRefresh = CONFIG.TARGET_REFRESH_INTERVAL;
     }
     if (!this.target || !this.target.alive) return;
@@ -149,13 +166,30 @@ class Troop {
     if (this.spec.type === 'melee') {
       if (game) {
         if (this.spec.aoe) {
-          // Hit all monsters in range (360-degree swing).
           const rng = this._cachedRange;
-          for (let i = 0; i < monsters.length; i++) {
-            const m = monsters[i];
-            if (!m.alive) continue;
-            if (m.tileDistanceTo(this.gx, this.gy) <= rng + 0.5) {
-              game.damageMonster(m, dmg);
+          const tileIndex = game._monsterTileIndex;
+          if (tileIndex) {
+            for (let dx = -1; dx <= 1; dx++) {
+              for (let dy = -1; dy <= 1; dy++) {
+                const idx = (this.gy + dy) * CONFIG.GRID_SIZE + (this.gx + dx);
+                const tileMonsters = tileIndex[idx];
+                if (!tileMonsters) continue;
+                for (let i = 0; i < tileMonsters.length; i++) {
+                  const m = tileMonsters[i];
+                  if (!m.alive) continue;
+                  if (m.tileDistanceTo(this.gx, this.gy) <= rng + CONFIG.TILE_BUFFER) {
+                    game.damageMonster(m, dmg);
+                  }
+                }
+              }
+            }
+          } else {
+            for (let i = 0; i < monsters.length; i++) {
+              const m = monsters[i];
+              if (!m.alive) continue;
+              if (m.tileDistanceTo(this.gx, this.gy) <= rng + CONFIG.TILE_BUFFER) {
+                game.damageMonster(m, dmg);
+              }
             }
           }
         } else {

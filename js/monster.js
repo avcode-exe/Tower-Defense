@@ -3,13 +3,13 @@
 // path) rather than per-segment progress to make speed uniform.
 
 class Monster {
-  constructor(level, waypoints, sharedPath) {
+  constructor(level, waypoints, sharedPath, hpMult = 1) {
     this.level = level;
     const key = level === 'B' ? 'B' : level;
     this.spec = MONSTER_SPECS[key];
-    this.maxHp = this.spec ? this.spec.hp : 1;
+    this.maxHp = Math.round((this.spec ? this.spec.hp : 1) * hpMult);
     // Boss gets an extra 100% HP on top.
-    if (level === 'B') this.maxHp *= 2;
+    if (level === 'B') this.maxHp *= CONFIG.BOSS_HP_MULTIPLIER;
     this.hp = this.maxHp;
     this.speed = this.spec ? this.spec.speed : 1;
     this.reward = this.spec ? this.spec.reward : 0;
@@ -29,8 +29,11 @@ class Monster {
     this.shield = this.spec ? (this.spec.shield || 0) : 0;
     this.maxShield = this.shield;
     this.shieldRegenTimer = 0;
-    this.shieldRegenDelay = 3;
+    this.shieldRegenDelay = CONFIG.SHIELD_REGEN_DELAY;
     this.shieldRegenActive = false; // true once delay has elapsed
+
+    // Passive healing (Boss).
+    this.healPerSecond = this.spec ? (this.spec.healPerSecond || 0) : 0;
 
     // Cached tile coordinates (updated in _updatePosition).
     this._tileGx = 0;
@@ -92,17 +95,9 @@ class Monster {
     return Math.sqrt(dx * dx + dy * dy);
   }
 
-  // Shared result object for takeDamage — avoids allocating per hit.
-  static _dmgResult = { killed: false, reward: 0, hpDamage: 0 };
-
   takeDamage(amount) {
-    const r = Monster._dmgResult;
-    r.killed = false;
-    r.reward = 0;
-    r.hpDamage = 0;
+    const r = { killed: false, reward: 0, hpDamage: 0 };
     if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return r;
-    // Shield absorbs all damage — HP is untouched while shield is active.
-    // Even overkill damage only removes the shield, not HP.
     if (this.shield > 0) {
       if (amount >= this.shield) {
         this.shield = 0;
@@ -131,8 +126,12 @@ class Monster {
       this.shieldRegenTimer += dt;
       if (this.shieldRegenTimer >= this.shieldRegenDelay) {
         // Gradual regen: 20 shield per second after delay.
-        this.shield = Math.min(this.maxShield, this.shield + 20 * dt);
+        this.shield = Math.min(this.maxShield, this.shield + CONFIG.SHIELD_REGEN_RATE * dt);
       }
+    }
+    // Passive healing (ticks even during stun).
+    if (this.healPerSecond > 0 && this.hp < this.maxHp) {
+      this.hp = Math.min(this.maxHp, this.hp + this.healPerSecond * dt);
     }
     // Stunned: count down timer but don't move.
     if (this.stunTimer > 0) {

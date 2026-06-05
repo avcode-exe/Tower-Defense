@@ -51,12 +51,12 @@ window.addEventListener('DOMContentLoaded', () => {
       name.textContent = spec.name;
       const stats = document.createElement('span');
       stats.className = 'monster-stats';
-      let html = '<span>HP:' + spec.hp + '</span>';
-      html += '<span>Spd:' + spec.speed + '</span>';
-      html += '<span>+' + spec.reward + 'g</span>';
-      html += '<span>Leak:' + spec.leak + '</span>';
-      if (spec.shield) html += '<span>Shield:' + spec.shield + '</span>';
-      stats.innerHTML = html;
+      const _span = t => { const e = document.createElement('span'); e.textContent = t; return e; };
+      stats.appendChild(_span('HP:' + spec.hp));
+      stats.appendChild(_span('Spd:' + spec.speed));
+      stats.appendChild(_span('+' + spec.reward + 'g'));
+      stats.appendChild(_span('Leak:' + spec.leak));
+      if (spec.shield) stats.appendChild(_span('Shield:' + spec.shield));
       row.appendChild(dot);
       row.appendChild(name);
       row.appendChild(stats);

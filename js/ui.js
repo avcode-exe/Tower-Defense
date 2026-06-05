@@ -1,6 +1,8 @@
 // UI: HUD + shop + overlays. All drawing is done against the same canvas; we
 // divide the screen into regions and render with fixed coordinates.
 
+(function() {
+
 const UI_LAYOUT = {
   HUD_HEIGHT: 56,
   SHOP_WIDTH: 240,
@@ -72,8 +74,6 @@ function hitToggleButton(px, py, rect) {
   return px >= rect.x && px <= rect.x + rect.w && py >= rect.y && py <= rect.y + rect.h;
 }
 
-const SPEEDS = [1, 2, 4, 8, 16, 32, 64, 128];
-
 // ── UI object ──
 
 const UI = {
@@ -86,6 +86,7 @@ const UI = {
   _toggleHud: null,
   _togglePreview: null,
   _ghostPos: {x:0, y:0},
+  _tileScratch: {gx:0, gy:0},
 
   updateHover(px, py) {
     if (px == null || py == null) {
@@ -133,17 +134,17 @@ const UI = {
   handleToggleClick(px, py) {
     if (this._toggleHud && hitToggleButton(px, py, this._toggleHud)) {
       UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
-      RENDERER.resize(document.getElementById('game'));
+      RENDERER.resize(RENDERER.ctx.canvas);
       return true;
     }
     if (this._toggleShop && hitToggleButton(px, py, this._toggleShop)) {
       UI_LAYOUT.collapsed.shop = !UI_LAYOUT.collapsed.shop;
-      RENDERER.resize(document.getElementById('game'));
+      RENDERER.resize(RENDERER.ctx.canvas);
       return true;
     }
     if (this._togglePreview && hitToggleButton(px, py, this._togglePreview)) {
       UI_LAYOUT.collapsed.preview = !UI_LAYOUT.collapsed.preview;
-      RENDERER.resize(document.getElementById('game'));
+      RENDERER.resize(RENDERER.ctx.canvas);
       return true;
     }
     return false;
@@ -248,9 +249,9 @@ const UI = {
     c.font = '11px system-ui, sans-serif';
     c.textAlign = 'left';
     c.fillText('Speed:', sx - 50, 28);
-    for (let i = 0; i < SPEEDS.length; i++) {
+    for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
       const rx = sx + i * 28;
-      const active = game.speed === SPEEDS[i];
+      const active = game.speed === CONFIG.GAME_SPEEDS[i];
       c.fillStyle = active ? 'rgba(88,166,255,0.15)' : 'rgba(255,255,255,0.04)';
       UIRoundRect(c, rx, 14, 26, 28, 5);
       c.fill();
@@ -263,7 +264,7 @@ const UI = {
       c.fillStyle = active ? UI_COLORS.accent : UI_COLORS.textDim;
       c.font = '10px system-ui, sans-serif';
       c.textAlign = 'center';
-      c.fillText(SPEEDS[i] + 'x', rx + 13, 28);
+      c.fillText(CONFIG.GAME_SPEEDS[i] + 'x', rx + 13, 28);
     }
 
     // Start / pause / resume.
@@ -693,7 +694,8 @@ const UI = {
     if (!game.selectedSpec) return;
     if (RENDERER.hoverPx == null) return;
     const w = RENDERER.toWorldInto(RENDERER.hoverPx, RENDERER.hoverPy, this._ghostPos);
-    const tile = pixelToTile(w.x, w.y);
+    pixelToTile(w.x, w.y, this._tileScratch);
+    const tile = this._tileScratch;
     if (!inBounds(tile.gx, tile.gy)) return;
     if (RENDERER.hoverPx < UI_LAYOUT.shopWidth) return;
     if (RENDERER.hoverPy < UI_LAYOUT.hudHeight) return;
@@ -715,7 +717,7 @@ const UI = {
     c.lineWidth = 1.5;
     c.setLineDash([4, 4]);
     c.beginPath();
-    c.arc(center.x, center.y, (game.selectedSpec.range + 0.5) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
+    c.arc(center.x, center.y, (game.selectedSpec.range + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
     c.stroke();
     c.setLineDash([]);
 
@@ -739,7 +741,7 @@ const UI = {
     c.lineWidth = 1.5;
     c.setLineDash([5, 5]);
     c.beginPath();
-    c.arc(t.x, t.y, (t.getRange() + 0.5) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
+    c.arc(t.x, t.y, (t.getRange() + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE, 0, Math.PI * 2);
     c.fillStyle = 'rgba(88,166,255,0.08)';
     c.fill();
     c.stroke();
@@ -954,3 +956,11 @@ const UI = {
     c.fillText('Reset counts to defaults', rstX + rstW / 2, rstY + rstH / 2);
   },
 };
+
+window.UI_LAYOUT = UI_LAYOUT;
+window.UI = UI;
+window.UIRoundRect = UIRoundRect;
+window.drawToggleButton = drawToggleButton;
+window.hitToggleButton = hitToggleButton;
+
+})();
