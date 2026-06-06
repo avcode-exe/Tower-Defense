@@ -28,7 +28,7 @@ class Monster {
 
     // Shield mechanics (Shielded monster type).
     this.shield = this.spec ? (this.spec.shield || 0) : 0;
-    this.maxShield = this.shield;
+    this.maxShield = this.shield * 1.5;
     this.shieldRegenTimer = 0;
     this.shieldRegenDelay = CONFIG.SHIELD_REGEN_DELAY;
 

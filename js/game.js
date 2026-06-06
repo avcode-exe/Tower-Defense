@@ -738,7 +738,7 @@ class Game {
         const barY = m.y - m.spec.size * 0.5 - 10;
         ctx.fillRect(m.x - w * 0.5, barY - 4, w, 2);
         ctx.fillStyle = CONFIG.COLORS.shieldBarFill;
-        ctx.fillRect(m.x - w * 0.5, barY - 4, w * (m.shield / m.maxShield), 2);
+        ctx.fillRect(m.x - w * 0.5, barY - 4, w * Math.min(1, m.shield / m.maxShield), 2);
         ctx.fillStyle = CONFIG.COLORS.shieldBarBg;  // reset for next monster
       }
     }

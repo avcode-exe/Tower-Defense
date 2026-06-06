@@ -1,17 +1,8 @@
-dev: Replace visible DEV button with hidden triple-click activation
+fighter: Shielded monster over-heal buff + wider monster info panel
 
-Dev mode is now activated by triple-clicking the gold coin icon
-in the HUD (3 clicks within 800ms). The visible DEV button and
-F2 keyboard shortcut have been removed, making dev mode access
-less obvious to casual players.
-
-Three clicks are required: the hitbox is centered on the yellow
-gold coin at the top-left of the screen (x:10-36, y:14-42).
-Confirmation dialog still fires before toggling.
-
-UI Layout:
-- Widened dev-mode monster spawn panel from 180px to 220px
-  to eliminate overlap between monster names (e.g. "Grunt x8")
-  and the +/- control buttons
-- Widened confirmation dialog from 340px to 380px for better
-  text readability and button spacing
+- Allow the Shielded monster's shield to over-heal from 100% up to 150%
+  of its initial value. Initial shield remains at 100%.
+- Clamp shield bar rendering so it never visually exceeds the new cap.
+- Widen the in-game monster info panel and increase stats spacing so the
+  longer Shielded stats text fits without overflow.
+- Update README monster table to reflect the new shield cap.

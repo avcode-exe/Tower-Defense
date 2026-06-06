@@ -57,7 +57,7 @@ window.addEventListener('DOMContentLoaded', () => {
       stats.appendChild(_span('+' + spec.reward + 'g'));
       stats.appendChild(_span('Dmg:' + spec.damage));
       stats.appendChild(_span('Leak:' + spec.leak));
-      if (spec.shield) stats.appendChild(_span('Shield:' + spec.shield));
+      if (spec.shield) stats.appendChild(_span('Shield:' + spec.shield + ' (max ' + Math.round(spec.shield * 1.5) + ')'));
       row.appendChild(dot);
       row.appendChild(name);
       row.appendChild(stats);

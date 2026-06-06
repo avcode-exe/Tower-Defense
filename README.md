@@ -50,7 +50,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 | 4 | Elite | 245 | 1.0 | 18 | 17g | 2 | Splits into 2 Brutes on death |
 | 5 | Champion | 667 | 0.9 | 32 | 36g | 3 | Very tanky |
 | B | Boss | 1668 | 0.6 | 45 | 200g | 5 | 2x HP, appears wave 10/20/30, heals 15 HP/s |
-| S | Shielded | 173 | 0.8 | 16 | 15g | 1 | Regenerating shield (69 HP) |
+| S | Shielded | 173 | 0.8 | 16 | 15g | 1 | Regenerating shield (69 HP, overheals to 103) |
 
 Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 
