@@ -56,6 +56,8 @@ class WaveManager {
         t += interval;
       }
     }
+    // Update preview so UI shows accurate wave composition after custom build.
+    this.currentPreview = this._previewForWave(this.currentWave);
   }
 
   startNextWave() {

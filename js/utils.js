@@ -3,7 +3,7 @@
 // Mulberry32 - small, fast, deterministic PRNG. Re-seeding gives reproducible
 // games which is useful for testing and for a future "seeded map" feature.
 function makeRNG(seed) {
-  let s = (seed >>> 0) || ((Math.random() * 0xffffffff) >>> 0);
+  let s = (seed >>> 0) ?? ((Math.random() * 0xffffffff) >>> 0);
   return function rng() {
     s = (s + 0x6D2B79F5) >>> 0;
     let t = s;
@@ -35,15 +35,15 @@ function dist(ax, ay, bx, by) {
 }
 
 // Write tile center into a reusable output object (zero allocation).
-function tileCenterInto(gx, gy, out) {
+function tileCenterInto(gx, gy, out = {}) {
   out.x = gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
   out.y = gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
 }
 
 // Write pixel-to-tile into a reusable output object (zero allocation).
-function pixelToTile(px, py, out) {
-  out.gx = (px / CONFIG.TILE_SIZE) | 0;
-  out.gy = (py / CONFIG.TILE_SIZE) | 0;
+function pixelToTile(px, py, out = {}) {
+  out.gx = Math.floor(px / CONFIG.TILE_SIZE);
+  out.gy = Math.floor(py / CONFIG.TILE_SIZE);
 }
 
 function inBounds(gx, gy) {

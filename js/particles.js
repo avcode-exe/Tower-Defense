@@ -98,7 +98,7 @@ const PARTICLES = {
     const keys = this._bucketKeys;
     for (let i = 0; i < this._activeCount; i++) {
       const p = this._pool[i];
-      const alphaKey = Math.round((p.life / p.maxLife) * 10) / 10;
+      const alphaKey = p.maxLife > 0 ? Math.round((p.life / p.maxLife) * 10) / 10 : 0;
       const key = p.color + '|' + alphaKey;
       if (!buckets[key]) {
         buckets[key] = [];
@@ -119,7 +119,7 @@ const PARTICLES = {
       }
       // Reset bucket for next frame
       batch.length = 0;
-      buckets[key] = null;
+      delete buckets[key];
     }
     keys.length = 0;
     ctx.globalAlpha = 1;
@@ -129,27 +129,24 @@ const PARTICLES = {
     this._activeCount = 0;
   },
 
-  // Predefined effect configs.
+  // Predefined effect configs (returned by copy so mutations don't cross-contaminate).
   _hitSparkCfg: { count: 4, color: '#fff', minSize: 1, maxSize: 2.5, minSpeed: 40, maxSpeed: 90, minLife: 0.15, maxLife: 0.3, gravity: false },
   hitSpark(color) {
-    this._hitSparkCfg.color = color || '#fff';
-    return this._hitSparkCfg;
+    return { ...this._hitSparkCfg, color: color || '#fff' };
   },
 
   _deathBurstCfg: { count: 10, color: '#fff', minSize: 1.5, maxSize: 3.5, minSpeed: 50, maxSpeed: 130, minLife: 0.25, maxLife: 0.55, gravity: false },
   deathBurst(color) {
-    this._deathBurstCfg.color = color || '#fff';
-    return this._deathBurstCfg;
+    return { ...this._deathBurstCfg, color: color || '#fff' };
   },
 
   _splashImpactCfg: { count: 12, color: '#9b59b6', minSize: 1.5, maxSize: 3, minSpeed: 60, maxSpeed: 140, minLife: 0.2, maxLife: 0.45, gravity: false },
   splashImpact(color) {
-    this._splashImpactCfg.color = color || '#9b59b6';
-    return this._splashImpactCfg;
+    return { ...this._splashImpactCfg, color: color || '#9b59b6' };
   },
 
   _chainSparkCfg: { count: 3, color: '#f1c40f', minSize: 1, maxSize: 2, minSpeed: 30, maxSpeed: 70, minLife: 0.1, maxLife: 0.2, gravity: false },
   chainSpark() {
-    return this._chainSparkCfg;
+    return { ...this._chainSparkCfg };
   },
 };

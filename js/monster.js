@@ -31,7 +31,6 @@ class Monster {
     this.maxShield = this.shield;
     this.shieldRegenTimer = 0;
     this.shieldRegenDelay = CONFIG.SHIELD_REGEN_DELAY;
-    this.shieldRegenActive = false; // true once delay has elapsed
 
     // Passive healing (Boss).
     this.healPerSecond = this.spec ? (this.spec.healPerSecond || 0) : 0;

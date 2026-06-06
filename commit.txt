@@ -1,15 +1,29 @@
-v1.1.1: architecture cleanup — scope, constants, and safety hardening
+Fix 14 bugs across the codebase — targeting, timing, particles, and stability
 
-MEDIUM impact:
-- Replace Monster._dmgResult shared mutable state with fresh objects per call (monster.js)
-- Scope NEIGHBORS into generatePath() to eliminate module-level leak (pathGenerator.js)
-- IIFE-wrap ui.js to privatize UI_COLORS and helpers; expose only UI, UI_LAYOUT,
-  UIRoundRect, drawToggleButton, hitToggleButton as globals (ui.js)
-- Move SPEEDS to CONFIG.GAME_SPEEDS for consistent global config access (config.js, ui.js, game.js)
+CRITICAL
+- game.js: projectile dead-target fallback widened from 1 tile to full
+  3×3 search area (closestDist: TILE_SIZE → Infinity)
+- game.js: chain lightning no longer re-hits the same shielded/surviving
+  monster (remove hit targets from candidate buffer via splice)
 
-LOW impact:
-- Extract particle gravity magic number 60 into CONFIG.PARTICLE_GRAVITY (config.js, particles.js)
-- Extract HP bar and shield bar color literals into CONFIG.COLORS (config.js, game.js)
-- Replace 8 magic +0.5 tile-buffer literals with CONFIG.TILE_BUFFER (config.js, troop.js, ui.js)
+HIGH
+- simWorker.js: match game FIXED_TIMESTEP (60 Hz = 16.667 ms instead of
+  hardcoded 16 ms) to eliminate ~4% slowdown
+- waveManager.js: buildCustomFromCounts() now updates currentPreview so
+  dev-mode UI shows accurate wave composition
+- game.js: remove dead accumulator clamp code that could never execute
+- game.js: splash damage now rounds instead of truncating (| 0 → Math.round)
 
-Zero behavioral changes — all refactoring verified via syntax check across all 15 JS modules.
+MEDIUM
+- game.js: clamp monster tile-index coordinates to grid bounds to prevent
+  phantom out-of-range tile buckets
+- particles.js: fix three bugs — delete buckets[key] instead of null to
+  prevent memory leak, return spread copies of config objects to avoid
+  color cross-contamination, guard NaN alpha key when maxLife = 0
+- electron-main.js: handle unhandled promise rejection in hourly update check
+
+LOW
+- utils.js: add default {} params for tileCenterInto/pixelToTile, use
+  Math.floor instead of | 0 for correct negative coordinate handling,
+  use nullish coalescing (??) in makeRNG so seed=0 is reproducible
+- monster.js: remove unused shieldRegenActive field (dead code)

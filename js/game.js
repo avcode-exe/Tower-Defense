@@ -312,9 +312,6 @@ class Game {
       this.step(fixed);
       this.accumulator -= fixed;
     }
-    if (this.speed >= 64 && this.accumulator > fixed * 6) {
-      this.accumulator = fixed * 4;
-    }
     this.render();
   }
 
@@ -333,8 +330,8 @@ class Game {
     for (let i = 0; i < this.monsters.length; i++) {
       const m = this.monsters[i];
       if (!m.alive) continue;
-      const gx = (m.x / CONFIG.TILE_SIZE) | 0;
-      const gy = (m.y / CONFIG.TILE_SIZE) | 0;
+      const gx = Math.max(0, Math.min(G - 1, (m.x / CONFIG.TILE_SIZE) | 0));
+      const gy = Math.max(0, Math.min(G - 1, (m.y / CONFIG.TILE_SIZE) | 0));
       const idx = gy * G + gx;
       let arr = tiIdx[idx];
       if (!arr) {
@@ -356,7 +353,7 @@ class Game {
         this.splashAt(proj.lastTargetX, proj.lastTargetY, dmg, proj.troop.spec.splash, proj.troop);
       } else {
         // Direct hit: find closest alive monster to impact point using tile index.
-        let closest = null, closestDist = CONFIG.TILE_SIZE;
+        let closest = null, closestDist = Infinity;
         const gx0 = (proj.lastTargetX / CONFIG.TILE_SIZE) | 0;
         const gy0 = (proj.lastTargetY / CONFIG.TILE_SIZE) | 0;
         const G = CONFIG.GRID_SIZE;
@@ -456,16 +453,19 @@ class Game {
       // Find closest candidate to last chain target that has lower progress.
       let bestDist = Infinity;
       let best = null;
+      let bestIdx = -1;
       for (let j = 0; j < buf.length; j++) {
         const m = buf[j];
         if (!m.alive || m.progress >= primaryProgress) continue;
         const dx = m.x - lastX, dy = m.y - lastY;
         const dSq = dx * dx + dy * dy;
-        if (dSq < bestDist) { bestDist = dSq; best = m; }
+        if (dSq < bestDist) { bestDist = dSq; best = m; bestIdx = j; }
       }
       if (!best || bestDist > maxChainDist * maxChainDist) break; // too far, stop chaining
       lastX = best.x; lastY = best.y;
       applyHit(best, best.x, best.y);
+      // Remove hit monster from buffer to prevent re-hitting the same target.
+      if (bestIdx >= 0) { buf.splice(bestIdx, 1); i--; }
       chained++;
     }
   }
@@ -491,7 +491,7 @@ class Game {
           const dSq = dx * dx + dy * dy;
           if (dSq <= rSq) {
             const falloff = 1 - 0.5 * (Math.sqrt(dSq) * rInv);
-            const dmg = Math.max(1, (damage * falloff) | 0);
+            const dmg = Math.max(1, Math.round(damage * falloff));
             this.damageMonster(m, dmg);
           }
         }

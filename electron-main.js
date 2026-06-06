@@ -140,9 +140,7 @@ function checkForUpdates() {
     }
   });
   updateCheckInterval = setInterval(() => {
-    try {
-      autoUpdater.checkForUpdates();
-    } catch (err) {
+    autoUpdater.checkForUpdates().catch(err => {
       const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : 'Unknown error';
       console.error('[auto-updater] Interval check failed:', errMsg);
       if (mainWindow) {
@@ -154,7 +152,7 @@ function checkForUpdates() {
           buttons: ['OK']
         });
       }
-    }
+    });
   }, 60 * 60 * 1000);
 }
 
