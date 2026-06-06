@@ -148,6 +148,20 @@ class Game {
     this._getPopup(stat.toUpperCase() + ' +1', t.x, t.y - 10, 1.2, '#f1c40f');
   }
 
+  // Heal a troop by 10% of max HP.
+  healTroop(index) {
+    const t = this.troops[index];
+    if (!t || !t.alive) return;
+    if (!t.canHeal()) return;
+    const cost = t.getHealCost();
+    if (this.gold < cost) return;
+    this.gold -= cost;
+    const prevHp = t.hp;
+    t.heal();
+    const actual = Math.ceil(t.hp - prevHp);
+    this._getPopup('+' + actual + ' HP', t.x, t.y - 10, 1.0, '#44cc44');
+  }
+
   spawnMonster(level, hpMult = 1) {
     const m = new Monster(level, this.waypoints, this.pathSegments, hpMult);
     this.monsters.push(m);
@@ -918,9 +932,22 @@ class Game {
       return;
     }
 
+    // Heal button (checked before sell button due to layout overlap).
+    if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
+      const t = this.troops[this.selectedTroopIndex];
+      if (t && t.alive && t.canHeal()) {
+        const healBtnY = RENDERER.height - 80;
+        const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
+        if (px >= 8 && px <= 8 + healBtnW && py >= healBtnY && py <= healBtnY + 28) {
+          this.healTroop(this.selectedTroopIndex);
+          return;
+        }
+      }
+    }
+
     // Sell button — show confirmation dialog.
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
-      const sellBtn = { x: 8, y: RENDERER.height - 46, w: 200, h: 34 };
+      const sellBtn = { x: 8, y: RENDERER.height - 46, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
       if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
           && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
         if (this.devMode) {
@@ -951,7 +978,7 @@ class Game {
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
           if (!t.canUpgrade(stat)) continue;
-          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 88, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 120, w: statBtnW, h: 36 };
           visibleBtnIdx++;
           if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
             this.upgradeTroopStat(this.selectedTroopIndex, stat);

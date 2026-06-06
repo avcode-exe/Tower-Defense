@@ -20,6 +20,7 @@ class Troop {
     this.alive = true;
     this.hp = spec.hp;
     this.maxHp = spec.hp;
+    this.healCount = 0;
     // Cached computed stats (recomputed on upgrade).
     this._cachedDamage = this.spec.damage;
     this._cachedRange = this.spec.range;
@@ -80,6 +81,29 @@ class Troop {
     if (stat === 'speed') return this.speedLevel >= this.maxUpgradeLevel;
     if (stat === 'chain') return this.chainLevel >= this.maxUpgradeLevel;
     return false;
+  }
+
+  // Heal cost: 10% of base troop price, rounded up.
+  getHealCost() {
+    return Math.ceil(this.spec.cost * 0.1);
+  }
+
+  // Can this troop be healed?
+  canHeal() {
+    return this.alive && this.hp < this.maxHp;
+  }
+
+  // Heal the troop by 10% of max HP. Returns true if healed.
+  heal() {
+    if (!this.canHeal()) return false;
+    const healAmount = Math.ceil(this.maxHp * 0.1);
+    this.hp = Math.min(this.hp + healAmount, this.maxHp);
+    this.healCount++;
+    return true;
+  }
+  // Current HP as a percentage (0-100), for display.
+  getHpPercent() {
+    return Math.round(this.hp / this.maxHp * 100);
   }
 
   // Total gold invested in this troop (base cost + all upgrades).

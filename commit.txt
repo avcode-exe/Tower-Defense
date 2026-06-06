@@ -1,27 +1,23 @@
-v1.2.0: Monster melee attacks & troop HP
+v1.2.0 prep: Troop healing system & UI layout fixes
 
-Monsters can now stop and attack adjacent troops, dealing damage per hit.
-Troops have HP pools and can be destroyed by monsters.
+Troop Healing:
+- Players can heal troops by 10% of max HP per click
+- Each heal costs 10% of the troop's base price (rounded up)
+- Unlimited heals until troop reaches max HP
+- Heal button always visible: green when affordable, grey when
+  not enough gold, "MAX HP" greyed out when full
+- Healing costs do NOT affect sell refund value
 
-Features:
-- Monster state machine (MOVING/ATTACKING) with melee attack logic
-- Troop HP system: takeDamage(), getHpRatio(), death handling
-- Troop tile spatial index for monster targeting
-- Monster attack processing in game loop
-- Troop HP bars (color-coded) rendered above damaged troops
-- Troop death particles and "Destroyed" popup
-- Selected troop info panel now shows HP
-- Monster info panel now shows Damage stat
-- Troop shop cards show HP in stats line
-- Melee troops take 70% reduced damage from monster attacks
-- All monsters nerfed ~10% damage, unified 1.0 attack speed
+UI Layout:
+- Moved upgrade buttons, heal button, and troop info panel up
+  to eliminate overlaps between interactive elements
+- Widened sell button to match shop panel width (SHOP_WIDTH - 16)
+- Troop info panel shifted up 10px for clearance from upgrade buttons
 
-Bug fixes:
-- Fixed troop selection jumping when another troop dies during compaction
-  (selRef now saved before compaction mutates the array)
-- Fixed monster double-attack on first engagement
-  (attackTimer now set to attackSpeed instead of 0)
-
-Docs:
-- README updated with HP/Damage columns, melee reduction note
-- Troop descriptions updated with HP values and damage reduction info
+Bug Fixes:
+- Fixed troop selection jumping when other troops die (track by
+  reference instead of index during compaction)
+- Fixed monster double-attack on initial engagement (attackTimer
+  now starts at full cooldown instead of 0)
+- Fixed heal button disappearing when healCount reached cap
+  (removed cap, button now always renders)

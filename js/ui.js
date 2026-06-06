@@ -351,7 +351,7 @@ const UI = {
     const CARD_H = 58, CARD_GAP = 4;
     const totalContentH = TROOP_SPECS.length * (CARD_H + CARD_GAP) - CARD_GAP;
     const areaTop = UI_LAYOUT.hudHeight + 8;
-    const areaBottom = game.selectedTroopIndex >= 0 ? RENDERER.height - 194 : RENDERER.height - UI_LAYOUT.previewHeight;
+    const areaBottom = game.selectedTroopIndex >= 0 ? RENDERER.height - 204 : RENDERER.height - UI_LAYOUT.previewHeight;
     this._cardAreaBottom = areaBottom;
     const visibleH = Math.max(0, areaBottom - areaTop);
     const maxScroll = Math.max(0, totalContentH - visibleH);
@@ -435,7 +435,7 @@ const UI = {
     if (game.selectedTroopIndex >= 0) {
       const t = game.troops[game.selectedTroopIndex];
       if (t && t.alive) {
-        const panelY = RENDERER.height - 186;
+        const panelY = RENDERER.height - 196;
         const panelH = 72;
         c.fillStyle = UI_COLORS.cardBg;
         UIRoundRect(c, 8, panelY, 200, panelH, 8);
@@ -469,7 +469,7 @@ const UI = {
         const stats = ['dmg', 'range', 'speed', 'chain'];
         const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN' };
         const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold };
-        const btnY = RENDERER.height - 88;
+        const btnY = RENDERER.height - 120;
         const btnPad = 8;
         const btnGap = 2;
         // Count visible buttons first to compute dynamic width.
@@ -520,8 +520,49 @@ const UI = {
           }
         }
 
+        // Heal button — always visible when a troop is selected.
+        const healBtnY = RENDERER.height - 80;
+        const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
+        const canHeal = t.canHeal();
+        const isMaxHp = t.hp >= t.maxHp;
+        const healCost = canHeal ? t.getHealCost() : 0;
+        const healAffordable = canHeal && (game.devMode || game.gold >= healCost);
+
+        if (isMaxHp) {
+          // Max HP — greyed out
+          c.fillStyle = 'rgba(255,255,255,0.04)';
+          UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+          c.fill();
+          c.strokeStyle = 'rgba(255,255,255,0.06)';
+          c.lineWidth = 1;
+          UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+          c.stroke();
+          c.fillStyle = UI_COLORS.textDim;
+          c.font = 'bold 9px system-ui, sans-serif';
+          c.textAlign = 'center'; c.textBaseline = 'middle';
+          c.fillText('HEAL  MAX HP', 8 + healBtnW / 2, healBtnY + 14);
+        } else {
+          // Can heal — show cost and HP
+          c.fillStyle = healAffordable ? '#2ea043' : 'rgba(255,255,255,0.04)';
+          UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+          c.fill();
+          if (!healAffordable) {
+            c.strokeStyle = 'rgba(255,255,255,0.06)';
+            c.lineWidth = 1;
+            UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+            c.stroke();
+          }
+          c.fillStyle = healAffordable ? '#fff' : UI_COLORS.textDim;
+          c.font = 'bold 10px system-ui, sans-serif';
+          c.textAlign = 'center'; c.textBaseline = 'middle';
+          c.fillText('HEAL  +' + Math.ceil(t.maxHp * 0.1) + ' HP', 8 + healBtnW / 2, healBtnY + 10);
+          c.fillStyle = healAffordable ? 'rgba(255,255,255,0.7)' : UI_COLORS.textDim;
+          c.font = '8px system-ui, sans-serif';
+          c.fillText('(' + healCost + 'g)  ' + t.getHpPercent() + '% HP', 8 + healBtnW / 2, healBtnY + 22);
+        }
+
         // Sell button with cooldown indicator.
-        const sellBtn = { x: 8, y: RENDERER.height - 46, w: 200, h: 34 };
+        const sellBtn = { x: 8, y: RENDERER.height - 46, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
         const isDevDelete = game.devMode;
         const cd = game.sellCooldownTimer || 0;
         const onCooldown = cd > 0 && !isDevDelete;
