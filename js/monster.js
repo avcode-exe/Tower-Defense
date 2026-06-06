@@ -35,6 +35,12 @@ class Monster {
     // Passive healing (Boss).
     this.healPerSecond = this.spec ? (this.spec.healPerSecond || 0) : 0;
 
+    // State machine (melee attack logic).
+    this.state = 'MOVING';
+    this.attackTarget = null;
+    this.attackTimer = 0;
+    this._pendingAttack = null;
+
     // Cached tile coordinates (updated in _updatePosition).
     this._tileGx = 0;
     this._tileGy = 0;
@@ -122,7 +128,38 @@ class Monster {
     return r;
   }
 
-  update(dt) {
+  findTarget(troopTileIndex) {
+    const gx = this._tileGx;
+    const gy = this._tileGy;
+    let bestTroop = null;
+    let bestDist = Infinity;
+    const gs = CONFIG.GRID_SIZE;
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const tx = gx + dx;
+        const ty = gy + dy;
+        if (tx < 0 || tx >= gs || ty < 0 || ty >= gs) continue;
+        const tileTroops = troopTileIndex[ty * gs + tx];
+        for (let i = 0; i < tileTroops.length; i++) {
+          const t = tileTroops[i];
+          if (!t.alive) continue;
+          const dist = Math.max(Math.abs(tx - gx), Math.abs(ty - gy));
+          if (dist <= this.spec.attackRange) {
+            const pdx = t.x - this.x;
+            const pdy = t.y - this.y;
+            const pxDist = pdx * pdx + pdy * pdy;
+            if (pxDist < bestDist) {
+              bestDist = pxDist;
+              bestTroop = t;
+            }
+          }
+        }
+      }
+    }
+    return bestTroop;
+  }
+
+  update(dt, troopTileIndex) {
     if (!this.alive) return;
     // Shield regeneration after delay (ticks even during stun).
     if (this.shield < this.maxShield) {
@@ -141,7 +178,64 @@ class Monster {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
       return;
     }
-    this.distance += this.speed * CONFIG.TILE_SIZE * dt;
-    this._updatePosition();
+
+    // ATTACKING state.
+    if (this.state === 'ATTACKING') {
+      if (!this.attackTarget || !this.attackTarget.alive) {
+        this.attackTarget = null;
+        this.state = 'MOVING';
+      } else {
+        const dx = Math.abs(this._tileGx - this.attackTarget.gx);
+        const dy = Math.abs(this._tileGy - this.attackTarget.gy);
+        if (Math.max(dx, dy) > this.spec.attackRange) {
+          this.attackTarget = null;
+          this.state = 'MOVING';
+        } else {
+          this.attackTimer -= dt;
+          if (this.attackTimer <= 0) {
+            this.attackTimer = this.spec.attackSpeed;
+            this._pendingAttack = this.attackTarget;
+          }
+        }
+      }
+    }
+
+    // MOVING state.
+    if (this.state === 'MOVING') {
+      this.distance += this.speed * CONFIG.TILE_SIZE * dt;
+
+      // Advance segment index.
+      const segs = this.segments;
+      while (this.segIdx < segs.length - 1 && this.distance > segs[this.segIdx + 1].cumStart) {
+        this.segIdx++;
+      }
+
+      // Clamp to path end.
+      if (this.distance >= this.totalLength) {
+        this.distance = this.totalLength;
+        this.reachedEnd = true;
+      }
+
+      // Compute position.
+      const seg = segs[this.segIdx];
+      const t = clamp((this.distance - seg.cumStart) / seg.len, 0, 1);
+      this.x = lerp(seg.ax, seg.bx, t);
+      this.y = lerp(seg.ay, seg.by, t);
+
+      // Update cached tile coords.
+      this._tileGx = (this.x / CONFIG.TILE_SIZE) | 0;
+      this._tileGy = (this.y / CONFIG.TILE_SIZE) | 0;
+
+      // Check for nearby troops to attack.
+      if (troopTileIndex) {
+        const target = this.findTarget(troopTileIndex);
+        if (target) {
+          this.state = 'ATTACKING';
+          this.attackTarget = target;
+          this.attackTimer = 0;
+          this._pendingAttack = target;
+        }
+      }
+    }
   }
 }

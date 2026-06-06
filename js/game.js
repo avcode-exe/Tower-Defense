@@ -44,6 +44,9 @@ class Game {
     // Tile-based spatial monster index for fast targeting.
     this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
     this._tileIndexStep = 0;
+
+    this._troopTileIndex = [];
+    for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
     this._popupPool = [];
     this._tileIndexPool = [];
 
@@ -111,6 +114,7 @@ class Game {
     const t = new Troop(spec, gx, gy);
     this.troops.push(t);
     if (!this.devMode) this.gold -= spec.cost;
+    this._buildTroopTileIndex();
     return true;
   }
 
@@ -130,6 +134,7 @@ class Game {
     this.sellCooldownTimer = CONFIG.SELL_COOLDOWN;
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
     this.selectedSpec = null;
+    this._buildTroopTileIndex();
   }
 
   upgradeTroopStat(index, stat) {
@@ -180,6 +185,37 @@ class Game {
     return r.killed;
   }
 
+  // Kill a troop that was destroyed by monsters.
+  killTroop(troop) {
+    troop.alive = false;
+    this.grid.set(troop.gx, troop.gy, TILE.EMPTY);
+    RENDERER.markCacheDirty();
+    PARTICLES.spawn(troop.x, troop.y, PARTICLES.troopDeath(troop.spec.color));
+    this._getPopup('\u2620 Destroyed', troop.x, troop.y - 12, 1.0, '#ff4444');
+    this._buildTroopTileIndex();
+    if (this.selectedTroopIndex >= 0) {
+      const sel = this.troops[this.selectedTroopIndex];
+      if (!sel || !sel.alive) this.selectedTroopIndex = -1;
+    }
+  }
+
+  // Apply monster melee damage to a troop.
+  damageTroop(monster, troop) {
+    const dmg = monster.spec.damage;
+    const killed = troop.takeDamage(dmg);
+    this._getPopup(
+      '-' + dmg,
+      troop.x + (Math.random() - 0.5) * 8,
+      troop.y - 14,
+      0.8,
+      '#ff6644'
+    );
+    PARTICLES.spawn(troop.x, troop.y, PARTICLES.hitSpark('#ff8844'));
+    if (killed) {
+      this.killTroop(troop);
+    }
+  }
+
   // One fixed-timestep simulation step.
   step(dt) {
     if (this.state === 'PAUSED' || this.state === 'DEFEAT') return;
@@ -221,7 +257,7 @@ class Game {
         this.damageMonster(m, m.maxHp);
         continue;
       }
-      m.update(dt);
+      m.update(dt, this._troopTileIndex);
       if (m.reachedEnd) {
         m.alive = false;
         this.lives -= m.leak;
@@ -231,6 +267,17 @@ class Game {
           this.state = 'DEFEAT';
           if (this._simWorker) this._simWorker.postMessage('stop');
         }
+      }
+    }
+
+    // Monster attacks on troops.
+    for (let i = 0; i < this.monsters.length; i++) {
+      const m = this.monsters[i];
+      if (!m.alive || !m._pendingAttack) continue;
+      const target = m._pendingAttack;
+      m._pendingAttack = null;
+      if (target.alive) {
+        this.damageTroop(m, target);
       }
     }
 
@@ -255,9 +302,23 @@ class Game {
     this.troops.length = tw;
 
     // Fix stale selectedTroopIndex after compaction.
-    if (this.selectedTroopIndex >= this.troops.length
-        || (this.selectedTroopIndex >= 0 && !this.troops[this.selectedTroopIndex].alive)) {
-      this.selectedTroopIndex = -1;
+    // Track by reference: find the selected troop's new index after dead removal.
+    if (this.selectedTroopIndex >= 0) {
+      const selRef = this.troops[this.selectedTroopIndex];
+      if (selRef && selRef.alive) {
+        // Troop survived compaction — find its new position.
+        let found = false;
+        for (let i = 0; i < tw; i++) {
+          if (this.troops[i] === selRef) {
+            this.selectedTroopIndex = i;
+            found = true;
+            break;
+          }
+        }
+        if (!found) this.selectedTroopIndex = -1;
+      } else {
+        this.selectedTroopIndex = -1;
+      }
     }
 
     // Wave completion.
@@ -340,6 +401,16 @@ class Game {
         tiIdx[idx] = arr;
       }
       arr.push(m);
+    }
+  }
+
+  _buildTroopTileIndex() {
+    for (let i = 0; i < this._troopTileIndex.length; i++) this._troopTileIndex[i].length = 0;
+    for (let i = 0; i < this.troops.length; i++) {
+      const t = this.troops[i];
+      if (!t.alive) continue;
+      const idx = t.gy * CONFIG.GRID_SIZE + t.gx;
+      if (idx >= 0 && idx < this._troopTileIndex.length) this._troopTileIndex[idx].push(t);
     }
   }
 
@@ -579,6 +650,18 @@ class Game {
       const dotColor = t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7';
       ctx.fillStyle = dotColor;
       ctx.fillRect(t.x - 2.5, t.y - 5.5, 5, 5);
+      // HP bar (only when damaged).
+      if (t.hp < t.maxHp) {
+        const barW = T * 0.7;
+        const barH = 3;
+        const barX = t.x - barW / 2;
+        const barY2 = t.y - T * 0.45;
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.fillRect(barX, barY2, barW, barH);
+        const hpR = t.getHpRatio();
+        ctx.fillStyle = hpR > 0.6 ? '#44cc44' : hpR > 0.3 ? '#cccc44' : '#cc4444';
+        ctx.fillRect(barX, barY2, barW * hpR, barH);
+      }
     }
 
     // PASS 1: Monster bodies (shadows, shield rings, body arcs, stun overlays).

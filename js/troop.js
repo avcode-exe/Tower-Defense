@@ -18,6 +18,8 @@ class Troop {
     this.target = null;
     this.targetRefresh = 0;
     this.alive = true;
+    this.hp = spec.hp;
+    this.maxHp = spec.hp;
     // Cached computed stats (recomputed on upgrade).
     this._cachedDamage = this.spec.damage;
     this._cachedRange = this.spec.range;
@@ -148,6 +150,20 @@ class Troop {
       }
     }
     return best;
+  }
+
+  takeDamage(amount) {
+    this.hp -= amount;
+    if (this.hp <= 0) {
+      this.hp = 0;
+      this.alive = false;
+      return true;
+    }
+    return false;
+  }
+
+  getHpRatio() {
+    return this.hp / this.maxHp;
   }
 
   update(dt, monsters, projectiles, game) {

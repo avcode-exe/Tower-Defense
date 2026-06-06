@@ -85,32 +85,32 @@ const CONFIG = {
 
 // Monster specs. Index = level (1-5). boss is level 'B' keyed separately.
 const MONSTER_SPECS = {
-  1: { name: 'Grunt',    hp: 34,   speed: 1.0, reward: 4,  leak: 1, color: '#7ec07e', size: 11 },
-  2: { name: 'Runner',   hp: 27,   speed: 1.8, reward: 6,  leak: 1, color: '#9be37a', size: 10 },
-  3: { name: 'Brute',    hp: 133,  speed: 0.7, reward: 11, leak: 1, color: '#c0a060', size: 14 },
-  4: { name: 'Elite',    hp: 245,  speed: 1.0, reward: 17, leak: 2, color: '#d96a6a', size: 13 },
-  5: { name: 'Champion', hp: 667,  speed: 0.9, reward: 36, leak: 3, color: '#a86ad9', size: 16 },
-  B: { name: 'Boss',     hp: 1668, speed: 0.6, reward: 200, leak: 5, color: '#e74c3c', size: 22, healPerSecond: 15 },
-  S: { name: 'Shielded', hp: 173,  speed: 0.8, reward: 15, leak: 1, color: '#5dade2', size: 14, shield: 69 },
+  1: { name: 'Grunt',    hp: 34,   speed: 1.0, reward: 4,  leak: 1, color: '#7ec07e', size: 11, damage: 4,  attackSpeed: 1.0, attackRange: 1 },
+  2: { name: 'Runner',   hp: 27,   speed: 1.8, reward: 6,  leak: 1, color: '#9be37a', size: 10, damage: 3,  attackSpeed: 1.0, attackRange: 1 },
+  3: { name: 'Brute',    hp: 133,  speed: 0.7, reward: 11, leak: 1, color: '#c0a060', size: 14, damage: 14, attackSpeed: 1.0, attackRange: 1 },
+  4: { name: 'Elite',    hp: 245,  speed: 1.0, reward: 17, leak: 2, color: '#d96a6a', size: 13, damage: 18, attackSpeed: 1.0, attackRange: 1 },
+  5: { name: 'Champion', hp: 667,  speed: 0.9, reward: 36, leak: 3, color: '#a86ad9', size: 16, damage: 32, attackSpeed: 1.0, attackRange: 1 },
+  B: { name: 'Boss',     hp: 1668, speed: 0.6, reward: 200, leak: 5, color: '#e74c3c', size: 22, damage: 45, attackSpeed: 1.0, attackRange: 1, healPerSecond: 15 },
+  S: { name: 'Shielded', hp: 173,  speed: 0.8, reward: 15, leak: 1, color: '#5dade2', size: 14, damage: 16, attackSpeed: 1.0, attackRange: 1, shield: 69 },
 };
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).
 const TROOP_SPECS = [
-  { id: 'swordsman', name: 'Swordsman', type: 'melee',  cost: 70,  damage: 9, range: 1, attackSpeed: 0.67, splash: 0, color: '#3498db', hotkey: '1', desc: 'Basic melee defender. Cheap and reliable for early waves.' },
-  { id: 'knight',    name: 'Knight',    type: 'melee',  cost: 120, damage: 18, range: 1, attackSpeed: 0.9, splash: 0, color: '#2980b9', hotkey: '2', desc: 'Heavy melee with high damage. Great for holding choke points.' },
-  { id: 'archer',    name: 'Archer',    type: 'ranged', cost: 70,  damage: 12, range: 3, attackSpeed: 1.2, splash: 0, color: '#27ae60', hotkey: '3', desc: 'Fast-firing ranged unit. Good DPS for its cost.' },
-  { id: 'machinegun', name: 'Machine Gun',  type: 'ranged', cost: 150, damage: 6, range: 4, attackSpeed: 0.25, splash: 0, color: '#e74c3c', hotkey: '4', desc: 'Rapid-fire ranged unit. Shreds groups with its fast attack rate.' },
-  { id: 'mage',      name: 'Mage',      type: 'ranged', cost: 180, damage: 32, range: 3, attackSpeed: 1.3, splash: 2.0, color: '#9b59b6', hotkey: '5', desc: 'Ranged unit with splash damage. Effective against dense groups.' },
-  { id: 'sniper',    name: 'Sniper',    type: 'ranged', cost: 250, damage: 100, range: 10, attackSpeed: 2.5, splash: 0, color: '#2c3e50', hotkey: '6', desc: 'Extreme range and burst damage. Picks off enemies from afar.' },
-  { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 1.2, splash: 0, color: '#e67e22', hotkey: '7', aoe: true, desc: 'Melee unit with AoE attacks. Clears swarms around her.' },
-  { id: 'lightning', name: 'Lightning', type: 'ranged', cost: 300, damage: 100, range: 2, attackSpeed: 3, splash: 0, color: '#f1c40f', hotkey: '8', chain: 2, stun: 0.5, desc: 'Chain lightning that stuns and jumps to multiple enemies.' },
-  { id: 'mortar',   name: 'Mortar',   type: 'ranged', cost: 200, damage: 65,  range: 8, attackSpeed: 3.0, splash: 2.5, color: '#8B4513', hotkey: '9', desc: 'Long-range siege unit. Slow but devastating splash damage.' },
+  { id: 'swordsman', name: 'Swordsman', type: 'melee',  cost: 70,  damage: 9, range: 1, attackSpeed: 0.67, splash: 0, color: '#3498db', hotkey: '1', hp: 50, desc: 'Basic melee defender with 50 HP. Cheap and reliable, but vulnerable to monster attacks.' },
+  { id: 'knight',    name: 'Knight',    type: 'melee',  cost: 120, damage: 18, range: 1, attackSpeed: 0.9, splash: 0, color: '#2980b9', hotkey: '2', hp: 120, desc: 'Heavy melee with 120 HP and high damage. Excellent at holding choke points against monster attacks.' },
+  { id: 'archer',    name: 'Archer',    type: 'ranged', cost: 70,  damage: 12, range: 3, attackSpeed: 1.2, splash: 0, color: '#27ae60', hotkey: '3', hp: 30, desc: 'Fast-firing ranged unit with 30 HP. Good DPS, but fragile — keep monsters away.' },
+  { id: 'machinegun', name: 'Machine Gun',  type: 'ranged', cost: 150, damage: 6, range: 4, attackSpeed: 0.25, splash: 0, color: '#e74c3c', hotkey: '4', hp: 40, desc: 'Rapid-fire ranged unit with 40 HP. Shreds groups, but low HP means it falls fast to monsters.' },
+  { id: 'mage',      name: 'Mage',      type: 'ranged', cost: 180, damage: 32, range: 3, attackSpeed: 1.3, splash: 2.0, color: '#9b59b6', hotkey: '5', hp: 35, desc: 'Ranged unit with 35 HP and splash damage. Devastating against groups, but keep her protected.' },
+  { id: 'sniper',    name: 'Sniper',    type: 'ranged', cost: 250, damage: 100, range: 10, attackSpeed: 2.5, splash: 0, color: '#2c3e50', hotkey: '6', hp: 25, desc: 'Extreme range and burst damage with only 25 HP. Picks off enemies from afar — very fragile up close.' },
+  { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 1.2, splash: 0, color: '#e67e22', hotkey: '7', hp: 80, aoe: true, desc: 'Melee unit with 80 HP and AoE attacks. Clears swarms and can take a beating.' },
+  { id: 'lightning', name: 'Lightning', type: 'ranged', cost: 300, damage: 100, range: 2, attackSpeed: 3, splash: 0, color: '#f1c40f', hotkey: '8', hp: 40, chain: 2, stun: 0.5, desc: 'Chain lightning with 40 HP that stuns and jumps to multiple enemies. Stuns help keep her alive.' },
+  { id: 'mortar',   name: 'Mortar',   type: 'ranged', cost: 200, damage: 65,  range: 8, attackSpeed: 3.0, splash: 2.5, color: '#8B4513', hotkey: '9', hp: 30, desc: 'Long-range siege unit with 30 HP. Slow but devastating splash — vulnerable if monsters reach her.' },
 ];
 
 // Pre-compute stats strings per troop (avoids string concat every frame).
 for (let i = 0; i < TROOP_SPECS.length; i++) {
   const s = TROOP_SPECS[i];
-  s._statsStr = s.type.charAt(0).toUpperCase() + s.type.slice(1) + ' \u00B7 ' + s.damage + 'dmg \u00B7 ' + s.range + 'rng \u00B7 ' + s.attackSpeed + 's' + (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') + (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+  s._statsStr = s.type.charAt(0).toUpperCase() + s.type.slice(1) + ' \u00B7 ' + s.damage + 'dmg \u00B7 ' + s.range + 'rng \u00B7 ' + s.attackSpeed + 's \u00B7 ' + s.hp + 'hp' + (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') + (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
 }
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.

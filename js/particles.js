@@ -140,6 +140,11 @@ const PARTICLES = {
     return { ...this._deathBurstCfg, color: color || '#fff' };
   },
 
+  _troopDeathCfg: { count: 15, color: '#fff', minSize: 2, maxSize: 5, minSpeed: 50, maxSpeed: 100, minLife: 0.3, maxLife: 0.7, gravity: false },
+  troopDeath(color) {
+    return { ...this._troopDeathCfg, color: color || '#fff' };
+  },
+
   _splashImpactCfg: { count: 12, color: '#9b59b6', minSize: 1.5, maxSize: 3, minSpeed: 60, maxSpeed: 140, minLife: 0.2, maxLife: 0.45, gravity: false },
   splashImpact(color) {
     return { ...this._splashImpactCfg, color: color || '#9b59b6' };

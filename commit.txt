@@ -1,29 +1,18 @@
-Fix 14 bugs across the codebase — targeting, timing, particles, and stability
+v1.2.0: Monster melee attacks & troop HP
 
-CRITICAL
-- game.js: projectile dead-target fallback widened from 1 tile to full
-  3×3 search area (closestDist: TILE_SIZE → Infinity)
-- game.js: chain lightning no longer re-hits the same shielded/surviving
-  monster (remove hit targets from candidate buffer via splice)
+Monsters can now stop and attack adjacent troops, dealing damage per hit.
+Troops have HP pools and can be destroyed by monsters.
 
-HIGH
-- simWorker.js: match game FIXED_TIMESTEP (60 Hz = 16.667 ms instead of
-  hardcoded 16 ms) to eliminate ~4% slowdown
-- waveManager.js: buildCustomFromCounts() now updates currentPreview so
-  dev-mode UI shows accurate wave composition
-- game.js: remove dead accumulator clamp code that could never execute
-- game.js: splash damage now rounds instead of truncating (| 0 → Math.round)
-
-MEDIUM
-- game.js: clamp monster tile-index coordinates to grid bounds to prevent
-  phantom out-of-range tile buckets
-- particles.js: fix three bugs — delete buckets[key] instead of null to
-  prevent memory leak, return spread copies of config objects to avoid
-  color cross-contamination, guard NaN alpha key when maxLife = 0
-- electron-main.js: handle unhandled promise rejection in hourly update check
-
-LOW
-- utils.js: add default {} params for tileCenterInto/pixelToTile, use
-  Math.floor instead of | 0 for correct negative coordinate handling,
-  use nullish coalescing (??) in makeRNG so seed=0 is reproducible
-- monster.js: remove unused shieldRegenActive field (dead code)
+Changes:
+- Monster state machine (MOVING/ATTACKING) with melee attack logic
+- Troop HP system: takeDamage(), getHpRatio(), death handling
+- Troop tile spatial index for monster targeting
+- Monster attack processing in game loop
+- Troop HP bars (color-coded) rendered above damaged troops
+- Troop death particles and "Destroyed" popup
+- Selected troop info panel now shows HP
+- Monster info panel now shows Damage stat
+- Troop shop cards show HP in stats line
+- All monsters nerfed ~10% damage, unified 1.0 attack speed
+- Fixed selection bug: troop selection now survives compaction correctly
+- README updated with HP/Damage columns and new feature descriptions

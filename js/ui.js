@@ -452,13 +452,18 @@ const UI = {
 
         c.fillStyle = UI_COLORS.textDim;
         c.font = '10px system-ui, sans-serif';
-        c.fillText('DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel, 18, panelY + 30);
-        c.fillText('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 18, panelY + 44);
+        c.fillText('DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel, 18, panelY + 26);
+        c.fillText('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 18, panelY + 38);
+        // HP line.
+        const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
+        c.fillStyle = hpColor;
+        c.fillText('HP ' + Math.ceil(t.hp) + '/' + t.maxHp, 18, panelY + 50);
+        c.fillStyle = UI_COLORS.textDim;
 
         const dps = (t.getDamage() / t.getAttackSpeed()).toFixed(1);
         c.fillStyle = UI_COLORS.accent;
         c.font = 'bold 10px system-ui, sans-serif';
-        c.fillText('DPS ' + dps, 18, panelY + 60);
+        c.fillText('DPS ' + dps, 18, panelY + 64);
 
         // Upgrade buttons.
         const stats = ['dmg', 'range', 'speed', 'chain'];

@@ -10,6 +10,8 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 
 - **9 troop types** (hotkeys 1-9) — melee, ranged, splash, chain lightning, and siege
 - **7 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss
+- **Monster melee attacks** — monsters stop and attack adjacent troops, dealing damage
+- **Troop HP** — troops have health pools and can be destroyed by monsters
 - **Upgradeable troops** — 4 independently upgradeable stats per troop (DMG / RNG / SPD / CHN), up to level 5 each
 - **Dev mode** (F2) — unlimited gold + custom wave composition editor
 - **Adjustable game speed** — 1x / 2x / 4x / 8x / 16x / 32x / 64x / 128x
@@ -21,17 +23,17 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 
 ## Troops
 
-| # | Name | Type | Cost | Damage | Range | Speed | Special |
-|---|------|------|------|--------|-------|-------|---------|
-| 1 | Swordsman | Melee | 70 | 9 | 1 | 0.67s | — |
-| 2 | Knight | Melee | 120 | 18 | 1 | 0.9s | — |
-| 3 | Archer | Ranged | 70 | 12 | 3 | 1.2s | — |
-| 4 | Machine Gun | Ranged | 150 | 6 | 4 | 0.25s | High fire rate |
-| 5 | Mage | Ranged | 180 | 32 | 3 | 1.3s | Splash 2.0 tiles |
-| 6 | Sniper | Ranged | 250 | 100 | 10 | 2.5s | Long range |
-| 7 | Valkyrie | Melee | 150 | 22 | 1 | 1.2s | AoE 360° swing |
-| 8 | Lightning | Ranged | 300 | 100 | 2 | 3s | Chain 2 (+1/level) + stun 0.5s |
-| 9 | Mortar | Ranged | 200 | 65 | 8 | 3.0s | Splash 2.5 tiles |
+| # | Name | Type | Cost | HP | Damage | Range | Speed | Special |
+|---|------|------|------|----|--------|-------|-------|---------|
+| 1 | Swordsman | Melee | 70 | 50 | 9 | 1 | 0.67s | — |
+| 2 | Knight | Melee | 120 | 120 | 18 | 1 | 0.9s | — |
+| 3 | Archer | Ranged | 70 | 30 | 12 | 3 | 1.2s | — |
+| 4 | Machine Gun | Ranged | 150 | 40 | 6 | 4 | 0.25s | High fire rate |
+| 5 | Mage | Ranged | 180 | 35 | 32 | 3 | 1.3s | Splash 2.0 tiles |
+| 6 | Sniper | Ranged | 250 | 25 | 100 | 10 | 2.5s | Long range |
+| 7 | Valkyrie | Melee | 150 | 80 | 22 | 1 | 1.2s | AoE 360° swing |
+| 8 | Lightning | Ranged | 300 | 40 | 100 | 2 | 3s | Chain 2 (+1/level) + stun 0.5s |
+| 9 | Mortar | Ranged | 200 | 30 | 65 | 8 | 3.0s | Splash 2.5 tiles |
 
 **Upgradeable stats per troop:**
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
@@ -39,17 +41,19 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 
 ## Monsters
 
-| Level | Name | HP | Speed | Reward | Leak DMG | Special |
-|-------|------|----|-------|--------|----------|---------|
-| 1 | Grunt | 34 | 1.0 | 4g | 1 | — |
-| 2 | Runner | 27 | 1.8 | 6g | 1 | Fast |
-| 3 | Brute | 133 | 0.7 | 11g | 1 | Tanky |
-| 4 | Elite | 245 | 1.0 | 17g | 2 | Splits into 2 Brutes on death |
-| 5 | Champion | 667 | 0.9 | 36g | 3 | Very tanky |
-| B | Boss | 1668 | 0.6 | 200g | 5 | 2x HP, appears wave 10/20/30, heals 15 HP/s |
-| S | Shielded | 173 | 0.8 | 15g | 1 | Regenerating shield (69 HP) |
+| Level | Name | HP | Speed | Damage | Reward | Leak DMG | Special |
+|-------|------|----|-------|--------|--------|----------|---------|
+| 1 | Grunt | 34 | 1.0 | 4 | 4g | 1 | — |
+| 2 | Runner | 27 | 1.8 | 3 | 6g | 1 | Fast |
+| 3 | Brute | 133 | 0.7 | 14 | 11g | 1 | Tanky |
+| 4 | Elite | 245 | 1.0 | 18 | 17g | 2 | Splits into 2 Brutes on death |
+| 5 | Champion | 667 | 0.9 | 32 | 36g | 3 | Very tanky |
+| B | Boss | 1668 | 0.6 | 45 | 200g | 5 | 2x HP, appears wave 10/20/30, heals 15 HP/s |
+| S | Shielded | 173 | 0.8 | 16 | 15g | 1 | Regenerating shield (69 HP) |
 
 Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
+
+Monsters can attack adjacent troops, dealing their damage stat per hit. Troops have HP and can be destroyed — plan your defenses carefully!
 
 ## Economy
 

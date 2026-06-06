@@ -55,6 +55,7 @@ window.addEventListener('DOMContentLoaded', () => {
       stats.appendChild(_span('HP:' + spec.hp));
       stats.appendChild(_span('Spd:' + spec.speed));
       stats.appendChild(_span('+' + spec.reward + 'g'));
+      stats.appendChild(_span('Dmg:' + spec.damage));
       stats.appendChild(_span('Leak:' + spec.leak));
       if (spec.shield) stats.appendChild(_span('Shield:' + spec.shield));
       row.appendChild(dot);
