@@ -1,8 +1,13 @@
-fighter: Shielded monster over-heal buff + wider monster info panel
+v1.2.0 beta 1: Monster melee attacks, troop healing, shield overheal
 
-- Allow the Shielded monster's shield to over-heal from 100% up to 150%
-  of its initial value. Initial shield remains at 100%.
-- Clamp shield bar rendering so it never visually exceeds the new cap.
-- Widen the in-game monster info panel and increase stats spacing so the
-  longer Shielded stats text fits without overflow.
-- Update README monster table to reflect the new shield cap.
+Adds core v1.2.0 combat features:
+- Monsters stop to attack adjacent troops (melee only)
+- Troops have HP and can be destroyed by monsters
+- Melee troops (Swordsman/Knight/Valkyrie) take 70% less damage
+- Players can heal troops by 10% max HP per click for 10% base price
+- Shielded monster shield can over-heal from 100% to 150%
+- All stats, descriptions, and monster info panel updated
+
+Dev mode:
+- Replaced visible DEV button with hidden triple-click on gold coin
+- Widened monster info panel for longer shield stats text

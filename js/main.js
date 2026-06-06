@@ -37,7 +37,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Populate monster info table from MONSTER_SPECS
   const monsterInfoContent = document.getElementById('monster-info-content');
   if (monsterInfoContent && typeof MONSTER_SPECS !== 'undefined') {
-    const order = [1, 2, 'S', 3, 4, 5, 'B'];
+    const order = [1, 2, 3, 4, 5, 'B', 'S'];
     for (const key of order) {
       const spec = MONSTER_SPECS[key];
       if (!spec) continue;
@@ -57,7 +57,7 @@ window.addEventListener('DOMContentLoaded', () => {
       stats.appendChild(_span('+' + spec.reward + 'g'));
       stats.appendChild(_span('Dmg:' + spec.damage));
       stats.appendChild(_span('Leak:' + spec.leak));
-      if (spec.shield) stats.appendChild(_span('Shield:' + spec.shield + ' (max ' + Math.round(spec.shield * 1.5) + ')'));
+      if (spec.shield) stats.appendChild(_span('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
       row.appendChild(dot);
       row.appendChild(name);
       row.appendChild(stats);

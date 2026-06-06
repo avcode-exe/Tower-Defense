@@ -186,10 +186,12 @@ const UI = {
     c.textBaseline = 'middle';
 
     // Gold.
-    this._goldDisplayRect = {x: 78, y: 10, w: 80, h: 28};
     const goldX = 14;
+
+    c.beginPath();
     c.fillStyle = UI_COLORS.gold;
-    c.beginPath(); c.arc(goldX + 8, 28, 7, 0, Math.PI * 2); c.fill();
+    c.arc(goldX + 8, 28, 7, 0, Math.PI * 2);
+    c.fill();
     c.fillStyle = '#0c1219';
     c.font = 'bold 10px system-ui, sans-serif';
     c.textAlign = 'center';
@@ -422,7 +424,7 @@ const UI = {
     if (game.selectedTroopIndex >= 0) {
       const t = game.troops[game.selectedTroopIndex];
       if (t && t.alive) {
-        const panelY = RENDERER.height - 196;
+        const panelY = RENDERER.height - 130;
         const panelH = 72;
         c.fillStyle = UI_COLORS.cardBg;
         UIRoundRect(c, 8, panelY, 200, panelH, 8);

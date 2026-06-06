@@ -883,7 +883,7 @@ class Game {
     }
 
     // Triple-click on gold display to toggle dev mode.
-    if (px >= 10 && px <= 36 && py >= 14 && py <= 42) {
+    if (px >= 14 && px <= 116 && py >= 14 && py <= 42) {
       const now = performance.now();
       if (now - this._goldClickTimer > 800) this._goldClicks = 0;
       this._goldClickTimer = now;
