@@ -229,6 +229,7 @@ class Game {
         if (this.lives <= 0) {
           this.lives = 0;
           this.state = 'DEFEAT';
+          if (this._simWorker) this._simWorker.postMessage('stop');
         }
       }
     }
@@ -291,8 +292,8 @@ class Game {
       this.sellCooldownTimer = Math.max(0, this.sellCooldownTimer - dt);
     }
 
-    // Update tile-based spatial monster index (throttled to every 3rd step).
-    if (this._tileIndexStep++ % 3 === 0) this._updateMonsterTileIndex();
+    // Update tile-based spatial monster index (every step for accurate targeting).
+    this._updateMonsterTileIndex();
 
     // Update particles.
     PARTICLES.update(dt);
@@ -614,8 +615,7 @@ class Game {
       }
     }
 
-    // PASS 2: HP bars (batched by fillStyle to minimize state changes).
-    // Bar backgrounds (#400) for all damaged or shielded monsters.
+    // PASS 2: HP bars (bg + fill in 1 pass — was 2 passes).
     ctx.fillStyle = CONFIG.COLORS.hpBarBg;
     for (let i = 0; i < this.monsters.length; i++) {
       const m = this.monsters[i];
@@ -624,20 +624,12 @@ class Game {
         const w = m.spec.size + 6;
         const barY = m.y - m.spec.size * 0.5 - 10;
         ctx.fillRect(m.x - w * 0.5, barY, w, 3);
-      }
-    }
-    // HP bar fills (#2ecc71) for all damaged or shielded monsters.
-    ctx.fillStyle = CONFIG.COLORS.hpBarFill;
-    for (let i = 0; i < this.monsters.length; i++) {
-      const m = this.monsters[i];
-      if (!m.alive) continue;
-      if (m.hp < m.maxHp || m.shield < m.maxShield) {
-        const w = m.spec.size + 6;
-        const barY = m.y - m.spec.size * 0.5 - 10;
+        ctx.fillStyle = CONFIG.COLORS.hpBarFill;
         ctx.fillRect(m.x - w * 0.5, barY, w * (m.hp / m.maxHp), 3);
+        ctx.fillStyle = CONFIG.COLORS.hpBarBg;  // reset for next monster
       }
     }
-    // Shield bar backgrounds (#223) — only for shielded monsters.
+    // Shield bars (bg + fill in 1 pass — was 2 passes).
     ctx.fillStyle = CONFIG.COLORS.shieldBarBg;
     for (let i = 0; i < this.monsters.length; i++) {
       const m = this.monsters[i];
@@ -646,17 +638,9 @@ class Game {
         const w = m.spec.size + 6;
         const barY = m.y - m.spec.size * 0.5 - 10;
         ctx.fillRect(m.x - w * 0.5, barY - 4, w, 2);
-      }
-    }
-    // Shield bar fills (#5dade2) — only for shielded monsters.
-    ctx.fillStyle = CONFIG.COLORS.shieldBarFill;
-    for (let i = 0; i < this.monsters.length; i++) {
-      const m = this.monsters[i];
-      if (!m.alive) continue;
-      if (m.maxShield > 0) {
-        const w = m.spec.size + 6;
-        const barY = m.y - m.spec.size * 0.5 - 10;
+        ctx.fillStyle = CONFIG.COLORS.shieldBarFill;
         ctx.fillRect(m.x - w * 0.5, barY - 4, w * (m.shield / m.maxShield), 2);
+        ctx.fillStyle = CONFIG.COLORS.shieldBarBg;  // reset for next monster
       }
     }
 
@@ -964,8 +948,13 @@ class Game {
     }
     if (e.key === ' ') {
       e.preventDefault();
-      if (this.state === 'WAVE_ACTIVE') { this.state = 'PAUSED'; }
-      else if (this.state === 'PAUSED') { this.state = 'WAVE_ACTIVE'; }
+      if (this.state === 'WAVE_ACTIVE') {
+        this.state = 'PAUSED';
+        if (this._simWorker) this._simWorker.postMessage('stop');
+      } else if (this.state === 'PAUSED') {
+        this.state = 'WAVE_ACTIVE';
+        if (this._simWorker) this._simWorker.postMessage('start');
+      }
     }
     if (e.key === 'Enter' && this.state === 'PRE_WAVE') {
       e.preventDefault();
