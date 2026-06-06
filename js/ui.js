@@ -186,6 +186,7 @@ const UI = {
     c.textBaseline = 'middle';
 
     // Gold.
+    this._goldDisplayRect = {x: 78, y: 10, w: 80, h: 28};
     const goldX = 14;
     c.fillStyle = UI_COLORS.gold;
     c.beginPath(); c.arc(goldX + 8, 28, 7, 0, Math.PI * 2); c.fill();
@@ -215,20 +216,6 @@ const UI = {
     c.textAlign = 'left';
     c.fillText('Wave ' + (game.wave.currentWave + 1), waveX, 28);
 
-    // DEV button.
-    const devX = 260, devW = 44;
-    const devActive = game.devMode;
-    c.fillStyle = devActive ? 'rgba(241,196,15,0.15)' : 'rgba(255,255,255,0.04)';
-    UIRoundRect(c, devX, 14, devW, 28, 6);
-    c.fill();
-    c.strokeStyle = devActive ? UI_COLORS.gold : 'rgba(255,255,255,0.1)';
-    c.lineWidth = 1;
-    UIRoundRect(c, devX, 14, devW, 28, 6);
-    c.stroke();
-    c.fillStyle = devActive ? UI_COLORS.gold : UI_COLORS.textDim;
-    c.font = 'bold 10px system-ui, sans-serif';
-    c.textAlign = 'center';
-    c.fillText('DEV', devX + devW / 2, 28);
 
     // Reset button.
     const rstX = 310, rstW = 36;
@@ -866,7 +853,7 @@ const UI = {
     c.fillStyle = 'rgba(0,0,0,0.6)';
     c.fillRect(0, 0, RENDERER.width, RENDERER.height);
 
-    const pw = 340, ph = 170;
+    const pw = 380, ph = 170;
     const px = (RENDERER.width - pw) / 2;
     const py = (RENDERER.height - ph) / 2;
 
@@ -927,7 +914,7 @@ const UI = {
     if (!game.devMode) return;
     if (game.state === 'WAVE_ACTIVE') return;
     const c = RENDERER.ctx;
-    const pW = 180;
+    const pW = 220;
     const pH = 310;
     const pX = RENDERER.width - pW - 12;
     const pY = UI_LAYOUT.hudHeight + 50;

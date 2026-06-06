@@ -57,6 +57,8 @@ class Game {
 
     this.devMode = false;
     this.devConfirmPending = false;
+    this._goldClicks = 0;
+    this._goldClickTimer = 0;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = -1;
@@ -880,15 +882,21 @@ class Game {
       }
     }
 
+    // Triple-click on gold display to toggle dev mode.
+    if (px >= 10 && px <= 36 && py >= 14 && py <= 42) {
+      const now = performance.now();
+      if (now - this._goldClickTimer > 800) this._goldClicks = 0;
+      this._goldClickTimer = now;
+      this._goldClicks++;
+      if (this._goldClicks >= 3) {
+        this._goldClicks = 0;
+        this.devConfirmPending = true;
+      }
+      return;
+    }
+
     // HUD buttons — only active when HUD is expanded.
     if (!UI_LAYOUT.collapsed.hud) {
-      // DEV mode toggle.
-      const devBtn = { x: 260, y: 14, w: 44, h: 28 };
-      if (px >= devBtn.x && px <= devBtn.x + devBtn.w && py >= devBtn.y && py <= devBtn.y + devBtn.h) {
-        this.devConfirmPending = true;
-        return;
-      }
-
       // Reset button.
       const rstBtn = { x: 310, y: 14, w: 36, h: 28 };
       if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) {
@@ -1028,12 +1036,6 @@ class Game {
   }
 
   onKeyDown(e) {
-    // Toggle dev mode.
-    if (e.key === 'F2') {
-      e.preventDefault();
-      this.devConfirmPending = true;
-      return;
-    }
     // Restart.
     if ((e.key === 'r' || e.key === 'R')
         && this.state === 'DEFEAT') {

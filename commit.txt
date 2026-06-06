@@ -1,23 +1,17 @@
-v1.2.0 prep: Troop healing system & UI layout fixes
+dev: Replace visible DEV button with hidden triple-click activation
 
-Troop Healing:
-- Players can heal troops by 10% of max HP per click
-- Each heal costs 10% of the troop's base price (rounded up)
-- Unlimited heals until troop reaches max HP
-- Heal button always visible: green when affordable, grey when
-  not enough gold, "MAX HP" greyed out when full
-- Healing costs do NOT affect sell refund value
+Dev mode is now activated by triple-clicking the gold coin icon
+in the HUD (3 clicks within 800ms). The visible DEV button and
+F2 keyboard shortcut have been removed, making dev mode access
+less obvious to casual players.
+
+Three clicks are required: the hitbox is centered on the yellow
+gold coin at the top-left of the screen (x:10-36, y:14-42).
+Confirmation dialog still fires before toggling.
 
 UI Layout:
-- Moved upgrade buttons, heal button, and troop info panel up
-  to eliminate overlaps between interactive elements
-- Widened sell button to match shop panel width (SHOP_WIDTH - 16)
-- Troop info panel shifted up 10px for clearance from upgrade buttons
-
-Bug Fixes:
-- Fixed troop selection jumping when other troops die (track by
-  reference instead of index during compaction)
-- Fixed monster double-attack on initial engagement (attackTimer
-  now starts at full cooldown instead of 0)
-- Fixed heal button disappearing when healCount reached cap
-  (removed cap, button now always renders)
+- Widened dev-mode monster spawn panel from 180px to 220px
+  to eliminate overlap between monster names (e.g. "Grunt x8")
+  and the +/- control buttons
+- Widened confirmation dialog from 340px to 380px for better
+  text readability and button spacing
