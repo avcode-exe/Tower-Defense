@@ -5,6 +5,7 @@
 class Monster {
   constructor(level, waypoints, sharedPath, hpMult = 1) {
     this.level = level;
+    this.hpMult = hpMult || 1;
     const key = level === 'B' ? 'B' : level;
     this.spec = MONSTER_SPECS[key];
     this.maxHp = Math.round((this.spec ? this.spec.hp : 1) * hpMult);
@@ -87,23 +88,26 @@ class Monster {
     return Math.max(Math.abs(this._tileGx - gx), Math.abs(this._tileGy - gy));
   }
 
-  // Tile distance from a troop tile (for ranged targeting). Inlines tileCenter to avoid allocation.
-  worldDistanceFromTile(gx, gy) {
-    const tx = gx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
-    const ty = gy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
-    const dx = this.x - tx, dy = this.y - ty;
-    return Math.sqrt(dx * dx + dy * dy);
-  }
-
   takeDamage(amount) {
     const r = { killed: false, reward: 0, hpDamage: 0 };
     if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return r;
     if (this.shield > 0) {
       if (amount >= this.shield) {
+        const excess = amount - this.shield;
         this.shield = 0;
-      } else {
-        this.shield -= amount;
+        this.shieldRegenTimer = 0;
+        // Bleed excess damage through to HP.
+        r.hpDamage = excess;
+        this.hp -= excess;
+        if (this.hp <= 0) {
+          this.hp = 0;
+          this.alive = false;
+          r.killed = true;
+          r.reward = this.reward;
+        }
+        return r;
       }
+      this.shield -= amount;
       this.shieldRegenTimer = 0;
       return r;
     }

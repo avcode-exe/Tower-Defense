@@ -122,14 +122,6 @@ const RENDERER = {
     this._cacheDirty = false;
   },
 
-  // Convert a canvas-pixel coord to a world coord (in the play area).
-  toWorld(px, py) {
-    return {
-      x: (px - this.offsetX) / this.scale,
-      y: (py - this.offsetY) / this.scale,
-    };
-  },
-
   // Zero-allocation variant: writes into an existing {x,y} object.
   toWorldInto(px, py, out) {
     out.x = (px - this.offsetX) / this.scale;
@@ -171,26 +163,4 @@ const RENDERER = {
     c.restore();
   },
 
-  fillRect(x, y, w, h, color) {
-    this.ctx.fillStyle = color;
-    this.ctx.fillRect(x, y, w, h);
-  },
-
-  strokeRect(x, y, w, h, color, lineWidth) {
-    this.ctx.strokeStyle = color;
-    this.ctx.lineWidth = lineWidth || 1;
-    this.ctx.strokeRect(x, y, w, h);
-  },
-
-  fillCircle(x, y, r, color) {
-    this.ctx.fillStyle = color;
-    if (r <= 2) {
-      // For tiny circles, fillRect avoids arc path setup overhead.
-      this.ctx.fillRect(x - r, y - r, r * 2, r * 2);
-    } else {
-      this.ctx.beginPath();
-      this.ctx.arc(x, y, r, 0, 6.2832);
-      this.ctx.fill();
-    }
-  },
 };

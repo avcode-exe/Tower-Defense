@@ -34,6 +34,8 @@ const PARTICLES = {
   _pool: [],
   _activeCount: 0,
   _maxPool: 300,
+  _buckets: {},
+  _bucketKeys: [],
 
   _getParticle() {
     if (this._activeCount < this._maxPool) {
@@ -92,15 +94,20 @@ const PARTICLES = {
   },
 
   draw(ctx) {
-    const buckets = {};
+    const buckets = this._buckets;
+    const keys = this._bucketKeys;
     for (let i = 0; i < this._activeCount; i++) {
       const p = this._pool[i];
       const alphaKey = Math.round((p.life / p.maxLife) * 10) / 10;
       const key = p.color + '|' + alphaKey;
-      if (!buckets[key]) buckets[key] = [];
+      if (!buckets[key]) {
+        buckets[key] = [];
+        keys.push(key);
+      }
       buckets[key].push(p);
     }
-    for (const key in buckets) {
+    for (let k = 0; k < keys.length; k++) {
+      const key = keys[k];
       const sep = key.indexOf('|');
       ctx.globalAlpha = parseFloat(key.slice(sep + 1));
       ctx.fillStyle = key.slice(0, sep);
@@ -110,7 +117,11 @@ const PARTICLES = {
         const half = p.size * 0.5;
         ctx.fillRect(p.x - half, p.y - half, p.size, p.size);
       }
+      // Reset bucket for next frame
+      batch.length = 0;
+      buckets[key] = null;
     }
+    keys.length = 0;
     ctx.globalAlpha = 1;
   },
 
@@ -119,19 +130,26 @@ const PARTICLES = {
   },
 
   // Predefined effect configs.
+  _hitSparkCfg: { count: 4, color: '#fff', minSize: 1, maxSize: 2.5, minSpeed: 40, maxSpeed: 90, minLife: 0.15, maxLife: 0.3, gravity: false },
   hitSpark(color) {
-    return { count: 4, color: color || '#fff', minSize: 1, maxSize: 2.5, minSpeed: 40, maxSpeed: 90, minLife: 0.15, maxLife: 0.3, gravity: false };
+    this._hitSparkCfg.color = color || '#fff';
+    return this._hitSparkCfg;
   },
 
+  _deathBurstCfg: { count: 10, color: '#fff', minSize: 1.5, maxSize: 3.5, minSpeed: 50, maxSpeed: 130, minLife: 0.25, maxLife: 0.55, gravity: false },
   deathBurst(color) {
-    return { count: 10, color: color || '#fff', minSize: 1.5, maxSize: 3.5, minSpeed: 50, maxSpeed: 130, minLife: 0.25, maxLife: 0.55, gravity: false };
+    this._deathBurstCfg.color = color || '#fff';
+    return this._deathBurstCfg;
   },
 
+  _splashImpactCfg: { count: 12, color: '#9b59b6', minSize: 1.5, maxSize: 3, minSpeed: 60, maxSpeed: 140, minLife: 0.2, maxLife: 0.45, gravity: false },
   splashImpact(color) {
-    return { count: 12, color: color || '#9b59b6', minSize: 1.5, maxSize: 3, minSpeed: 60, maxSpeed: 140, minLife: 0.2, maxLife: 0.45, gravity: false };
+    this._splashImpactCfg.color = color || '#9b59b6';
+    return this._splashImpactCfg;
   },
 
+  _chainSparkCfg: { count: 3, color: '#f1c40f', minSize: 1, maxSize: 2, minSpeed: 30, maxSpeed: 70, minLife: 0.1, maxLife: 0.2, gravity: false },
   chainSpark() {
-    return { count: 3, color: '#f1c40f', minSize: 1, maxSize: 2, minSpeed: 30, maxSpeed: 70, minLife: 0.1, maxLife: 0.2, gravity: false };
+    return this._chainSparkCfg;
   },
 };

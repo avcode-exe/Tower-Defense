@@ -9,42 +9,49 @@ class Input {
     this.hoverPy = null;
     this._rect = canvas.getBoundingClientRect();
 
-    canvas.addEventListener('mousemove', (e) => {
+    this._onMouseMove = (e) => {
       // Only recalc layout on resize; mousemove should not force layout.
       const r = this._rect;
       this.hoverPx = e.clientX - r.left;
       this.hoverPy = e.clientY - r.top;
       RENDERER.hoverPx = this.hoverPx;
       RENDERER.hoverPy = this.hoverPy;
-    });
-    canvas.addEventListener('mouseleave', () => {
+    };
+    this._onMouseLeave = () => {
       this.hoverPx = null;
       this.hoverPy = null;
       RENDERER.hoverPx = null;
       RENDERER.hoverPy = null;
-    });
-    canvas.addEventListener('mousedown', (e) => {
+    };
+    this._onMouseDown = (e) => {
       // Recalc rect on mousedown for accuracy after window resize.
       const r = this.canvas.getBoundingClientRect();
       const px = e.clientX - r.left;
       const py = e.clientY - r.top;
       this.game.onMouseDown(px, py, e.button);
-    });
-    canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+    };
+    this._onContextMenu = (e) => e.preventDefault();
 
-    canvas.addEventListener('wheel', (e) => {
+    this._onWheel = (e) => {
       e.preventDefault();
-      const r = this._rect;
+      const r = this.canvas.getBoundingClientRect();
       const px = e.clientX - r.left;
       const py = e.clientY - r.top;
       if (!UI_LAYOUT.collapsed.shop && px < UI_LAYOUT.shopWidth && py > UI_LAYOUT.hudHeight) {
         UI.shopScrollY += e.deltaY * 0.5;
       }
-    }, { passive: false });
+    };
 
-    window.addEventListener('keydown', (e) => {
+    this._onKeyDown = (e) => {
       this.game.onKeyDown(e);
-    });
+    };
+
+    canvas.addEventListener('mousemove', this._onMouseMove, { passive: true });
+    canvas.addEventListener('mouseleave', this._onMouseLeave, { passive: true });
+    canvas.addEventListener('mousedown', this._onMouseDown, { passive: true });
+    canvas.addEventListener('contextmenu', this._onContextMenu);
+    canvas.addEventListener('wheel', this._onWheel, { passive: false });
+    window.addEventListener('keydown', this._onKeyDown);
 
     // Recalc cached rect on window resize.
     this._resizeListener = () => { this._rect = this.canvas.getBoundingClientRect(); };
@@ -52,6 +59,13 @@ class Input {
   }
 
   destroy() {
+    const canvas = this.canvas;
+    canvas.removeEventListener('mousemove', this._onMouseMove);
+    canvas.removeEventListener('mouseleave', this._onMouseLeave);
+    canvas.removeEventListener('mousedown', this._onMouseDown);
+    canvas.removeEventListener('contextmenu', this._onContextMenu);
+    canvas.removeEventListener('wheel', this._onWheel);
+    window.removeEventListener('keydown', this._onKeyDown);
     window.removeEventListener('resize', this._resizeListener);
   }
 }

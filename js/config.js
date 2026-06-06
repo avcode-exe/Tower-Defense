@@ -65,7 +65,6 @@ const CONFIG = {
   // Visual
   COLORS: {
     background: '#0e1418',
-    grid: 'rgba(255,255,255,0.04)',
     gridLine: 'rgba(255,255,255,0.06)',
     path: '#3a2a18',
     buildableHover: 'rgba(120,200,120,0.24)',

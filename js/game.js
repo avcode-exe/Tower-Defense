@@ -42,9 +42,10 @@ class Game {
     // Reusable projectile impact callback (avoids closure allocation per projectile per frame).
     this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     // Tile-based spatial monster index for fast targeting.
-    this._monsterTileIndex = new Array(256);
+    this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
     this._tileIndexStep = 0;
     this._popupPool = [];
+    this._tileIndexPool = [];
 
     this.wave = new WaveManager();
 
@@ -159,7 +160,7 @@ class Game {
       if (m.level !== 'B' && m.level !== 'S' && m.level > 1) {
         const childLvl = m.level - 1;
         for (let i = 0; i < CONFIG.MONSTER_SPLIT_COUNT; i++) {
-          const child = new Monster(childLvl, this.waypoints, this.pathSegments);
+          const child = new Monster(childLvl, this.waypoints, this.pathSegments, m.hpMult);
           child.distance = m.distance;
           child.segIdx = m.segIdx;
           child._updatePosition();
@@ -208,14 +209,16 @@ class Game {
     }
 
     // Monsters (index loop for speed).
-    for (let i = 0; i < this.monsters.length; i++) {
+    // Snapshot length: troops/projectiles may push split children via damageMonster.
+    const monsterCount = this.monsters.length;
+    for (let i = 0; i < monsterCount; i++) {
       const m = this.monsters[i];
       if (!m.alive) continue;
       // Defensive kill: if HP somehow reached <=0 outside the damage path,
       // route through damageMonster so split-on-kill / particles / reward
       // all fire consistently.
       if (m.hp <= 0) {
-        m.alive = false;
+        this.damageMonster(m, m.maxHp);
         continue;
       }
       m.update(dt);
@@ -270,14 +273,14 @@ class Game {
       this.state = 'PRE_WAVE';
     }
 
-    // Update popups (index loop).
-    for (let i = 0; i < this.popups.length; i++) this.popups[i].t -= dt;
+    // Update popups (single pass: decrement timers, compact, and recycle).
     let ppw = 0;
     for (let i = 0; i < this.popups.length; i++) {
       const p = this.popups[i];
+      p.t -= dt;
       if (p.t > 0) {
         this.popups[ppw++] = p;
-      } else {
+      } else if (this._popupPool.length < 50) {
         this._popupPool.push(p);
       }
     }
@@ -317,7 +320,15 @@ class Game {
 
   // Build tile-based spatial index of alive monsters for fast targeting.
   _updateMonsterTileIndex() {
-    this._monsterTileIndex.fill(null);
+    const tiIdx = this._monsterTileIndex;
+    const tiPool = this._tileIndexPool;
+    for (let i = 0; i < tiIdx.length; i++) {
+      if (tiIdx[i]) {
+        tiIdx[i].length = 0;
+        tiPool.push(tiIdx[i]);
+        tiIdx[i] = null;
+      }
+    }
     const G = CONFIG.GRID_SIZE;
     for (let i = 0; i < this.monsters.length; i++) {
       const m = this.monsters[i];
@@ -325,8 +336,11 @@ class Game {
       const gx = (m.x / CONFIG.TILE_SIZE) | 0;
       const gy = (m.y / CONFIG.TILE_SIZE) | 0;
       const idx = gy * G + gx;
-      let arr = this._monsterTileIndex[idx];
-      if (!arr) { arr = []; this._monsterTileIndex[idx] = arr; }
+      let arr = tiIdx[idx];
+      if (!arr) {
+        arr = tiPool.length > 0 ? tiPool.pop() : [];
+        tiIdx[idx] = arr;
+      }
       arr.push(m);
     }
   }
@@ -494,6 +508,8 @@ class Game {
     window.addEventListener('resize', this._resizeHandler);
     this.lastTime = performance.now();
     this._running = true;
+    this._rafVersion = (this._rafVersion || 0) + 1;
+    const myRafVersion = this._rafVersion;
 
     // Spawn the sim worker.
     try {
@@ -514,7 +530,7 @@ class Game {
       this._running = true;
       this.lastTime = performance.now();
       const fallbackLoop = () => {
-        if (!this._running) return;
+        if (!this._running || this._rafVersion !== myRafVersion) return;
         this._runSimTick(performance.now());
         requestAnimationFrame(fallbackLoop);
       };
@@ -576,11 +592,13 @@ class Game {
       // Shield ring.
       if (m.shield > 0) {
         const shieldRatio = m.shield / m.maxShield;
-        ctx.strokeStyle = 'rgba(93,173,226,' + (0.3 + 0.5 * shieldRatio) + ')';
+        ctx.strokeStyle = '#5dade2';
+        ctx.globalAlpha = 0.3 + 0.5 * shieldRatio;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(m.x, m.y, m.spec.size * 0.5 + 2, 0, 6.2832 * shieldRatio);
         ctx.stroke();
+        ctx.globalAlpha = 1;
       }
       // Body.
       ctx.fillStyle = m.spec.color;
@@ -1015,7 +1033,8 @@ class Game {
     this.projectiles = [];
     this.popups = [];
     this._popupPool = [];
-    this._monsterTileIndex = new Array(256);
+    this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+    this._tileIndexPool = [];
     this._tileIndexStep = 0;
     this.waveCompleteAnim = { active: false, waveNum: 0 };
     PARTICLES.clear();

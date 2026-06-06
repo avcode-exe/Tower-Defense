@@ -123,8 +123,9 @@ const UI = {
     if (UI_LAYOUT.collapsed.shop) return -1;
     const areaTop = UI_LAYOUT.hudHeight + 8;
     const areaBottom = this._cardAreaBottom || RENDERER.height;
+    const r = this._hitShopScratch || (this._hitShopScratch = { x: 0, y: 0, w: 0, h: 0 });
     for (let i = 0; i < TROOP_SPECS.length; i++) {
-      const r = this.shopCardRect(i);
+      this.shopCardRectInto(i, r);
       if (r.y + r.h < areaTop || r.y > areaBottom) continue;
       if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
     }
@@ -835,7 +836,7 @@ const UI = {
     c.fillStyle = UI_COLORS.textBright;
     c.font = 'bold 15px system-ui, sans-serif';
     if (game.sellConfirmPending) {
-      c.fillText('Sell ' + (game.troops[game.sellConfirmTroopIndex]?.spec?.name || 'troop') + ' for 50% refund?', RENDERER.width / 2, py + 45);
+      c.fillText('Sell ' + (game.troops[game.sellConfirmTroopIndex]?.spec?.name || 'troop') + ' for 30% refund?', RENDERER.width / 2, py + 45);
       c.fillStyle = UI_COLORS.textDim;
       c.font = '12px system-ui, sans-serif';
       c.fillText('Sold troops cannot be recovered.', RENDERER.width / 2, py + 70);
