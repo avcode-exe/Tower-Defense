@@ -96,13 +96,13 @@ const MONSTER_SPECS = {
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).
 const TROOP_SPECS = [
-  { id: 'swordsman', name: 'Swordsman', type: 'melee',  cost: 70,  damage: 9, range: 1, attackSpeed: 0.67, splash: 0, color: '#3498db', hotkey: '1', hp: 50, desc: 'Basic melee defender with 50 HP. Cheap and reliable, but vulnerable to monster attacks.' },
-  { id: 'knight',    name: 'Knight',    type: 'melee',  cost: 120, damage: 18, range: 1, attackSpeed: 0.9, splash: 0, color: '#2980b9', hotkey: '2', hp: 120, desc: 'Heavy melee with 120 HP and high damage. Excellent at holding choke points against monster attacks.' },
+  { id: 'swordsman', name: 'Swordsman', type: 'melee',  cost: 70,  damage: 9, range: 1, attackSpeed: 0.67, splash: 0, color: '#3498db', hotkey: '1', hp: 50, desc: 'Basic melee defender with 50 HP. Takes 70% less damage from monsters. Cheap and reliable.' },
+  { id: 'knight',    name: 'Knight',    type: 'melee',  cost: 120, damage: 18, range: 1, attackSpeed: 0.9, splash: 0, color: '#2980b9', hotkey: '2', hp: 120, desc: 'Heavy melee with 120 HP and high damage. Takes 70% less damage from monsters. Excellent tank.' },
   { id: 'archer',    name: 'Archer',    type: 'ranged', cost: 70,  damage: 12, range: 3, attackSpeed: 1.2, splash: 0, color: '#27ae60', hotkey: '3', hp: 30, desc: 'Fast-firing ranged unit with 30 HP. Good DPS, but fragile — keep monsters away.' },
   { id: 'machinegun', name: 'Machine Gun',  type: 'ranged', cost: 150, damage: 6, range: 4, attackSpeed: 0.25, splash: 0, color: '#e74c3c', hotkey: '4', hp: 40, desc: 'Rapid-fire ranged unit with 40 HP. Shreds groups, but low HP means it falls fast to monsters.' },
   { id: 'mage',      name: 'Mage',      type: 'ranged', cost: 180, damage: 32, range: 3, attackSpeed: 1.3, splash: 2.0, color: '#9b59b6', hotkey: '5', hp: 35, desc: 'Ranged unit with 35 HP and splash damage. Devastating against groups, but keep her protected.' },
   { id: 'sniper',    name: 'Sniper',    type: 'ranged', cost: 250, damage: 100, range: 10, attackSpeed: 2.5, splash: 0, color: '#2c3e50', hotkey: '6', hp: 25, desc: 'Extreme range and burst damage with only 25 HP. Picks off enemies from afar — very fragile up close.' },
-  { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 1.2, splash: 0, color: '#e67e22', hotkey: '7', hp: 80, aoe: true, desc: 'Melee unit with 80 HP and AoE attacks. Clears swarms and can take a beating.' },
+  { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 1.2, splash: 0, color: '#e67e22', hotkey: '7', hp: 80, aoe: true, desc: 'Melee unit with 80 HP and AoE attacks. Takes 70% less damage from monsters. Clears swarms.' },
   { id: 'lightning', name: 'Lightning', type: 'ranged', cost: 300, damage: 100, range: 2, attackSpeed: 3, splash: 0, color: '#f1c40f', hotkey: '8', hp: 40, chain: 2, stun: 0.5, desc: 'Chain lightning with 40 HP that stuns and jumps to multiple enemies. Stuns help keep her alive.' },
   { id: 'mortar',   name: 'Mortar',   type: 'ranged', cost: 200, damage: 65,  range: 8, attackSpeed: 3.0, splash: 2.5, color: '#8B4513', hotkey: '9', hp: 30, desc: 'Long-range siege unit with 30 HP. Slow but devastating splash — vulnerable if monsters reach her.' },
 ];

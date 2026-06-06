@@ -232,7 +232,7 @@ class Monster {
         if (target) {
           this.state = 'ATTACKING';
           this.attackTarget = target;
-          this.attackTimer = 0;
+          this.attackTimer = this.spec.attackSpeed;
           this._pendingAttack = target;
         }
       }

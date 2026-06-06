@@ -201,7 +201,9 @@ class Game {
 
   // Apply monster melee damage to a troop.
   damageTroop(monster, troop) {
-    const dmg = monster.spec.damage;
+    let dmg = monster.spec.damage;
+    // Melee troops take 70% less damage from monsters (they can block).
+    if (troop.spec.type === 'melee') dmg = Math.round(dmg * 0.3);
     const killed = troop.takeDamage(dmg);
     this._getPopup(
       '-' + dmg,
@@ -295,30 +297,28 @@ class Game {
       if (this.projectiles[i].alive) this.projectiles[pw++] = this.projectiles[i];
     }
     this.projectiles.length = pw;
+    // Fix stale selectedTroopIndex after compaction.
+    // Track by reference: save BEFORE compaction mutates the array.
+    const selRef = this.selectedTroopIndex >= 0 ? this.troops[this.selectedTroopIndex] : null;
     let tw = 0;
     for (let i = 0; i < this.troops.length; i++) {
       if (this.troops[i].alive) this.troops[tw++] = this.troops[i];
     }
     this.troops.length = tw;
 
-    // Fix stale selectedTroopIndex after compaction.
-    // Track by reference: find the selected troop's new index after dead removal.
-    if (this.selectedTroopIndex >= 0) {
-      const selRef = this.troops[this.selectedTroopIndex];
-      if (selRef && selRef.alive) {
-        // Troop survived compaction — find its new position.
-        let found = false;
-        for (let i = 0; i < tw; i++) {
-          if (this.troops[i] === selRef) {
-            this.selectedTroopIndex = i;
-            found = true;
-            break;
-          }
+    // Find the selected troop's new index after dead removal.
+    if (selRef && selRef.alive) {
+      let found = false;
+      for (let i = 0; i < tw; i++) {
+        if (this.troops[i] === selRef) {
+          this.selectedTroopIndex = i;
+          found = true;
+          break;
         }
-        if (!found) this.selectedTroopIndex = -1;
-      } else {
-        this.selectedTroopIndex = -1;
       }
+      if (!found) this.selectedTroopIndex = -1;
+    } else {
+      this.selectedTroopIndex = -1;
     }
 
     // Wave completion.

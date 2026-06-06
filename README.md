@@ -38,6 +38,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 **Upgradeable stats per troop:**
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
 - Lightning: also **CHN** (+1 chain target per level)
+- **Melee troops take 70% reduced damage from monster attacks**
 
 ## Monsters
 
@@ -54,6 +55,8 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 
 Monsters can attack adjacent troops, dealing their damage stat per hit. Troops have HP and can be destroyed — plan your defenses carefully!
+
+**Melee troops take 70% less damage from monster attacks** — they are your front line. Ranged troops take full damage and must be protected.
 
 ## Economy
 
