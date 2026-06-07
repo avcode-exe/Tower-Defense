@@ -1,79 +1,11 @@
-Left sidebar flicker fix + shop/upgrade margin (v1.2.0 beta 2)
+Clean up dead code and minor bugs
 
-=== Shop card hover flicker fix ===
-
-When the user scrolled the mouse wheel over the left shop, the
-hover highlight on the troop cards flickered rapidly. Root cause:
-mouse stays stationary during scroll while cards move under it,
-so hitShop() returns a different card index every frame, and
-updateHover() re-assigns hoveredShopIndex on each call, swapping
-the card background between hover and normal states.
-
-Fix: freeze the hover highlight while shopScrollY is changing.
-Once scroll stops and the next frame has the same scrollY, the
-guard releases and the highlight re-evaluates under the cursor.
-
-Files changed (flicker fix):
-- js/ui.js (UI object, updateHover):
-  * Add _prevShopScrollY field next to shopScrollY
-  * In updateHover, early-return when shopScrollY differs from
-    _prevShopScrollY (syncs the field and skips hitShop)
-  * When scroll is idle, the existing null-check and hitShop
-    call proceed unchanged
-
-=== Margin between shop cards and selected-troop UI ===
-
-The bottom of the scrollable shop card list touched the top of
-the selected-troop info panel with 0px gap. Added 6px of visual
-breathing room.
-
-Files changed (margin):
-- js/ui.js (drawShop, areaBottom calculation):
-  * Change `RENDERER.height - 204` to `RENDERER.height - 210`
-    when a troop is selected, so the card area ends 6px above
-    the info panel (which stays at height - 204)
-  * The "no troop selected" branch is unchanged
-
-=== Info panel width fix ===
-
-The selected-troop info panel (Knight/DMG/SPD/RNG/HP/DPS) was
-200px wide while the HEAL and Sell buttons below it were 224px
-(UI_LAYOUT.SHOP_WIDTH - 16). Misaligned right edge looked ugly.
-Widened the info panel to match.
-
-Files changed (panel width):
-- js/ui.js (drawShop, selected-troop info panel):
-  * Both UIRoundRect calls (fill + stroke) changed from width
-    200 to UI_LAYOUT.SHOP_WIDTH - 16 (224px)
-  * Text x positions (18) unchanged — same 10px left padding
-  * panelY (height - 204) and panelH (72) unchanged
-
-=== Carry-over from prior iterations ===
-
-Shield visual redesign (circular arc → square outline):
-- js/game.js render troop loop: ctx.strokeRect square at 48x48
-  boundary, 2px line, #5dade2, sine-wave pulse alpha
-  (0.45–0.75, ~1.5s period); troop body shrinks to 80% via
-  translate + scale + translate-back inside save/restore
-
-SHIELD SHOP card polish:
-- cardH 40 → 58; added info line inside card (cost, effect,
-  expiration countdown); removed redundant "Shielded: Yes/No"
-  from the status line below the card
-
-Shield shop feature (v1.2.0 beta 2 base):
-- Right-panel shop, +100% HP shield for selected troop, 50% of
-  troop cost, one per troop, expires at every 10th wave
-- Files: js/config.js, js/troop.js, js/game.js, js/ui.js,
-  js/particles.js, js/renderer.js, js/input.js
-
-Visual layout fixes (left shop overlap + right panel position):
-- Info H-204, upgrades H-130, heal H-92, sell H-62 in both
-  ui.js render and game.js click handler
-- Right-side HTML "Monsters" tab moved to bottom-right via
-  #right-panels flex column in index.html and css/style.css
-- Shop scrollbar widened (3px→5px, alpha 0.15→0.3)
-
-Verification (read-only agents): all checks PASS, no regressions
-in the shield shop, visual layout, shield visual redesign, or
-the flicker/margin fixes.
+- Remove _activeShieldCount and _tileIndexStep dead state from
+  Game (written in 4 and 2 places respectively, never read).
+- Fix makeRNG in utils.js: the `??` after `>>>` never fell through
+  when seed was undefined, so unseeded games always used seed 0.
+  Now correctly falls back to a random int via Math.floor.
+- Replace 4 occurrences of `6.2832` with `Math.PI * 2` in game.js
+  for consistency with the rest of the codebase.
+- Re-indent dev-right click handler so the if-body is visibly
+  nested inside the for-j loop (was dedented, misleading).

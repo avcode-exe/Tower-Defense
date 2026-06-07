@@ -43,8 +43,6 @@ class Game {
     this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     // Tile-based spatial monster index for fast targeting.
     this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
-    this._tileIndexStep = 0;
-    this._activeShieldCount = 0;   // updated by buyTroopShield / clearShield
 
     this._troopTileIndex = [];
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
@@ -174,7 +172,6 @@ class Game {
     if (!this.devMode && this.gold < cost) return false;
     if (!this.devMode) this.gold -= cost;
     t.applyShield();
-    this._activeShieldCount = Math.min(this.troops.length, this._activeShieldCount + 1);
     this._getPopup('SHIELD!', t.x, t.y - 12, 1.0, '#5dade2');
     if (PARTICLES && PARTICLES.troopShieldActivate) {
       PARTICLES.spawn(t.x, t.y, PARTICLES.troopShieldActivate(t.spec.color));
@@ -373,7 +370,6 @@ class Game {
           const t = this.troops[i];
           if (t.shield > 0) t.clearShield();
         }
-        this._activeShieldCount = 0;
       }
       this.state = 'PRE_WAVE';
     }
@@ -746,7 +742,7 @@ class Game {
       // Outer shadow.
       ctx.fillStyle = 'rgba(0,0,0,0.4)';
       ctx.beginPath();
-      ctx.arc(m.x, m.y, m.spec.size * 0.5 + 3, 0, 6.2832);
+      ctx.arc(m.x, m.y, m.spec.size * 0.5 + 3, 0, Math.PI * 2);
       ctx.fill();
       // Shield ring.
       if (m.shield > 0) {
@@ -755,14 +751,14 @@ class Game {
         ctx.globalAlpha = 0.3 + 0.5 * shieldRatio;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(m.x, m.y, m.spec.size * 0.5 + 2, 0, 6.2832 * shieldRatio);
+        ctx.arc(m.x, m.y, m.spec.size * 0.5 + 2, 0, Math.PI * 2 * shieldRatio);
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
       // Body.
       ctx.fillStyle = m.spec.color;
       ctx.beginPath();
-      ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, 6.2832);
+      ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, Math.PI * 2);
       ctx.fill();
       // Stun overlay.
       if (m.stunTimer > 0) {
@@ -820,7 +816,7 @@ class Game {
       } else {
         ctx.fillStyle = p.color;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size * 0.5, 0, 6.2832);
+        ctx.arc(p.x, p.y, p.size * 0.5, 0, Math.PI * 2);
         ctx.fill();
       }
     }
@@ -915,12 +911,12 @@ class Game {
             const tags = ['m10','m1','p1','p10'];
             for (let j = 0; j < tags.length; j++) {
               const b = row[tags[j]];
-            if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
-              const delta = tags[j] === 'm10' ? -10 : tags[j] === 'm1' ? -1 : tags[j] === 'p1' ? 1 : 10;
-              this.devMonsterCounts[row.level] = Math.max(0, (this.devMonsterCounts[row.level] || 0) + delta);
-              return;
+              if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
+                const delta = tags[j] === 'm10' ? -10 : tags[j] === 'm1' ? -1 : tags[j] === 'p1' ? 1 : 10;
+                this.devMonsterCounts[row.level] = Math.max(0, (this.devMonsterCounts[row.level] || 0) + delta);
+                return;
+              }
             }
-          }
         }
         }
 
@@ -1192,7 +1188,6 @@ class Game {
     this.selectedSpec = null;
     this.selectedTroopIndex = -1;
     this.sellCooldownTimer = 0;
-    this._activeShieldCount = 0;
     this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.waypoints = generatePath(this.seed);
@@ -1207,7 +1202,6 @@ class Game {
     this._popupPool = [];
     this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
     this._tileIndexPool = [];
-    this._tileIndexStep = 0;
     this.waveCompleteAnim = { active: false, waveNum: 0 };
     PARTICLES.clear();
     UI.shopScrollY = 0;

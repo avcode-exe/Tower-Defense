@@ -3,7 +3,7 @@
 // Mulberry32 - small, fast, deterministic PRNG. Re-seeding gives reproducible
 // games which is useful for testing and for a future "seeded map" feature.
 function makeRNG(seed) {
-  let s = (seed >>> 0) ?? ((Math.random() * 0xffffffff) >>> 0);
+  let s = (seed == null ? Math.floor(Math.random() * 0xffffffff) : seed) >>> 0;
   return function rng() {
     s = (s + 0x6D2B79F5) >>> 0;
     let t = s;
