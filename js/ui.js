@@ -477,6 +477,7 @@ const UI = {
         const btnY = RENDERER.height - 130;
         const btnPad = 8;
         const btnGap = 2;
+        // IMPORTANT: This layout calculation must match game.js upgrade button hit-test exactly.
         // Count visible buttons first to compute dynamic width.
         let visibleCount = 0;
         for (const stat of stats) {
@@ -526,7 +527,7 @@ const UI = {
         }
 
         // Heal button — always visible when a troop is selected.
-        const healBtnY = RENDERER.height - 92;
+        const healBtnY = RENDERER.height - 88;
         const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
         const canHeal = t.canHeal();
         const isMaxHp = t.hp >= t.maxHp;
@@ -567,7 +568,7 @@ const UI = {
         }
 
         // Sell button with cooldown indicator.
-        const sellBtn = { x: 8, y: RENDERER.height - 62, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
+        const sellBtn = { x: 8, y: RENDERER.height - 56, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
         const isDevDelete = game.devMode;
         const cd = game.sellCooldownTimer || 0;
         const onCooldown = cd > 0 && !isDevDelete;
@@ -1056,7 +1057,7 @@ const UI = {
     c.fillStyle = UI_COLORS.textBright;
     c.font = 'bold 15px system-ui, sans-serif';
     if (game.sellConfirmPending) {
-      c.fillText('Sell ' + (game.troops[game.sellConfirmTroopIndex]?.spec?.name || 'troop') + ' for 30% refund?', RENDERER.width / 2, py + 45);
+      c.fillText('Sell ' + (game.sellConfirmTroopIndex?.spec?.name || 'troop') + ' for ' + Math.round(CONFIG.SELL_REFUND_RATIO * 100) + '% refund?', RENDERER.width / 2, py + 45);
       c.fillStyle = UI_COLORS.textDim;
       c.font = '12px system-ui, sans-serif';
       c.fillText('Sold troops cannot be recovered.', RENDERER.width / 2, py + 70);

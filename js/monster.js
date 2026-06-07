@@ -40,6 +40,9 @@ class Monster {
     this.attackTarget = null;
     this.attackTimer = 0;
     this._pendingAttack = null;
+    // Reusable result object to avoid per-hit allocation in takeDamage().
+    // Safe because callers read properties immediately and never store the reference.
+    this._damageResult = { killed: false, reward: 0, hpDamage: 0 };
 
     // Cached tile coordinates (updated in _updatePosition).
     this._tileGx = 0;
@@ -94,7 +97,10 @@ class Monster {
   }
 
   takeDamage(amount) {
-    const r = { killed: false, reward: 0, hpDamage: 0 };
+    const r = this._damageResult;
+    r.killed = false;
+    r.reward = 0;
+    r.hpDamage = 0;
     if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return r;
     if (this.shield > 0) {
       if (amount >= this.shield) {

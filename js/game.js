@@ -51,7 +51,10 @@ class Game {
 
     this.wave = new WaveManager();
 
-    this._resizeHandler = () => RENDERER.resize(canvas);
+    this._resizeHandler = () => {
+      if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
+      this._resizeRAF = requestAnimationFrame(() => { this._resizeRAF = null; RENDERER.resize(canvas); });
+    };
     window.addEventListener('resize', this._resizeHandler);
 
     this.devMode = false;
@@ -60,7 +63,7 @@ class Game {
     this._goldClickTimer = 0;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
-    this.sellConfirmTroopIndex = -1;
+    this.sellConfirmTroopIndex = null;
     this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0};
   }
 
@@ -122,7 +125,7 @@ class Game {
   sellTroop(index) {
     const t = this.troops[index];
     if (!t || !t.alive) return;
-    if (this.sellCooldownTimer > 0) return;
+    if (!this.devMode && this.sellCooldownTimer > 0) return;
     t.alive = false;
     this.grid.set(t.gx, t.gy, TILE.EMPTY);
     RENDERER.markCacheDirty();
@@ -304,7 +307,8 @@ class Game {
     }
 
     // Monster attacks on troops.
-    for (let i = 0; i < this.monsters.length; i++) {
+    const attackCount = this.monsters.length;
+    for (let i = 0; i < attackCount; i++) {
       const m = this.monsters[i];
       if (!m.alive || !m._pendingAttack) continue;
       const target = m._pendingAttack;
@@ -360,7 +364,10 @@ class Game {
       if (waveNum % 10 === 0) {
         const bonus = Math.min(CONFIG.BOSS_BONUS_BASE + waveNum * CONFIG.BOSS_BONUS_PER_WAVE, CONFIG.BOSS_BONUS_MAX);
         this.gold = Math.min(this.gold + bonus, CONFIG.MAX_GOLD);
-        this._getPopup('+' + bonus + ' Boss Bonus!', RENDERER.width / 2, RENDERER.height / 2 - 40, 2.0, CONFIG.COLORS.gold);
+        this._centerScratch.x = RENDERER.width / 2;
+        this._centerScratch.y = RENDERER.height / 2 - 40;
+        RENDERER.toWorldInto(this._centerScratch.x, this._centerScratch.y, this._centerScratch);
+        this._getPopup('+' + bonus + ' Boss Bonus!', this._centerScratch.x, this._centerScratch.y, 2.0, CONFIG.COLORS.gold);
       }
       this.wave.onAllSpawnedAndCleared();
       // Expire troop shields after every 10th wave (boss wave).
@@ -381,7 +388,7 @@ class Game {
       p.t -= dt;
       if (p.t > 0) {
         this.popups[ppw++] = p;
-      } else if (this._popupPool.length < 50) {
+      } else if (this._popupPool.length < 100) {
         this._popupPool.push(p);
       }
     }
@@ -510,10 +517,11 @@ class Game {
       const countBefore = this.monsters.length;
       // Shielded monsters are immune to stun while shield is active.
       if (stunDuration > 0 && m.shield <= 0) m.stunTimer = Math.max(m.stunTimer, stunDuration);
+      const hadShield = m.shield > 0;
       this.damageMonster(m, damage);
       this._getPopup('\u26A1', m.x, m.y - 12, 0.6, '#f1c40f');
-      // Stun any children spawned by split.
-      if (stunDuration > 0 && m.shield <= 0) {
+      // Stun any children spawned by split (only if parent was not shielded).
+      if (stunDuration > 0 && !hadShield) {
         for (let j = countBefore; j < this.monsters.length; j++) {
           this.monsters[j].stunTimer = Math.max(this.monsters[j].stunTimer, stunDuration);
         }
@@ -576,7 +584,7 @@ class Game {
       lastX = best.x; lastY = best.y;
       applyHit(best, best.x, best.y);
       // Remove hit monster from buffer to prevent re-hitting the same target.
-      if (bestIdx >= 0) { buf.splice(bestIdx, 1); i--; }
+      if (bestIdx >= 0) { const last = buf.length - 1; if (bestIdx !== last) { buf[bestIdx] = buf[last]; } buf.length = last; i--; }
       chained++;
     }
   }
@@ -615,7 +623,11 @@ class Game {
     // Use a Web Worker for simulation so the game runs at full speed
     // even when the tab is in the background (workers are never throttled).
     if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
-    this._resizeHandler = () => RENDERER.resize(this.canvas);
+    if (this._resizeRAF) { cancelAnimationFrame(this._resizeRAF); this._resizeRAF = null; }
+    this._resizeHandler = () => {
+      if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
+      this._resizeRAF = requestAnimationFrame(() => { this._resizeRAF = null; RENDERER.resize(this.canvas); });
+    };
     window.addEventListener('resize', this._resizeHandler);
     this.lastTime = performance.now();
     this._running = true;
@@ -634,6 +646,15 @@ class Game {
     this._simWorker.onerror = (e) => {
       console.error('Sim worker error, falling back to main thread:', e);
       this._simWorker = null;
+      // Start fallback rAF loop so the game doesn't freeze.
+      this._running = true;
+      this.lastTime = performance.now();
+      const fallbackLoop = () => {
+        if (!this._running) return;
+        this._runSimTick(performance.now());
+        requestAnimationFrame(fallbackLoop);
+      };
+      requestAnimationFrame(fallbackLoop);
     };
     this._simWorker.postMessage('start');
     } catch (err) {
@@ -769,32 +790,26 @@ class Game {
       }
     }
 
-    // PASS 2: HP bars (bg + fill in 1 pass — was 2 passes).
+    // PASS 2: HP bars + Shield bars (merged into 1 loop — was 2 separate loops).
     ctx.fillStyle = CONFIG.COLORS.hpBarBg;
     for (let i = 0; i < this.monsters.length; i++) {
       const m = this.monsters[i];
       if (!m.alive) continue;
+      const w = m.spec.size + 6;
+      const barY = m.y - m.spec.size * 0.5 - 10;
+      // HP bar
       if (m.hp < m.maxHp || m.shield < m.maxShield) {
-        const w = m.spec.size + 6;
-        const barY = m.y - m.spec.size * 0.5 - 10;
+        ctx.fillStyle = CONFIG.COLORS.hpBarBg;
         ctx.fillRect(m.x - w * 0.5, barY, w, 3);
         ctx.fillStyle = CONFIG.COLORS.hpBarFill;
         ctx.fillRect(m.x - w * 0.5, barY, w * (m.hp / m.maxHp), 3);
-        ctx.fillStyle = CONFIG.COLORS.hpBarBg;  // reset for next monster
       }
-    }
-    // Shield bars (bg + fill in 1 pass — was 2 passes).
-    ctx.fillStyle = CONFIG.COLORS.shieldBarBg;
-    for (let i = 0; i < this.monsters.length; i++) {
-      const m = this.monsters[i];
-      if (!m.alive) continue;
+      // Shield bar
       if (m.maxShield > 0) {
-        const w = m.spec.size + 6;
-        const barY = m.y - m.spec.size * 0.5 - 10;
+        ctx.fillStyle = CONFIG.COLORS.shieldBarBg;
         ctx.fillRect(m.x - w * 0.5, barY - 4, w, 2);
         ctx.fillStyle = CONFIG.COLORS.shieldBarFill;
         ctx.fillRect(m.x - w * 0.5, barY - 4, w * Math.min(1, m.shield / m.maxShield), 2);
-        ctx.fillStyle = CONFIG.COLORS.shieldBarBg;  // reset for next monster
       }
     }
 
@@ -874,8 +889,12 @@ class Game {
       if (UI._devConfirmYes && px >= UI._devConfirmYes.x && px <= UI._devConfirmYes.x + UI._devConfirmYes.w && py >= UI._devConfirmYes.y && py <= UI._devConfirmYes.y + UI._devConfirmYes.h) {
         if (this.sellConfirmPending) {
           this.sellConfirmPending = false;
-          this.sellTroop(this.sellConfirmTroopIndex);
-          this.sellConfirmTroopIndex = -1;
+          const ref = this.sellConfirmTroopIndex;
+          if (ref && ref.alive) {
+            const idx = this.troops.indexOf(ref);
+            if (idx >= 0) this.sellTroop(idx);
+          }
+          this.sellConfirmTroopIndex = null;
           this.devConfirmPending = false;
           this.resetConfirmPending = false;
         } else if (this.resetConfirmPending) {
@@ -893,7 +912,7 @@ class Game {
         this.devConfirmPending = false;
         this.resetConfirmPending = false;
         this.sellConfirmPending = false;
-        this.sellConfirmTroopIndex = -1;
+        this.sellConfirmTroopIndex = null;
         return;
       }
       return; // all clicks consumed while dialog is shown
@@ -980,8 +999,10 @@ class Game {
           }
         } else if (this.state === 'WAVE_ACTIVE') {
           this.state = 'PAUSED';
+          if (this._simWorker) this._simWorker.postMessage('stop');
         } else if (this.state === 'PAUSED') {
           this.state = 'WAVE_ACTIVE';
+          if (this._simWorker) this._simWorker.postMessage('start');
         }
         return;
       }
@@ -1009,7 +1030,7 @@ class Game {
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
       const t = this.troops[this.selectedTroopIndex];
       if (t && t.alive && t.canHeal()) {
-        const healBtnY = RENDERER.height - 92;
+        const healBtnY = RENDERER.height - 88;
         const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
         if (px >= 8 && px <= 8 + healBtnW && py >= healBtnY && py <= healBtnY + 28) {
           this.healTroop(this.selectedTroopIndex);
@@ -1020,13 +1041,13 @@ class Game {
 
     // Sell button — show confirmation dialog.
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
-      const sellBtn = { x: 8, y: RENDERER.height - 62, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
+      const sellBtn = { x: 8, y: RENDERER.height - 56, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
       if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
           && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
         if (this.devMode) {
           this.sellTroop(this.selectedTroopIndex);
         } else {
-          this.sellConfirmTroopIndex = this.selectedTroopIndex;
+          this.sellConfirmTroopIndex = this.troops[this.selectedTroopIndex];
           this.sellConfirmPending = true;
         }
         return;
@@ -1180,6 +1201,7 @@ class Game {
   restart() {
     if (this._simWorker) { this._simWorker.terminate(); this._simWorker = null; }
     if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
+    if (this._resizeRAF) { cancelAnimationFrame(this._resizeRAF); this._resizeRAF = null; }
     this._running = false;
     this.state = 'PRE_WAVE';
     this.speed = 1;
@@ -1188,6 +1210,11 @@ class Game {
     this.selectedSpec = null;
     this.selectedTroopIndex = -1;
     this.sellCooldownTimer = 0;
+    this.accumulator = 0;
+    this.devConfirmPending = false;
+    this.resetConfirmPending = false;
+    this.sellConfirmPending = false;
+    this.sellConfirmTroopIndex = null;
     this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.waypoints = generatePath(this.seed);
@@ -1202,6 +1229,8 @@ class Game {
     this._popupPool = [];
     this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
     this._tileIndexPool = [];
+    this._troopTileIndex = [];
+    for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
     this.waveCompleteAnim = { active: false, waveNum: 0 };
     PARTICLES.clear();
     UI.shopScrollY = 0;

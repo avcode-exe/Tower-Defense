@@ -106,7 +106,7 @@ class Troop {
 
   // Cost = 50% of base spec.cost, rounded up. Mirrors getHealCost() style.
   getShieldCost() {
-    return Math.ceil(this.spec.cost * 0.5);
+    return Math.ceil(this.spec.cost * CONFIG.SHIELD_COST_RATIO);
   }
 
   // Returns true when no shield is currently equipped (one-at-a-time rule).
@@ -188,20 +188,37 @@ class Troop {
     }
     let best = null;
     let bestProgress = -1;
-    const tx = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
-    const ty = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const txpx = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const typx = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
     const rangePxSq = rangePx * rangePx;
+    if (tileIndex) {
+      const tileRange = Math.ceil(range + CONFIG.TILE_BUFFER);
+      for (let dy = -tileRange; dy <= tileRange; dy++) {
+        for (let dx = -tileRange; dx <= tileRange; dx++) {
+          const tx = tgx + dx;
+          const ty = tgy + dy;
+          if (tx < 0 || tx >= CONFIG.GRID_SIZE || ty < 0 || ty >= CONFIG.GRID_SIZE) continue;
+          const tileMonsters = tileIndex[ty * CONFIG.GRID_SIZE + tx];
+          if (!tileMonsters) continue;
+          for (let i = 0; i < tileMonsters.length; i++) {
+            const m = tileMonsters[i];
+            if (!m.alive) continue;
+            const dx2 = m.x - txpx, dy2 = m.y - typx;
+            if (dx2 * dx2 + dy2 * dy2 <= rangePxSq) {
+              if (m.progress > bestProgress) { bestProgress = m.progress; best = m; }
+            }
+          }
+        }
+      }
+      return best;
+    }
+    // Fallback: linear scan when tile index is unavailable.
     for (let i = 0; i < monsters.length; i++) {
       const m = monsters[i];
       if (!m.alive) continue;
-      const dx = m.x - tx, dy = m.y - ty;
-      const pxSq = dx * dx + dy * dy;
-      if (pxSq <= rangePxSq) {
-        const prog = m.progress;
-        if (prog > bestProgress) {
-          bestProgress = prog;
-          best = m;
-        }
+      const dx = m.x - txpx, dy = m.y - typx;
+      if (dx * dx + dy * dy <= rangePxSq) {
+        if (m.progress > bestProgress) { bestProgress = m.progress; best = m; }
       }
     }
     return best;

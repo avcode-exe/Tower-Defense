@@ -37,9 +37,9 @@ class Projectile {
 
     const dx = this.lastTargetX - this.x;
     const dy = this.lastTargetY - this.y;
-    const d = Math.sqrt(dx * dx + dy * dy);
+    const dSq = dx * dx + dy * dy;
     const step = this.speed * dt;
-    if (d <= step || d === 0) {
+    if (dSq <= step * step || dSq === 0) {
       // Impact.
       this.x = this.lastTargetX;
       this.y = this.lastTargetY;
@@ -47,6 +47,7 @@ class Projectile {
       this.alive = false;
       return;
     }
+    const d = Math.sqrt(dSq);
     this.x += (dx / d) * step;
     this.y += (dy / d) * step;
     // Trail particle — throttle to every 3rd frame to reduce pool pressure.

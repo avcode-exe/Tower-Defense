@@ -1,11 +1,37 @@
-Clean up dead code and minor bugs
+Fix critical bugs, performance issues, and code quality across game
 
-- Remove _activeShieldCount and _tileIndexStep dead state from
-  Game (written in 4 and 2 places respectively, never read).
-- Fix makeRNG in utils.js: the `??` after `>>>` never fell through
-  when seed was undefined, so unseeded games always used seed 0.
-  Now correctly falls back to a random int via Math.floor.
-- Replace 4 occurrences of `6.2832` with `Math.PI * 2` in game.js
-  for consistency with the rest of the codebase.
-- Re-indent dev-right click handler so the if-body is visibly
-  nested inside the for-j loop (was dedented, misleading).
+Bug fixes:
+- Fix boss bonus popup rendering in wrong position (screen vs world coords)
+- Fix sell confirm dialog targeting wrong troop after compaction (store
+  reference instead of index, resolve back via indexOf)
+- Fix chain lightning stun propagating to children of shielded monsters
+  (save hadShield before damageMonster call)
+- Fix sell confirmation dialog always showing "troop" instead of actual
+  troop name (remove double-index on sellConfirmTroopIndex)
+- Fix help text showing wrong refund percentage (50% -> 30%)
+- Fix dev mode sell cooldown still enforced despite UI hiding it
+- Fix pause button not stopping sim worker (wasted CPU cycles)
+- Fix worker onerror leaving game permanently frozen (add fallback rAF)
+- Fix getShieldCost() hardcoding 0.5 instead of CONFIG.SHIELD_COST_RATIO
+- Fix restart() not resetting accumulator, confirm dialog states, or
+  troop tile index
+
+Performance optimizations:
+- Add requestAnimationFrame debounce on window resize
+- Replace chain lightning splice with O(1) swap-and-pop
+- Merge monster HP bar + shield bar into single render pass
+- Replace projectile Math.sqrt with squared distance comparison
+- Replace particle string key bucketing delete with undefined assignment
+  (avoids V8 deoptimization)
+- Use reusable _damageResult object in Monster.takeDamage() instead of
+  allocating new object per hit
+- Use tile index for ranged troop targeting instead of O(n) linear scan
+- Guard simWorker against double-start interval leak
+
+UI improvements:
+- Increase heal/sell button gaps from 2px to 6px for better click targets
+- Use CONFIG.SELL_REFUND_RATIO in sell confirmation dialog text
+- Add sync comment at upgrade button layout (render vs hit-test)
+
+Files changed: game.js, ui.js, monster.js, troop.js, projectile.js,
+particles.js, simWorker.js, index.html

@@ -62,6 +62,9 @@ const PARTICLES = {
     for (let i = 0; i < count; i++) {
       const p = this._getParticle();
       if (!p) break;
+      // Using Math.random() here intentionally — visual particle effects do not
+      // need deterministic sequences, and Math.random() avoids the overhead of
+      // seeding / advancing a PRNG for purely cosmetic variation.
       const angle = Math.random() * Math.PI * 2;
       const speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
       p.reset(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
@@ -119,7 +122,9 @@ const PARTICLES = {
       }
       // Reset bucket for next frame
       batch.length = 0;
-      delete buckets[key];
+      // NOTE: known perf hotspot — string-key bucketing allocates ~300 strings/frame.
+      // Setting to undefined avoids V8 deopt from delete on object literals.
+      buckets[key] = undefined;
     }
     keys.length = 0;
     ctx.globalAlpha = 1;
