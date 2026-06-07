@@ -1,31 +1,147 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
+const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 
-// Remove the menu bar entirely for a cleaner look
 Menu.setApplicationMenu(null);
 
-// ── Auto-update configuration ──
+const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+const DEFAULT_SETTINGS = {
+  version: app.getVersion(),
+  update: {
+    channel: 'release',
+    autoDownload: true,
+    checkOnStartup: true,
+    checkIntervalMinutes: 60,
+    skippedVersions: [],
+    showProgressBar: true,
+    availableVersion: null,
+    releaseType: null,
+  },
+  collapsed: { hud: false, shop: false, preview: false, shieldShop: false, help: true, monsterInfo: true, settings: true },
+};
 
-// Only check/install in production (built .exe), not during `npm start`
-if (!app.isPackaged) {
-  // In dev, just log what would happen
-  autoUpdater.autoDownload = false;
-  autoUpdater.autoInstallOnAppQuit = false;
-} else {
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;
+let mainWindow = null;
+let updateCheckInterval = null;
+let skippedVersions = [];
+
+function readSettings() {
+  try {
+    if (fs.existsSync(SETTINGS_PATH)) {
+      const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('[settings] read failed:', err);
+  }
+  return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 }
 
-// Log level — helpful for debugging on the installed app
+function writeSettings(settings) {
+  try {
+    fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('[settings] write failed:', err);
+    return false;
+  }
+}
+
+function getChannelFromVersion(version) {
+  const v = (version || '').toLowerCase();
+  if (/-beta\./.test(v) || /-alpha\./.test(v) || /-rc\./.test(v)) return 'pre-release';
+  return 'release';
+}
+
+function sendStatus(phase, extra = {}) {
+  if (!mainWindow) return;
+  mainWindow.webContents.send('update-status', { phase, ...extra });
+}
+
+function shouldAnnounceToUser(info, settings) {
+  const channel = getChannelFromVersion(info.version);
+  if (settings.update.channel === 'release' && channel === 'pre-release') return false;
+  if ((settings.update.skippedVersions || []).includes(info.version)) return false;
+  return true;
+}
+
 autoUpdater.logger = {
   info: (msg) => console.log('[auto-updater]', msg),
   warn: (msg) => console.warn('[auto-updater]', msg),
   error: (msg) => console.error('[auto-updater]', msg),
 };
 
-let mainWindow = null;
-let updateCheckInterval = null;
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+
+autoUpdater.on('checking-for-update', () => {
+  sendStatus('checking');
+});
+
+autoUpdater.on('update-available', (info) => {
+  const settings = readSettings();
+  const channel = getChannelFromVersion(info.version);
+  info.type = channel;
+  if (shouldAnnounceToUser(info, settings)) {
+    sendStatus('available', { version: info.version, type: channel });
+  } else {
+    console.log('[auto-updater] filtered (channel/skipped):', info.version, channel);
+  }
+});
+
+autoUpdater.on('update-not-available', () => {
+  sendStatus('not-available');
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  sendStatus('progress', { percent: progress.percent, transferred: progress.transferred, total: progress.total });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  sendStatus('downloaded', { version: info.version });
+});
+
+autoUpdater.on('error', (err) => {
+  const errMsg = err ? (err.message || err.toString()) : 'Unknown error';
+  sendStatus('error', { message: errMsg });
+});
+
+ipcMain.handle('get-settings', () => {
+  return readSettings();
+});
+
+ipcMain.handle('save-settings', (_event, settings) => {
+  return writeSettings(settings);
+});
+
+ipcMain.on('check-updates', () => {
+  if (!app.isPackaged) return;
+  autoUpdater.checkForUpdates().catch((err) => {
+    sendStatus('error', { message: err?.message || String(err) });
+  });
+});
+
+ipcMain.on('download-update', () => {
+  if (!app.isPackaged) return;
+  autoUpdater.downloadUpdate().catch((err) => {
+    sendStatus('error', { message: err?.message || String(err) });
+  });
+});
+
+ipcMain.on('skip-update', (_event, version) => {
+  skippedVersions = skippedVersions || [];
+  if (!skippedVersions.includes(version)) skippedVersions.push(version);
+});
+
+ipcMain.on('restart-to-update', () => {
+  autoUpdater.quitAndInstall();
+});
+
+ipcMain.on('set-auto-download', (_event, enabled) => {
+  autoUpdater.autoDownload = !!enabled;
+  autoUpdater.autoInstallOnAppQuit = !!enabled;
+});
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -38,141 +154,43 @@ function createWindow() {
     backgroundColor: '#000000',
     webPreferences: {
       nodeIntegration: false,
-      contextIsolation: true
-    }
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
   });
 
   mainWindow.loadFile('index.html');
 
-  // Prevent title from being overridden by the HTML title tag
-  mainWindow.on('page-title-updated', (event) => {
-    event.preventDefault();
-  });
+  mainWindow.on('page-title-updated', (event) => event.preventDefault());
 
-  // Wait for window to fully load before checking for updates
   mainWindow.webContents.on('did-finish-load', () => {
     checkForUpdates();
   });
 }
 
-// ── Update check ──
-
-// Register event listeners once (outside checkForUpdates to avoid listener leaks).
-autoUpdater.on('checking-for-update', () => {
-  console.log('[auto-updater] Event: checking-for-update');
-});
-
-autoUpdater.on('update-available', (info) => {
-  console.log('[auto-updater] Event: update-available', info.version);
-  if (mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'info',
-      title: 'Update Available',
-      message: `Version ${info.version} is available!`,
-      detail: 'Downloading in the background. You will be prompted to install when ready.',
-      buttons: ['OK']
-    });
-  }
-});
-
-autoUpdater.on('update-not-available', (info) => {
-  console.log('[auto-updater] Event: update-not-available (current: ' + app.getVersion() + ')');
-});
-
-autoUpdater.on('download-progress', (progress) => {
-  const pct = Math.round(progress.percent);
-  console.log('[auto-updater] Event: download-progress', pct + '%');
-});
-
-autoUpdater.on('update-downloaded', (info) => {
-  console.log('[auto-updater] Event: update-downloaded', info.version);
-  if (mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      title: 'Update Ready',
-      message: `Version ${info.version} has been downloaded.`,
-      detail: 'Restart the app to install the update.',
-      buttons: ['Restart Now', 'Later']
-    }).then(({ response }) => {
-      if (response === 0) {
-        autoUpdater.quitAndInstall();
-      }
-    });
-  }
-});
-
-autoUpdater.on('error', (err) => {
-  const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : 'Unknown error';
-  console.error('[auto-updater] Error:', errMsg);
-  if (mainWindow) {
-    dialog.showMessageBox(mainWindow, {
-      type: 'error',
-      title: 'Update Error',
-      message: 'Failed to check for updates',
-      detail: errMsg,
-      buttons: ['OK']
-    });
-  }
-});
-
 function checkForUpdates() {
-  console.log('[auto-updater] checkForUpdates() called');
-  if (!app.isPackaged) {
-    console.log('[auto-updater] Skipping update check - not packaged');
-    return;
-  }
-
-  // Check now (and every 60 minutes after)
-  console.log('[auto-updater] Calling autoUpdater.checkForUpdates()...');
-  autoUpdater.checkForUpdates().then((result) => {
-    console.log('[auto-updater] checkForUpdates() resolved:', result);
-  }).catch((err) => {
-    const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : 'Unknown error';
-    console.error('[auto-updater] checkForUpdates() rejected:', errMsg);
-    if (mainWindow) {
-      dialog.showMessageBox(mainWindow, {
-        type: 'error',
-        title: 'Update Check Failed',
-        message: 'checkForUpdates() failed',
-        detail: errMsg,
-        buttons: ['OK']
-      });
-    }
+  if (!app.isPackaged) return;
+  autoUpdater.checkForUpdates().catch((err) => {
+    const errMsg = err ? (err.message || String(err)) : 'Unknown error';
+    sendStatus('error', { message: errMsg });
   });
-  updateCheckInterval = setInterval(() => {
-    autoUpdater.checkForUpdates().catch(err => {
-      const errMsg = err ? (err.message || err.toString() || JSON.stringify(err)) : 'Unknown error';
-      console.error('[auto-updater] Interval check failed:', errMsg);
-      if (mainWindow) {
-        dialog.showMessageBox(mainWindow, {
-          type: 'error',
-          title: 'Update Check Failed',
-          message: 'checkForUpdates() failed',
-          detail: errMsg,
-          buttons: ['OK']
-        });
-      }
-    });
-  }, 60 * 60 * 1000);
+  if (!updateCheckInterval) {
+    updateCheckInterval = setInterval(() => {
+      autoUpdater.checkForUpdates().catch((err) => {
+        sendStatus('error', { message: err?.message || String(err) });
+      });
+    }, 60 * 60 * 1000);
+  }
 }
-
-// ── App lifecycle ──
 
 app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => {
-  app.quit();
-});
+app.on('window-all-closed', () => app.quit());
 
 app.on('before-quit', () => {
-  if (updateCheckInterval) {
-    clearInterval(updateCheckInterval);
-    updateCheckInterval = null;
-  }
+  if (updateCheckInterval) { clearInterval(updateCheckInterval); updateCheckInterval = null; }
 });
 
 app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+  if (BrowserWindow.getAllWindows().length === 0) createWindow();
 });

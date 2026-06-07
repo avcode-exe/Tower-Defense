@@ -9,34 +9,73 @@
 <body>
   <div id="wrap">
     <canvas id="game"></canvas>
-    <div id="right-panels">
-      <div id="monster-info" class="game-panel">
-        <div id="monster-info-toggle" class="panel-tab">Monsters ▾</div>
-        <div id="monster-info-body" class="panel-body">
-          <strong>Monster Info</strong>
-          <div id="monster-info-content"></div>
-        </div>
-      </div>
-      <div id="help" class="game-panel">
-        <div id="help-toggle" class="panel-tab">Controls ▾</div>
-        <div id="help-body" class="panel-body">
-          <strong>Controls</strong>
-          <ul>
-            <li>Click a shop card (or press 1-9) then click a tile to place</li>
-            <li>Click an existing troop to select; press Sell to remove (30% refund)</li>
-            <li>Right-click or Esc to cancel selection</li>
-            <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
-            <li>Alt+H/S/P/C/M = toggle HUD / Shop / Preview / Controls / Monsters</li>
-          </ul>
-          <strong>Hotkeys</strong>
-          <ul id="hotkey-list">
-          </ul>
-        </div>
+  </div>
+
+  <!-- Bottom bar – collapsed mini windows live here as buttons -->
+  <div id="panel-bar">
+    <button id="bar-monster-btn" class="bar-btn">Monsters</button>
+    <button id="bar-controls-btn" class="bar-btn">Controls</button>
+    <button id="bar-settings-btn" class="bar-btn">Settings</button>
+  </div>
+
+  <!-- Popup windows that float above the corresponding bar button -->
+  <div id="monster-popup" class="bar-popup game-panel" style="display:none;">
+    <strong>Monster Info</strong>
+    <div id="monster-info-content"></div>
+  </div>
+
+  <div id="controls-popup" class="bar-popup game-panel" style="display:none;">
+    <strong>Controls</strong>
+    <ul>
+      <li>Click a shop card (or press 1-9) then click a tile to place</li>
+      <li>Click an existing troop to select; press Sell to remove (30% refund)</li>
+      <li>Right-click or Esc to cancel selection</li>
+      <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
+      <li>Alt+H/S/P/C/M = toggle HUD / Shop / Preview / Controls / Monsters</li>
+    </ul>
+    <strong>Hotkeys</strong>
+    <ul id="hotkey-list"></ul>
+  </div>
+
+  <div id="settings-popup" class="bar-popup game-panel" style="display:none;">
+    <strong>Settings</strong>
+    <div class="settings-section">
+      <div class="settings-section-header" data-target="settings-update">Updates ▸</div>
+      <div class="settings-section-body" id="settings-update">
+        <label style="display:block; margin:4px 0; cursor:pointer;">
+          <input type="radio" name="settings-channel" value="release" checked> Release only (stable)
+        </label>
+        <label style="display:block; margin:4px 0; cursor:pointer;">
+          <input type="radio" name="settings-channel" value="pre-release"> Pre-release (beta, alpha, rc)
+        </label>
+        <label style="display:block; margin:8px 0; cursor:pointer;">
+          <input type="checkbox" id="settings-auto-download" checked> Auto-download when confirmed
+        </label>
+        <label style="display:block; margin:4px 0;">
+          Check interval (min): <input type="number" id="settings-interval" value="60" min="15" step="15" style="width:60px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#e6edf3; padding:2px 4px; border-radius:4px; font-size:10px;">
+        </label>
       </div>
     </div>
   </div>
 
-  <!-- Load order matters: config & utils first, then simulation, then UI/game. -->
+  <!-- In-app update offer dialog (bottom-right, above the bar) -->
+  <div id="update-dialog" class="game-panel" style="display:none; bottom: 64px; right: 10px; max-width: 300px;">
+    <div id="update-dialog-ver" style="font-weight:600; color:#edf2f7;"></div>
+    <div id="update-dialog-type" style="font-size:10px; margin-bottom:8px;"></div>
+    <a id="update-skip-link" style="cursor:pointer; font-size:10px; color:#8b949e;">Skip this version</a>
+    <div style="margin-top:8px; display:flex; gap:6px;">
+      <button id="update-download-btn" style="background:#238636; color:#fff; border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:10px;">Download</button>
+    </div>
+  </div>
+
+  <!-- In-app progress bar (bottom-center, above the bar) -->
+  <div id="update-progress" class="game-panel" style="display:none; bottom: 64px; left: 50%; transform: translateX(-50%); min-width: 220px; text-align: center;">
+    <div class="update-progress-text" style="font-size: 11px; color: rgba(182,194,204,0.8);">Downloading <span id="update-progress-ver"></span></div>
+    <div style="font-size: 16px; font-weight: 600; color: #f0f6fc; margin: 4px 0;"><span id="update-progress-pct">0%</span></div>
+    <div class="update-progress-bar"><div class="update-progress-fill" id="update-progress-fill"></div></div>
+  </div>
+
+  <!-- Load order: config & utils first, then game, then bootstrap -->
   <script src="js/config.js"></script>
   <script src="js/utils.js"></script>
   <script src="js/grid.js"></script>
@@ -50,6 +89,7 @@
   <script src="js/ui.js"></script>
   <script src="js/input.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/updateManager.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>

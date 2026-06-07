@@ -1,6 +1,6 @@
 {
   "name": "tower-defense",
-  "version": "1.2.0-beta.2",
+  "version": "1.2.0-beta.3",
   "description": "Tower Defense Game",
   "main": "electron-main.js",
   "scripts": {
@@ -26,13 +26,14 @@
       "repo": "Tower-Defense",
       "releaseType": "release"
     },
-    "files": [
-      "electron-main.js",
-      "index.html",
-      "css/**/*",
-      "js/**/*",
-      "icon.png"
-    ],
+"files": [
+    "electron-main.js",
+    "preload.js",
+    "index.html",
+    "css/**/*",
+    "js/**/*",
+    "icon.png"
+  ],
     "directories": {
       "output": "dist"
     }

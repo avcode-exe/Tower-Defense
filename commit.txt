@@ -1,37 +1,62 @@
-Fix critical bugs, performance issues, and code quality across game
+feat: 1.2.0-beta.3 — in-app update flow, settings persistence, and bottom bar UI
 
-Bug fixes:
-- Fix boss bonus popup rendering in wrong position (screen vs world coords)
-- Fix sell confirm dialog targeting wrong troop after compaction (store
-  reference instead of index, resolve back via indexOf)
-- Fix chain lightning stun propagating to children of shielded monsters
-  (save hadShield before damageMonster call)
-- Fix sell confirmation dialog always showing "troop" instead of actual
-  troop name (remove double-index on sellConfirmTroopIndex)
-- Fix help text showing wrong refund percentage (50% -> 30%)
-- Fix dev mode sell cooldown still enforced despite UI hiding it
-- Fix pause button not stopping sim worker (wasted CPU cycles)
-- Fix worker onerror leaving game permanently frozen (add fallback rAF)
-- Fix getShieldCost() hardcoding 0.5 instead of CONFIG.SHIELD_COST_RATIO
-- Fix restart() not resetting accumulator, confirm dialog states, or
-  troop tile index
+This release introduces a full in-app update system, persistent settings, and a
+new bottom bar that houses the Controls/Monsters/Settings mini windows.
 
-Performance optimizations:
-- Add requestAnimationFrame debounce on window resize
-- Replace chain lightning splice with O(1) swap-and-pop
-- Merge monster HP bar + shield bar into single render pass
-- Replace projectile Math.sqrt with squared distance comparison
-- Replace particle string key bucketing delete with undefined assignment
-  (avoids V8 deoptimization)
-- Use reusable _damageResult object in Monster.takeDamage() instead of
-  allocating new object per hit
-- Use tile index for ranged troop targeting instead of O(n) linear scan
-- Guard simWorker against double-start interval leak
+## In-app update flow (replaces native dialogs)
+- Player is now prompted inside the game when an update is available,
+  with explicit Download / Skip choices — no surprise background downloads.
+- Channel filter: choose Release only (stable, no beta/alpha/rc) or
+  Pre-release (everything) via the Settings panel.
+- Versions the player skips are persisted and never re-nagged.
+- Live progress bar appears at the bottom of the screen during download,
+  driven by `download-progress` IPC events from electron-updater.
+- Update ready prompt (in-app): Restart Now / Later.
 
-UI improvements:
-- Increase heal/sell button gaps from 2px to 6px for better click targets
-- Use CONFIG.SELL_REFUND_RATIO in sell confirmation dialog text
-- Add sync comment at upgrade button layout (render vs hit-test)
+## Settings persistence
+- Settings are written to `app.getPath('userData')/settings.json`,
+  surviving app reinstall.
+- Persisted keys: update.channel, update.autoDownload,
+  update.checkIntervalMinutes, update.skippedVersions,
+  collapsed state for every panel (HUD, Shop, Preview, ShieldShop,
+  Help, MonsterInfo, Settings).
 
-Files changed: game.js, ui.js, monster.js, troop.js, projectile.js,
-particles.js, simWorker.js, index.html
+## Bottom bar for mini windows
+- New fixed bar at the bottom of the screen with three buttons:
+  Monsters, Controls, Settings.
+- Clicking a button opens its popup directly above the bar with a small
+  margin; only one popup is open at a time (mutual exclusion).
+- Popups use content-driven width: the Monsters window is wider than
+  Controls/Settings to accommodate its stats table.
+- All popups start hidden on launch (no popups on startup).
+- Alt+C / Alt+M / Alt+U keyboard shortcuts still work.
+
+## Update system rewrite (electron-main.js)
+- `autoUpdater.autoDownload` set to `false` by default; download is
+  triggered only after the player confirms via the in-app dialog.
+- New IPC channels: get-settings, save-settings, check-updates,
+  download-update, restart-to-update, skip-update, set-auto-download,
+  update-status (main → renderer event stream).
+- Version classification: stable vs prerelease determined by regex
+  (`-beta.N`, `-alpha.N`, `-rc.N`); renderer applies channel filter
+  before showing any dialog.
+
+## New files
+- `preload.js` — context bridge exposing settings + update IPC to renderer.
+- `js/updateManager.js` — renderer-side update orchestrator.
+
+## Modified files
+- `electron-main.js` — full update flow rewrite (IPC-only, no native dialogs).
+- `index.html` — removed old right-side panels; added bar, popups,
+  update dialog, progress bar, settings form.
+- `css/style.css` — bar styles, popup styles, per-popup widths,
+  progress bar, settings accordion.
+- `js/main.js` — restore collapsed state from disk, wire bar buttons,
+  settings form, UpdateManager init.
+- `js/game.js` — Alt+U shortcut, togglePopupEl helper.
+- `js/ui.js` — dynamic tooltip width sizing from actual text metrics;
+  shop card width leaves margin before the collapse toggle button;
+  `SHIELD SHOP` header renamed to `SHOP`.
+
+## Version
+- package.json: 1.2.0-beta.2 → 1.2.0-beta.3

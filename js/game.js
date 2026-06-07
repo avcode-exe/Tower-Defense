@@ -1122,6 +1122,18 @@ class Game {
     return -1;
   }
 
+  togglePopupEl(popupId, collapsed, btnId) {
+    const popup = document.getElementById(popupId);
+    const btn = document.getElementById(btnId);
+    if (collapsed) {
+      if (popup) popup.style.display = 'none';
+      if (btn) btn.classList.remove('active');
+    } else {
+      if (popup) popup.style.display = 'block';
+      if (btn) btn.classList.add('active');
+    }
+  }
+
   onKeyDown(e) {
     // Restart.
     if ((e.key === 'r' || e.key === 'R')
@@ -1162,41 +1174,23 @@ class Game {
         this.state = 'WAVE_ACTIVE';
       }
     }
-    // Panel toggle shortcuts: Alt+H (HUD), Alt+S (Shop), Alt+P (Preview), Alt+C (Controls/Help)
-    if (e.altKey) {
-      if (e.key === 'h' || e.key === 'H') {
-        UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
-        RENDERER.resize(this.canvas);
-        e.preventDefault();
-      } else if (e.key === 's' || e.key === 'S') {
-        UI_LAYOUT.collapsed.shop = !UI_LAYOUT.collapsed.shop;
-        RENDERER.resize(this.canvas);
-        e.preventDefault();
-      } else if (e.key === 'p' || e.key === 'P') {
-        UI_LAYOUT.collapsed.preview = !UI_LAYOUT.collapsed.preview;
-        RENDERER.resize(this.canvas);
-        e.preventDefault();
-      } else if (e.key === 'c' || e.key === 'C') {
-        UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
-        const helpEl = document.getElementById('help');
-        if (helpEl) {
-          helpEl.classList.toggle('collapsed', UI_LAYOUT.collapsed.help);
-          const tab = document.getElementById('help-toggle');
-          if (tab) tab.textContent = UI_LAYOUT.collapsed.help ? 'Controls ▸' : 'Controls ▾';
-        }
-        e.preventDefault();
-      } else if (e.key === 'm' || e.key === 'M') {
-        UI_LAYOUT.collapsed.monsterInfo = !UI_LAYOUT.collapsed.monsterInfo;
-        const el = document.getElementById('monster-info');
-        if (el) {
-          el.classList.toggle('collapsed', UI_LAYOUT.collapsed.monsterInfo);
-          const tab = document.getElementById('monster-info-toggle');
-          if (tab) tab.textContent = UI_LAYOUT.collapsed.monsterInfo ? 'Monsters ▸' : 'Monsters ▾';
-        }
-        e.preventDefault();
-      }
+// Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings)
+  if (e.altKey) {
+    if (e.key === 'c' || e.key === 'C') {
+      UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
+      togglePopupEl('controls-popup', UI_LAYOUT.collapsed.help, 'bar-controls-btn');
+      e.preventDefault();
+    } else if (e.key === 'm' || e.key === 'M') {
+      UI_LAYOUT.collapsed.monsterInfo = !UI_LAYOUT.collapsed.monsterInfo;
+      togglePopupEl('monster-popup', UI_LAYOUT.collapsed.monsterInfo, 'bar-monster-btn');
+      e.preventDefault();
+    } else if (e.key === 'u' || e.key === 'U') {
+      UI_LAYOUT.collapsed.settings = !UI_LAYOUT.collapsed.settings;
+      togglePopupEl('settings-popup', UI_LAYOUT.collapsed.settings, 'bar-settings-btn');
+      e.preventDefault();
     }
   }
+}
 
   restart() {
     if (this._simWorker) { this._simWorker.terminate(); this._simWorker = null; }

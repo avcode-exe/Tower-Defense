@@ -63,6 +63,54 @@ html, body {
 }
 .game-panel.collapsed .panel-body { display: none; }
 
+/* ── Bottom bar ── */
+#panel-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px;
+  z-index: 20;
+  background: rgba(7, 11, 15, 0.9);
+  border-top: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px 12px 0 0;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.bar-btn {
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  padding: 4px 14px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.bar-btn:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+.bar-btn.active { background: rgba(88,166,255,0.15); color: #58a6ff; border-color: rgba(88,166,255,0.3); }
+
+/* ── Bar popup windows (float above the bar button) ── */
+.bar-popup {
+  position: fixed;
+  bottom: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 19;
+  width: min-content;
+  max-width: 92vw;
+  max-height: 60vh;
+  overflow-y: auto;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+  padding: 10px 14px;
+}
+#monster-popup  { min-width: 340px; }
+#controls-popup { min-width: 220px; max-width: 280px; }
+#settings-popup { min-width: 240px; max-width: 300px; }
+
 /* Panel positions */
 #right-panels {
   position: fixed;
@@ -108,3 +156,44 @@ html, body {
   color: rgba(182, 194, 204, 0.5);
 }
 .monster-stats span { white-space: nowrap; }
+
+/* ── Update dialog (in-app, bottom-right) ── */
+#update-dialog { max-width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+#update-dialog-ver { font-weight: 600; color: #f0f6fc; }
+#update-dialog-type { color: #8b949e; font-size: 10px; margin-bottom: 8px; }
+#update-skip-link { display: inline-block; cursor: pointer; font-size: 10px; color: #8b949e; }
+#update-skip-link:hover { color: #f85149; }
+button#update-download-btn { cursor: pointer; }
+button#update-download-btn:hover { filter: brightness(1.2); }
+
+/* ── Settings panel ── */
+#settings { max-width: 300px; z-index: 11; }
+.settings-section { margin-top: 6px; }
+.settings-section-header {
+  cursor: pointer;
+  user-select: none;
+  padding: 4px 0;
+  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+}
+.settings-section-header:hover { color: rgba(255,255,255,0.9); }
+.settings-section-body { padding-left: 10px; font-size: 10px; color: rgba(182,194,204,0.7); }
+.settings-section-body label { display: block; margin: 4px 0; }
+.settings-section-body input[type="radio"] { cursor: pointer; }
+.settings-section-body input[type="checkbox"] { cursor: pointer; vertical-align: middle; }
+
+/* ── Update progress bar ── */
+.update-progress-text { font-size: 11px; color: rgba(182,194,204,0.75); }
+.update-progress-bar {
+  height: 4px;
+  background: rgba(255,255,255,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 6px;
+}
+.update-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: #3b82f6;
+  transition: width 0.3s ease;
+}

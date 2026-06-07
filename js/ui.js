@@ -107,27 +107,27 @@ const UI = {
   },
 
   shopCardRect(i) {
-    const gap = 4;
-    const x = 8;
-    const cardH = 58;
-    const cardW = 200;
-    const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
-    return { x, y: baseY - this.shopScrollY, w: cardW, h: cardH };
+  const gap = 4;
+  const x = 8;
+  const cardH = 58;
+  const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
+  const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
+  return { x, y: baseY - this.shopScrollY, w: cardW, h: cardH };
   },
 
   // Zero-allocation variant for rendering loops.
   shopCardRectInto(i, out) {
-    const gap = 4;
-    const x = 8;
-    const cardH = 58;
-    const cardW = 200;
-    const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
-    out.x = x;
-    out.y = baseY - this.shopScrollY;
-    out.w = cardW;
-    out.h = cardH;
-    return out;
-  },
+  const gap = 4;
+  const x = 8;
+  const cardH = 58;
+  const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
+  const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
+  out.x = x;
+  out.y = baseY - this.shopScrollY;
+  out.w = cardW;
+  out.h = cardH;
+  return out;
+},
 
   hitShop(px, py) {
     if (UI_LAYOUT.collapsed.shop) return -1;
@@ -662,7 +662,7 @@ const UI = {
     c.fillStyle = UI_COLORS.textDim;
     c.font = '10px system-ui, sans-serif';
     c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillText('SHIELD SHOP', panelX + 12, panelY + 16);
+    c.fillText('SHOP', panelX + 12, panelY + 16);
 
     // Buy card centered in the panel.
     const cardX = panelX + 10;
@@ -784,41 +784,32 @@ const UI = {
   },
 
   _drawShopTooltip(c, r, spec) {
-    if (!spec.desc) return;
-    const tipW = r.w + 40;
-    // Cache wrapped lines per spec to avoid measureText every frame.
-    const cacheKey = spec.id + '_' + tipW;
-    if (!this._tooltipCache) this._tooltipCache = {};
-    let lines = this._tooltipCache[cacheKey];
-    if (!lines) {
-      lines = this._wrapText(c, spec.desc, tipW, 11, 'system-ui, sans-serif');
-      this._tooltipCache[cacheKey] = lines;
-    }
-    const lineH = 14;
-    const tipH = 20 + lines.length * lineH;
-    // Flip tooltip to the left side when it would overflow the canvas.
-    const tipX = (r.x + r.w + 4 + tipW > RENDERER.width)
-      ? r.x - tipW - 4
-      : r.x + r.w + 4;
-    const tipY = r.y;
-
-    c.save();
-    // Semi-transparent tip background
-    c.fillStyle = 'rgba(16, 26, 36, 0.95)';
-    UIRoundRect(c, tipX, tipY, tipW, tipH, 8);
-    c.fill();
-    c.strokeStyle = 'rgba(88,166,255,0.2)';
-    c.lineWidth = 1;
-    UIRoundRect(c, tipX, tipY, tipW, tipH, 8);
-    c.stroke();
-
-    c.fillStyle = UI_COLORS.textBody;
-    c.font = '11px system-ui, sans-serif';
-    c.textAlign = 'left'; c.textBaseline = 'middle';
-    for (let j = 0; j < lines.length; j++) {
-      c.fillText(lines[j], tipX + 8, tipY + 12 + j * lineH);
-    }
-    c.restore();
+  if (!spec.desc) return;
+  c.save();
+  c.font = '11px system-ui, sans-serif';
+  const rawLines = this._wrapText(c, spec.desc, Infinity, 11, 'system-ui, sans-serif');
+  const maxTextW = Math.max(...rawLines.map(l => c.measureText(l).width), 0);
+  c.restore();
+  const padX = 14, padTop = 10, padBot = 12, lineH = 14, gap = 6;
+  const desired = maxTextW + padX * 2;
+  const tipW = Math.min(Math.max(r.w + 40, desired), RENDERER.width - r.w - 60);
+  const tipH = padTop + padBot + rawLines.length * lineH;
+  const tipX = (r.x + r.w + gap*2 + tipW > RENDERER.width)
+    ? r.x - tipW - gap*2
+    : r.x + r.w + gap*2;
+  const tipY = r.y;
+  c.save();
+  c.fillStyle = 'rgba(10,16,22,0.96)';
+  UIRoundRect(c, tipX, tipY, tipW, tipH, 8); c.fill();
+  c.strokeStyle = 'rgba(88,166,255,0.18)'; c.lineWidth = 1;
+  UIRoundRect(c, tipX + 0.5, tipY + 0.5, tipW - 1, tipH - 1, 8); c.stroke();
+  c.fillStyle = '#c9d1d9';
+  c.font = '11px system-ui, sans-serif';
+  c.textAlign = 'left'; c.textBaseline = 'middle';
+  for (let j = 0; j < rawLines.length; j++) {
+    c.fillText(rawLines[j], tipX + padX, tipY + padTop + 6 + j * lineH);
+  }
+  c.restore();
   },
 
   _wrapText(c, text, maxW, fontSize, font) {
