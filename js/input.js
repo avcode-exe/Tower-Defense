@@ -37,6 +37,9 @@ class Input {
       const r = this.canvas.getBoundingClientRect();
       const px = e.clientX - r.left;
       const py = e.clientY - r.top;
+      if (!UI_LAYOUT.collapsed.shieldShop && px > RENDERER.width - UI_LAYOUT.shieldShopWidth && py > UI_LAYOUT.hudHeight) {
+        return;  // consume; no scrollable content in shield panel v1
+      }
       if (!UI_LAYOUT.collapsed.shop && px < UI_LAYOUT.shopWidth && py > UI_LAYOUT.hudHeight) {
         UI.shopScrollY += e.deltaY * 0.5;
       }

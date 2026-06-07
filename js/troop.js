@@ -20,6 +20,8 @@ class Troop {
     this.alive = true;
     this.hp = spec.hp;
     this.maxHp = spec.hp;
+    this.shield = 0;
+    this.maxShield = 0;
     this.healCount = 0;
     // Cached computed stats (recomputed on upgrade).
     this._cachedDamage = this.spec.damage;
@@ -101,6 +103,35 @@ class Troop {
     this.healCount++;
     return true;
   }
+
+  // Cost = 50% of base spec.cost, rounded up. Mirrors getHealCost() style.
+  getShieldCost() {
+    return Math.ceil(this.spec.cost * 0.5);
+  }
+
+  // Returns true when no shield is currently equipped (one-at-a-time rule).
+  canAddShield() {
+    return this.alive && this.shield <= 0;
+  }
+
+  // Set shield to 100% of max HP. Idempotent guard.
+  applyShield() {
+    if (this.shield > 0) return false;
+    this.maxShield = this.maxHp;
+    this.shield = this.maxShield;
+    return true;
+  }
+
+  // Force-clear shield (used at wave-10 expiration and on sell/restart).
+  clearShield() {
+    this.shield = 0;
+    this.maxShield = 0;
+  }
+
+  // Helpers used by renderer.
+  getShieldRatio() { return this.maxShield > 0 ? this.shield / this.maxShield : 0; }
+  hasShield()      { return this.shield > 0; }
+
   // Current HP as a percentage (0-100), for display.
   getHpPercent() {
     return Math.round(this.hp / this.maxHp * 100);
@@ -177,7 +208,20 @@ class Troop {
   }
 
   takeDamage(amount) {
-    this.hp -= amount;
+    // Shield absorbs damage first (mirrors Monster.takeDamage behavior).
+    if (this.shield > 0 && amount > 0) {
+      if (amount >= this.shield) {
+        const excess = amount - this.shield;
+        this.shield = 0;
+        this.maxShield = 0;
+        this.hp -= excess;
+      } else {
+        this.shield -= amount;
+        // excess = 0; hp untouched
+      }
+    } else {
+      this.hp -= amount;
+    }
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;

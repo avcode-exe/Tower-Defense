@@ -154,4 +154,9 @@ const PARTICLES = {
   chainSpark() {
     return { ...this._chainSparkCfg };
   },
+
+  _shieldActivateCfg: { count: 12, color: '#5dade2', minSize: 1.5, maxSize: 3.5, minSpeed: 40, maxSpeed: 100, minLife: 0.3, maxLife: 0.6, gravity: false },
+  troopShieldActivate(color) {
+    return { ...this._shieldActivateCfg, color: color || '#5dade2' };
+  },
 };

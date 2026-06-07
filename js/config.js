@@ -32,6 +32,10 @@ const CONFIG = {
   // Shield mechanics
   SHIELD_REGEN_RATE: 20,
   SHIELD_REGEN_DELAY: 3,
+  // Player shield
+  SHIELD_COST_RATIO: 0.5,    // 50% of selected troop spec.cost
+  SHIELD_EXPIRE_WAVES: 10,   // expires when a multiple-of-10 wave just completed
+  SHIELD_SHOP_WIDTH: 220,    // expanded Shield Shop panel width (collapsed: 20)
 
   // Upgrade scaling
   UPGRADE_COST_SCALE: 1.35,

@@ -44,6 +44,7 @@ class Game {
     // Tile-based spatial monster index for fast targeting.
     this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
     this._tileIndexStep = 0;
+    this._activeShieldCount = 0;   // updated by buyTroopShield / clearShield
 
     this._troopTileIndex = [];
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
@@ -162,6 +163,23 @@ class Game {
     t.heal();
     const actual = Math.ceil(t.hp - prevHp);
     this._getPopup('+' + actual + ' HP', t.x, t.y - 10, 1.0, '#44cc44');
+  }
+
+  // Buy a shield for the troop at index. One shield per troop. Cost = 50% of spec.cost.
+  buyTroopShield(index) {
+    const t = this.troops[index];
+    if (!t || !t.alive) return false;
+    if (!t.canAddShield()) return false;        // already has shield (one-at-a-time)
+    const cost = Math.ceil(t.spec.cost * CONFIG.SHIELD_COST_RATIO);
+    if (!this.devMode && this.gold < cost) return false;
+    if (!this.devMode) this.gold -= cost;
+    t.applyShield();
+    this._activeShieldCount = Math.min(this.troops.length, this._activeShieldCount + 1);
+    this._getPopup('SHIELD!', t.x, t.y - 12, 1.0, '#5dade2');
+    if (PARTICLES && PARTICLES.troopShieldActivate) {
+      PARTICLES.spawn(t.x, t.y, PARTICLES.troopShieldActivate(t.spec.color));
+    }
+    return true;
   }
 
   spawnMonster(level, hpMult = 1) {
@@ -348,6 +366,15 @@ class Game {
         this._getPopup('+' + bonus + ' Boss Bonus!', RENDERER.width / 2, RENDERER.height / 2 - 40, 2.0, CONFIG.COLORS.gold);
       }
       this.wave.onAllSpawnedAndCleared();
+      // Expire troop shields after every 10th wave (boss wave).
+      // At the start of wave (N+1) where N is a multiple of 10, clear all shields.
+      if (waveNum % CONFIG.SHIELD_EXPIRE_WAVES === 0) {
+        for (let i = 0; i < this.troops.length; i++) {
+          const t = this.troops[i];
+          if (t.shield > 0) t.clearShield();
+        }
+        this._activeShieldCount = 0;
+      }
       this.state = 'PRE_WAVE';
     }
 
@@ -654,9 +681,30 @@ class Game {
     for (let i = 0; i < this.troops.length; i++) {
       const t = this.troops[i];
       if (!t.alive) continue;
+      // Shield square outline — replaces the old circular arc. Troop body shrinks
+      // to 80% so the overall footprint (body + outline) matches an unshielded troop.
+      if (t.shield > 0 && t.alive && t.maxShield > 0) {
+        const sqSize = T - 12;  // 48px, same as normal troop body
+        const sqX = t.gx * T + 6;
+        const sqY = t.gy * T + 6;
+        ctx.strokeStyle = CONFIG.COLORS.shieldBarFill;  // #5dade2
+        // Subtle sine-wave pulse between ~0.45 and ~0.75, period ~1.5s.
+        const pulse = 0.6 + 0.15 * Math.sin(performance.now() * 0.004);
+        ctx.globalAlpha = pulse;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(sqX, sqY, sqSize, sqSize);
+        ctx.globalAlpha = 1;
+      }
       const x = t.gx * T + 6, y = t.gy * T + 6;
       ctx.save();
       ctx.translate(x, y);
+      if (t.shield > 0 && t.maxShield > 0) {
+        // Shrink to 80% to fit inside the shield square outline.
+        const s = T - 12;
+        ctx.translate(s * 0.5, s * 0.5);
+        ctx.scale(0.8, 0.8);
+        ctx.translate(-s * 0.5, -s * 0.5);
+      }
       ctx.fillStyle = t.spec.color;
       ctx.fill(Game._troopPath);
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -677,6 +725,17 @@ class Game {
         const hpR = t.getHpRatio();
         ctx.fillStyle = hpR > 0.6 ? '#44cc44' : hpR > 0.3 ? '#cccc44' : '#cc4444';
         ctx.fillRect(barX, barY2, barW * hpR, barH);
+      }
+      // Shield bar above HP bar (always drawn when shielded, even if HP is full).
+      if (t.shield > 0 && t.maxShield > 0) {
+        const barW = T * 0.7;
+        const barH = 2;
+        const barX = t.x - barW / 2;
+        const barY = t.y - T * 0.45 - 4;  // 4px above HP bar
+        ctx.fillStyle = CONFIG.COLORS.shieldBarBg;  // #223
+        ctx.fillRect(barX, barY, barW, barH);
+        ctx.fillStyle = CONFIG.COLORS.shieldBarFill; // #5dade2
+        ctx.fillRect(barX, barY, barW * t.getShieldRatio(), barH);
       }
     }
 
@@ -790,6 +849,7 @@ class Game {
     UI.updateHover(RENDERER.hoverPx, RENDERER.hoverPy);
     UI.drawHUD(this);
     UI.drawShop(this);
+    UI.drawShieldShop(this);
     UI.drawPreview(this);
     UI.drawSelectedTroopRange(this);
     UI.drawPlacementGhost(this);
@@ -940,11 +1000,20 @@ class Game {
       return;
     }
 
+    // Shield shop buy button (right panel).
+    if (!UI_LAYOUT.collapsed.shieldShop && UI._shieldBuyBtn) {
+      const sb = UI._shieldBuyBtn;
+      if (px >= sb.x && px <= sb.x + sb.w && py >= sb.y && py <= sb.y + sb.h) {
+        this.buyTroopShield(this.selectedTroopIndex);
+        return;
+      }
+    }
+
     // Heal button (checked before sell button due to layout overlap).
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
       const t = this.troops[this.selectedTroopIndex];
       if (t && t.alive && t.canHeal()) {
-        const healBtnY = RENDERER.height - 80;
+        const healBtnY = RENDERER.height - 92;
         const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
         if (px >= 8 && px <= 8 + healBtnW && py >= healBtnY && py <= healBtnY + 28) {
           this.healTroop(this.selectedTroopIndex);
@@ -955,7 +1024,7 @@ class Game {
 
     // Sell button — show confirmation dialog.
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
-      const sellBtn = { x: 8, y: RENDERER.height - 46, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
+      const sellBtn = { x: 8, y: RENDERER.height - 62, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
       if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
           && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
         if (this.devMode) {
@@ -986,7 +1055,7 @@ class Game {
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
           if (!t.canUpgrade(stat)) continue;
-          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 120, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 130, w: statBtnW, h: 36 };
           visibleBtnIdx++;
           if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
             this.upgradeTroopStat(this.selectedTroopIndex, stat);
@@ -998,7 +1067,8 @@ class Game {
 
     // Map clicks.
     if (px >= UI_LAYOUT.shopWidth && py >= UI_LAYOUT.hudHeight
-        && py <= RENDERER.height - UI_LAYOUT.previewHeight) {
+        && py <= RENDERER.height - UI_LAYOUT.previewHeight
+        && px <= RENDERER.width - UI_LAYOUT.shieldShopWidth) {
       RENDERER.toWorldInto(px, py, this._centerScratch);
       const world = this._centerScratch;
       pixelToTile(world.x, world.y, this._tileScratch);
@@ -1122,6 +1192,7 @@ class Game {
     this.selectedSpec = null;
     this.selectedTroopIndex = -1;
     this.sellCooldownTimer = 0;
+    this._activeShieldCount = 0;
     this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
     this.waypoints = generatePath(this.seed);

@@ -40,12 +40,20 @@ const RENDERER = {
     const MARGIN = 12;
     const mapSize = CONFIG.GRID_SIZE * CONFIG.TILE_SIZE;
     this.mapPixelSize = mapSize;
-    const availW = this.width - UI_LAYOUT.shopWidth - MARGIN * 2;
+    const availW = this.width - UI_LAYOUT.shopWidth - UI_LAYOUT.shieldShopWidth - MARGIN * 2;
     const availH = this.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight - MARGIN * 2;
     const sX = availW / mapSize;
     const sY = availH / mapSize;
     this.scale = Math.min(1, Math.max(0.25, Math.min(sX, sY)));
     this.offsetX = UI_LAYOUT.shopWidth + MARGIN + (availW - mapSize * this.scale) / 2;
+    const maxRight = this.width - UI_LAYOUT.shieldShopWidth - MARGIN;
+    if (this.offsetX + mapSize * this.scale > maxRight) {
+      this.offsetX = maxRight - mapSize * this.scale;
+    }
+    const minLeft = UI_LAYOUT.shopWidth + MARGIN;
+    if (this.offsetX < minLeft) {
+      this.offsetX = minLeft;
+    }
     this.offsetY = UI_LAYOUT.hudHeight + MARGIN + (availH - mapSize * this.scale) / 2;
     const renderedBottom = this.offsetY + mapSize * this.scale;
     const maxBottom = this.height - UI_LAYOUT.previewHeight - MARGIN;

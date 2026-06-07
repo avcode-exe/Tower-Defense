@@ -7,6 +7,7 @@ const UI_LAYOUT = {
   HUD_HEIGHT: 56,
   SHOP_WIDTH: 240,
   PREVIEW_HEIGHT: 80,
+  SHIELD_SHOP_WIDTH: CONFIG.SHIELD_SHOP_WIDTH,
 
   // Collapsible section states
   collapsed: {
@@ -15,6 +16,7 @@ const UI_LAYOUT = {
     preview: false,
     help: false,
     monsterInfo: false,
+    shieldShop: false,
   },
 
   // Effective dimensions accounting for collapsed state.
@@ -22,6 +24,7 @@ const UI_LAYOUT = {
   get hudHeight() { return this.collapsed.hud ? 20 : this.HUD_HEIGHT; },
   get shopWidth() { return this.collapsed.shop ? 20 : this.SHOP_WIDTH; },
   get previewHeight() { return this.collapsed.preview ? 20 : this.PREVIEW_HEIGHT; },
+  get shieldShopWidth() { return this.collapsed.shieldShop ? 20 : this.SHIELD_SHOP_WIDTH; },
 };
 
 // ── Shared helpers ──
@@ -80,6 +83,7 @@ const UI = {
   hoveredShopIndex: -1,
   hoveredTroopIndex: -1,
   shopScrollY: 0,
+  _prevShopScrollY: 0,
   _cardAreaBottom: 0,
 
   _toggleShop: null,
@@ -89,6 +93,12 @@ const UI = {
   _tileScratch: {gx:0, gy:0},
 
   updateHover(px, py) {
+    // Skip hover updates while the shop is scrolling — prevents the hover
+    // highlight from flickering as cards pass under a stationary mouse.
+    if (this.shopScrollY !== this._prevShopScrollY) {
+      this._prevShopScrollY = this.shopScrollY;
+      return;
+    }
     if (px == null || py == null) {
       this.hoveredShopIndex = -1;
       return;
@@ -133,6 +143,11 @@ const UI = {
   },
 
   handleToggleClick(px, py) {
+    if (UI._toggleShieldShop && hitToggleButton(px, py, UI._toggleShieldShop)) {
+      UI_LAYOUT.collapsed.shieldShop = !UI_LAYOUT.collapsed.shieldShop;
+      RENDERER.resize(RENDERER.ctx.canvas);
+      return true;
+    }
     if (this._toggleHud && hitToggleButton(px, py, this._toggleHud)) {
       UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
       RENDERER.resize(RENDERER.ctx.canvas);
@@ -340,7 +355,8 @@ const UI = {
     const CARD_H = 58, CARD_GAP = 4;
     const totalContentH = TROOP_SPECS.length * (CARD_H + CARD_GAP) - CARD_GAP;
     const areaTop = UI_LAYOUT.hudHeight + 8;
-    const areaBottom = game.selectedTroopIndex >= 0 ? RENDERER.height - 204 : RENDERER.height - UI_LAYOUT.previewHeight;
+    // 6px margin between shop cards and the selected troop info panel below.
+    const areaBottom = game.selectedTroopIndex >= 0 ? RENDERER.height - 210 : RENDERER.height - UI_LAYOUT.previewHeight;
     this._cardAreaBottom = areaBottom;
     const visibleH = Math.max(0, areaBottom - areaTop);
     const maxScroll = Math.max(0, totalContentH - visibleH);
@@ -415,8 +431,8 @@ const UI = {
     if (maxScroll > 0) {
       const barH = Math.max(20, visibleH * (visibleH / totalContentH));
       const barY = areaTop + (visibleH - barH) * (this.shopScrollY / maxScroll);
-      c.fillStyle = 'rgba(255,255,255,0.15)';
-      UIRoundRect(c, UI_LAYOUT.SHOP_WIDTH - 5, barY, 3, barH, 1.5);
+      c.fillStyle = 'rgba(255,255,255,0.3)';
+      UIRoundRect(c, UI_LAYOUT.SHOP_WIDTH - 5, barY, 5, barH, 1.5);
       c.fill();
     }
 
@@ -424,14 +440,14 @@ const UI = {
     if (game.selectedTroopIndex >= 0) {
       const t = game.troops[game.selectedTroopIndex];
       if (t && t.alive) {
-        const panelY = RENDERER.height - 130;
+        const panelY = RENDERER.height - 204;
         const panelH = 72;
         c.fillStyle = UI_COLORS.cardBg;
-        UIRoundRect(c, 8, panelY, 200, panelH, 8);
+        UIRoundRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8);
         c.fill();
         c.strokeStyle = UI_COLORS.panelBorder;
         c.lineWidth = 1;
-        UIRoundRect(c, 8, panelY, 200, panelH, 8);
+        UIRoundRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8);
         c.stroke();
 
         c.fillStyle = UI_COLORS.textBright;
@@ -458,7 +474,7 @@ const UI = {
         const stats = ['dmg', 'range', 'speed', 'chain'];
         const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN' };
         const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold };
-        const btnY = RENDERER.height - 120;
+        const btnY = RENDERER.height - 130;
         const btnPad = 8;
         const btnGap = 2;
         // Count visible buttons first to compute dynamic width.
@@ -510,7 +526,7 @@ const UI = {
         }
 
         // Heal button — always visible when a troop is selected.
-        const healBtnY = RENDERER.height - 80;
+        const healBtnY = RENDERER.height - 92;
         const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
         const canHeal = t.canHeal();
         const isMaxHp = t.hp >= t.maxHp;
@@ -551,7 +567,7 @@ const UI = {
         }
 
         // Sell button with cooldown indicator.
-        const sellBtn = { x: 8, y: RENDERER.height - 46, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
+        const sellBtn = { x: 8, y: RENDERER.height - 62, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
         const isDevDelete = game.devMode;
         const cd = game.sellCooldownTimer || 0;
         const onCooldown = cd > 0 && !isDevDelete;
@@ -595,6 +611,174 @@ const UI = {
         }
       }
     }
+    c.textBaseline = 'alphabetic';
+  },
+
+  drawShieldShop(game) {
+    const c = RENDERER.ctx;
+    const w = RENDERER.width;
+    const h = RENDERER.height;
+    const panelW = UI_LAYOUT.shieldShopWidth;
+    const panelH = h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight;
+    const panelX = w - panelW;
+    const panelY = UI_LAYOUT.hudHeight;
+
+    this._toggleShieldShop = null;
+    this._shieldBuyBtn = null;
+
+    // Collapsed branch: 20px wide bar on the right edge with rotated label.
+    if (UI_LAYOUT.collapsed.shieldShop) {
+      c.fillStyle = UI_COLORS.panelBg;
+      c.fillRect(panelX, panelY, 20, panelH);
+      c.fillStyle = UI_COLORS.panelBorder;
+      c.fillRect(panelX - 1, panelY, 1, panelH);
+      c.save();
+      c.translate(panelX + 10, panelY + panelH / 2);
+      c.rotate(-Math.PI / 2);
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = '8px system-ui, sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('SHIELD', 0, 0);
+      c.restore();
+      const btnRect = { x: panelX + 2, y: panelY + 4, w: 16, h: 16 };
+      this._toggleShieldShop = btnRect;
+      drawToggleButton(c, btnRect, true, 'right');
+      c.textBaseline = 'alphabetic';
+      return;
+    }
+
+    // Background panel.
+    c.fillStyle = UI_COLORS.panelBg;
+    c.fillRect(panelX, panelY, panelW, panelH);
+    c.fillStyle = UI_COLORS.panelBorder;
+    c.fillRect(panelX, panelY, panelW, 1);
+
+    // Toggle button in top-right of the panel.
+    const btnRect = { x: panelX + panelW - 19, y: panelY + 5, w: 16, h: 16 };
+    this._toggleShieldShop = btnRect;
+    drawToggleButton(c, btnRect, false, 'right');
+
+    // Header.
+    c.fillStyle = UI_COLORS.textDim;
+    c.font = '10px system-ui, sans-serif';
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText('SHIELD SHOP', panelX + 12, panelY + 16);
+
+    // Buy card centered in the panel.
+    const cardX = panelX + 10;
+    const cardY = panelY + 32;
+    const cardW = panelW - 20;
+    const cardH = 58;
+    c.fillStyle = UI_COLORS.cardBg;
+    UIRoundRect(c, cardX, cardY, cardW, cardH, 8);
+    c.fill();
+    c.strokeStyle = 'rgba(93,173,226,0.25)';
+    c.lineWidth = 1;
+    UIRoundRect(c, cardX, cardY, cardW, cardH, 8);
+    c.stroke();
+
+    // Determine selected troop state for the strict 4-way button chain AND the
+    // info line below — compute early so the info text is drawn before the button.
+    const _selIdxEarly = game.selectedTroopIndex;
+    const _tEarly = _selIdxEarly >= 0 ? game.troops[_selIdxEarly] : null;
+    const _hasSelEarly = !!(_tEarly && _tEarly.alive);
+    let _infoText;
+    if (!_hasSelEarly) {
+      _infoText = 'Select a troop to buy shield';
+    } else if (_tEarly.shield > 0) {
+      // Compute waves remaining until shield expires. Shields expire at the
+      // start of wave 11, 21, 31, ... (boss waves + 1), so remaining = 10 - (currentWave % 10).
+      const _cw = game.wave.currentWave;
+      const _wavesLeft = CONFIG.SHIELD_EXPIRE_WAVES - (_cw % CONFIG.SHIELD_EXPIRE_WAVES);
+      _infoText = 'Shield: +100% HP   Expires in: ' + _wavesLeft + ' waves';
+    } else {
+      const _cost = _tEarly.getShieldCost();
+      _infoText = 'Shield: +100% HP   Cost: ' + _cost + 'g   Lasts: ' + CONFIG.SHIELD_EXPIRE_WAVES + ' waves';
+    }
+    c.fillStyle = UI_COLORS.textDim;
+    c.font = '8px system-ui, sans-serif';
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText(_infoText, cardX + 8, cardY + 10);
+
+    // Buy button rect — STASH for game.js click handler.
+    const buyBtnY = cardY + cardH - 32;
+    const buyBtnH = 28;
+    const buyBtnRect = { x: cardX, y: buyBtnY, w: cardW, h: buyBtnH };
+    this._shieldBuyBtn = buyBtnRect;
+
+    // Determine selected troop state for the strict 4-way button chain.
+    const selIdx = game.selectedTroopIndex;
+    const t = selIdx >= 0 ? game.troops[selIdx] : null;
+    const hasSelection = !!(t && t.alive);
+    let cost = 0;
+    let canAfford = false;
+    if (hasSelection) {
+      cost = t.getShieldCost();
+      canAfford = game.devMode || game.gold >= cost;
+    }
+
+    // Strict if/else if/else if/else chain for the four button states.
+    if (!hasSelection) {
+      // a) No troop selected or not alive — greyed out.
+      c.fillStyle = 'rgba(255,255,255,0.04)';
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.06)';
+      c.lineWidth = 1;
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.stroke();
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = 'bold 10px system-ui, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('SELECT A TROOP', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
+    } else if (t.shield > 0) {
+      // b) Shield already active — cyan-tinted.
+      c.fillStyle = 'rgba(93,173,226,0.18)';
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.fill();
+      c.strokeStyle = 'rgba(93,173,226,0.45)';
+      c.lineWidth = 1;
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.stroke();
+      c.fillStyle = '#5dade2';
+      c.font = 'bold 11px system-ui, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('ACTIVE', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
+    } else if (!canAfford) {
+      // c) Can't afford — greyed out with cost.
+      c.fillStyle = 'rgba(255,255,255,0.04)';
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.fill();
+      c.strokeStyle = 'rgba(255,255,255,0.06)';
+      c.lineWidth = 1;
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.stroke();
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = 'bold 10px system-ui, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('BUY SHIELD (' + cost + 'g)', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
+    } else {
+      // d) Can buy — bright cyan button.
+      c.fillStyle = 'rgba(93,173,226,0.28)';
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.fill();
+      c.strokeStyle = 'rgba(93,173,226,0.6)';
+      c.lineWidth = 1;
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      c.stroke();
+      c.fillStyle = '#5dade2';
+      c.font = 'bold 11px system-ui, sans-serif';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText('BUY SHIELD', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
+    }
+
+    // Status line below the card. Shield state is now shown in the info text
+    // inside the card, so the status line is just the selected troop name.
+    c.fillStyle = UI_COLORS.textDim;
+    c.font = '9px system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const statusName = hasSelection ? t.spec.name : 'none';
+    c.fillText('Selected: ' + statusName, cardX + cardW / 2, cardY + cardH + 14);
+
     c.textBaseline = 'alphabetic';
   },
 
@@ -707,7 +891,7 @@ const UI = {
       return;
     }
     let cx = UI_LAYOUT.shopWidth + 90;
-    const rightEdge = w - 30; // leave room for collapse toggle
+    const rightEdge = w - UI_LAYOUT.shieldShopWidth - 8; // leave room for shield shop panel
     for (const [level, count] of preview) {
       if (cx + 80 > rightEdge) break;
       const key = level === 'B' ? 'B' : level;
@@ -734,6 +918,7 @@ const UI = {
     const tile = this._tileScratch;
     if (!inBounds(tile.gx, tile.gy)) return;
     if (RENDERER.hoverPx < UI_LAYOUT.shopWidth) return;
+    if (!UI_LAYOUT.collapsed.shieldShop && RENDERER.hoverPx > RENDERER.width - UI_LAYOUT.shieldShopWidth) return;
     if (RENDERER.hoverPy < UI_LAYOUT.hudHeight) return;
     if (RENDERER.hoverPy > RENDERER.height - UI_LAYOUT.previewHeight) return;
 
@@ -918,7 +1103,7 @@ const UI = {
     const c = RENDERER.ctx;
     const pW = 220;
     const pH = 310;
-    const pX = RENDERER.width - pW - 12;
+    const pX = RENDERER.width - pW - 12 - UI_LAYOUT.shieldShopWidth;
     const pY = UI_LAYOUT.hudHeight + 50;
 
     this._devRightPanelRect = { x: pX, y: pY, w: pW, h: pH };
