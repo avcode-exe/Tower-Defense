@@ -8,7 +8,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 
 ## Features
 
-- **10 troop types** (hotkeys 0-9) — melee, ranged, splash, chain lightning, siege, and **Ice Wizard** (splash + slow + shatter)
+- **10 troop types** — melee, ranged, splash, chain lightning, siege, and **Ice Wizard** (splash + slow + shatter)
 - **7 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
 - **Monster melee attacks** — monsters stop and attack adjacent troops, dealing damage
@@ -73,7 +73,7 @@ Monsters can attack adjacent troops, dealing their damage stat per hit. Troops h
 
 | Key | Action |
 |-----|--------|
-| Click shop card (or 0-9) | Select troop to place |
+| Click shop card | Select troop to place |
 | Click tile | Place selected troop |
 | Click existing troop | Select for upgrade / sell |
 | Right-click / Esc | Cancel selection |
@@ -81,8 +81,6 @@ Monsters can attack adjacent troops, dealing their damage stat per hit. Troops h
 | Enter | Start wave |
 | R | Restart (on win/lose) |
 | F2 | Toggle Dev mode |
-| Alt+C | Toggle Controls panel |
-| Alt+M | Toggle Monster Info panel |
 | Speed buttons | Adjust game speed (1x-128x) in HUD |
 
 ## Tech Stack

@@ -1,10 +1,15 @@
 const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { autoUpdater } = require('electron-updater');
 
 Menu.setApplicationMenu(null);
 
+// Persistent settings path survives uninstall/reinstall (stored in user home dir)
+const PERSISTENT_DIR = path.join(os.homedir(), '.tower-defense');
+const PERSISTENT_SETTINGS_PATH = path.join(PERSISTENT_DIR, 'settings.json');
+// App-specific paths (userData) for save data that's OK to lose on uninstall
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const SAVE_PATH = path.join(app.getPath('userData'), 'game-save.json');
 const DEFAULT_SETTINGS = {
@@ -27,26 +32,44 @@ let updateCheckInterval = null;
 let skippedVersions = [];
 
 function readSettings() {
+  // Try persistent path first (survives uninstall/reinstall)
+  try {
+    if (fs.existsSync(PERSISTENT_SETTINGS_PATH)) {
+      const raw = fs.readFileSync(PERSISTENT_SETTINGS_PATH, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch (err) {
+    console.error('[settings] persistent read failed:', err);
+  }
+  // Fallback to userData (for backward compatibility)
   try {
     if (fs.existsSync(SETTINGS_PATH)) {
       const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8');
       return JSON.parse(raw);
     }
   } catch (err) {
-    console.error('[settings] read failed:', err);
+    console.error('[settings] userData read failed:', err);
   }
   return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
 }
 
 function writeSettings(settings) {
+  // Always write to persistent location (survives uninstall/reinstall)
+  try {
+    fs.mkdirSync(PERSISTENT_DIR, { recursive: true });
+    fs.writeFileSync(PERSISTENT_SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[settings] persistent write failed:', err);
+    return false;
+  }
+  // Also write to userData for backward compatibility
   try {
     fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true });
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf-8');
-    return true;
   } catch (err) {
-    console.error('[settings] write failed:', err);
-    return false;
+    console.error('[settings] userData write failed:', err);
   }
+  return true;
 }
 
 function getChannelFromVersion(version) {
@@ -55,14 +78,27 @@ function getChannelFromVersion(version) {
   return 'release';
 }
 
+// Use same pre-release detection as renderer
+const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
+
+function isPrerelease(version) {
+  return PRERELEASE_RE.test(version || '');
+}
+
+// Apply autoUpdater settings from persisted settings
+function applyAutoUpdaterSettings() {
+  const settings = readSettings();
+  autoUpdater.autoDownload = settings.update.autoDownload !== false;
+  autoUpdater.autoInstallOnAppQuit = settings.update.autoDownload !== false;
+}
+
 function sendStatus(phase, extra = {}) {
   if (!mainWindow) return;
   mainWindow.webContents.send('update-status', { phase, ...extra });
 }
 
 function shouldAnnounceToUser(info, settings) {
-  const channel = getChannelFromVersion(info.version);
-  if (settings.update.channel === 'release' && channel === 'pre-release') return false;
+  if (settings.update.channel === 'release' && isPrerelease(info.version)) return false;
   if ((settings.update.skippedVersions || []).includes(info.version)) return false;
   return true;
 }
@@ -72,9 +108,6 @@ autoUpdater.logger = {
   warn: (msg) => console.warn('[auto-updater]', msg),
   error: (msg) => console.error('[auto-updater]', msg),
 };
-
-autoUpdater.autoDownload = false;
-autoUpdater.autoInstallOnAppQuit = false;
 
 autoUpdater.on('checking-for-update', () => {
   sendStatus('checking');
@@ -131,8 +164,12 @@ ipcMain.on('download-update', () => {
 });
 
 ipcMain.on('skip-update', (_event, version) => {
-  skippedVersions = skippedVersions || [];
-  if (!skippedVersions.includes(version)) skippedVersions.push(version);
+  const settings = readSettings();
+  settings.update.skippedVersions = settings.update.skippedVersions || [];
+  if (!settings.update.skippedVersions.includes(version)) {
+    settings.update.skippedVersions.push(version);
+  }
+  writeSettings(settings);
 });
 
 ipcMain.on('restart-to-update', () => {
@@ -195,7 +232,11 @@ function createWindow() {
   mainWindow.on('page-title-updated', (event) => event.preventDefault());
 
   mainWindow.webContents.on('did-finish-load', () => {
-    checkForUpdates();
+    applyAutoUpdaterSettings();
+    const settings = readSettings();
+    if (settings.update.checkOnStartup !== false) {
+      checkForUpdates();
+    }
   });
 }
 
@@ -206,11 +247,13 @@ function checkForUpdates() {
     sendStatus('error', { message: errMsg });
   });
   if (!updateCheckInterval) {
+    const settings = readSettings();
+    const intervalMs = (settings.update.checkIntervalMinutes || 60) * 60 * 1000;
     updateCheckInterval = setInterval(() => {
       autoUpdater.checkForUpdates().catch((err) => {
         sendStatus('error', { message: err?.message || String(err) });
       });
-    }, 60 * 60 * 1000);
+    }, intervalMs);
   }
 }
 

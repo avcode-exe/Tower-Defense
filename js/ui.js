@@ -420,15 +420,6 @@ const UI = {
       c.font = '11px system-ui, sans-serif';
       c.fillText(spec.cost + 'g', r.x + 26, r.y + 32);
 
-      // Hotkey badge.
-      c.fillStyle = 'rgba(88,166,255,0.12)';
-      UIRoundRect(c, r.x + r.w - 32, r.y + 5, 24, 20, 5);
-      c.fill();
-      c.fillStyle = UI_COLORS.accent;
-      c.font = 'bold 11px system-ui, sans-serif';
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText(spec.hotkey, r.x + r.w - 20, r.y + 15);
-
       // Spec stats below.
       c.fillStyle = UI_COLORS.textDim;
       c.font = '10px system-ui, sans-serif';

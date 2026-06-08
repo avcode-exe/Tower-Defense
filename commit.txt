@@ -1,4 +1,4 @@
-1.3.0-beta.1 — Ice Wizard + Bug Fixes
+1.3.0-beta.1 — Ice Wizard + Bug Fixes + Runtime Stability
 
 New Features:
 - **Ice Wizard** (hotkey 0): 10th troop type, ranged attacker with splash
@@ -28,27 +28,44 @@ UI Fixes:
 - **Dynamic troop stats panel** — auto-sizes based on visible stat lines (no text overlap)
 - **Dynamic shop card area** — bottom boundary adjusts per troop (Ice Wizard's extra SLW line no longer blocks shop cards)
 - **Load progress dialog** — shows popup asking to load previous progress or start new game
+- **Removed hotkeys** — eliminated number-key hotkeys (0-9) that interfered with normal keyboard input; troop selection now click-only
 
 Critical Bug Fixes:
 - **Troop constructor now calls `_recomputeStats()`** — cached stats (maxHp, slowFactor, etc.) now properly initialized at spawn instead of waiting for first upgrade
 - **Save/Restore includes `slowLevel`** — Ice Wizard slow upgrades now persist across save/load (was lost on reload)
 - **`getTotalInvested()` includes `slow` upgrades** — sell value now accounts for slow upgrades correctly
-- **Shield monster immunity** — shielded monsters immune to slow while shield active (already implemented)
+- **`persistCollapsed()` function added** — fixed ReferenceError when toggling UI panels
+- **Load game error handling** — wrapped in try/catch to prevent startup crashes
+- **Null guards in update progress UI** — prevents crashes if progress elements missing
+- **Optional chaining for Electron IPC** — prevents TypeError if APIs unavailable
+- **Unified pre-release detection** — fixed inconsistent filtering between main/renderer processes
+- **Settings structure validation** — guards against undefined properties
+
+Auto-Update Fixes:
+- `getAnnouncedVersion()` added to UpdateManager — enables skip functionality
+- Skipped versions now persisted to settings — survives app restart
+- `autoDownload`/`autoInstallOnAppQuit` initialized from settings on startup
+- `checkOnStartup`/`checkIntervalMinutes` settings now respected
+- `not-available` handler added — hides dialog when no updates found
+- `releaseType: "release"` removed from package.json — lets electron-builder auto-detect prerelease
 
 Visual:
 - Slowed monsters render with semi-transparent icy blue overlay (#7fdbff @ 50%)
 - Particle burst on slow application (ice blue particles)
 - All splash targets get slow applied + particle effect
+- Hotkey badges removed from shop cards
 
 Modified:
-- js/config.js (Ice Wizard spec with splash: 1.5, damage: 6, 4 CONFIG constants, projectile style)
+- js/config.js (Ice Wizard spec with splash: 1.5, damage: 6, 4 CONFIG constants, projectile style, removed hotkeys)
 - js/troop.js (slowLevel, cached slow stats init in constructor, upgrade handling, getTotalInvested includes slow)
 - js/monster.js (slowTimer, baseSpeed, shatterArmed, shatterBonus, applySlow with shield immunity, _slowColorTint)
-- js/game.js (applyProjectileImpact: slow on all splash/chain/direct hits, particle spawn, icy overlay render; upgrade click handler includes 'slow'; save/restore includes slowLevel)
+- js/game.js (applyProjectileImpact: slow on all splash/chain/direct hits, particle spawn, icy overlay render; upgrade click handler includes 'slow'; save/restore includes slowLevel; removed hotkey handling)
 - js/particles.js (slowApply particle effect config)
-- js/ui.js (SLW button, dynamic stat panel, dynamic _cardAreaBottom, stat labels/colors, load dialog integration)
-- js/main.js (load progress dialog with Load/Start New buttons)
-- index.html (load progress dialog HTML)
-- README.md (troops table, features list, upgrade stats, controls)
-- package.json (version 1.3.0-beta.1)
+- js/ui.js (SLW button, dynamic stat panel, dynamic _cardAreaBottom, stat labels/colors, load dialog integration, removed hotkey badges)
+- js/main.js (load progress dialog with Load/Start New buttons, persistCollapsed(), try/catch loadGame, UI_LAYOUT guard)
+- js/updateManager.js (getAnnouncedVersion(), not-available handler, fixed regex, null guards, optional chaining, deep clone settings)
+- electron-main.js (applyAutoUpdaterSettings(), persist skipped versions, respect checkOnStartup/checkIntervalMinutes, unified pre-release regex)
+- index.html (load progress dialog HTML, removed hotkey list from Controls popup)
+- README.md (troops table, features list, upgrade stats, controls, removed hotkey references)
+- package.json (version 1.3.0-beta.1, removed releaseType)
 - commit.txt (this changelog)

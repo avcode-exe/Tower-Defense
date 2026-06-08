@@ -1267,16 +1267,6 @@ class Game {
       this.restart();
       return;
     }
-    // Hotkeys for shop.
-    for (let i = 0; i < TROOP_SPECS.length; i++) {
-      const spec = TROOP_SPECS[i];
-      if (e.key === spec.hotkey) {
-        e.preventDefault();
-        this.selectedSpec = (this.selectedSpec === spec) ? null : spec;
-        this.selectedTroopIndex = -1;
-        return;
-      }
-    }
     if (e.key === 'Escape') {
       e.preventDefault();
       this.selectedSpec = null;

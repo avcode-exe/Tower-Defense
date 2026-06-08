@@ -1,6 +1,6 @@
 // Update manager – orchestrates update flow from the renderer.
 const DEFAULT_SETTINGS = {
-  version: '1.2.0-beta.3',
+  version: '1.2.0',
   update: {
     channel: 'release',
     autoDownload: true,
@@ -14,7 +14,7 @@ const DEFAULT_SETTINGS = {
   collapsed: { hud: false, shop: false, preview: false, shieldShop: false, help: true, monsterInfo: true, settings: true },
 };
 
-const PRERELEASE_RE = /-(?:beta|alpha|rc)\.\d+/i;
+const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
 
 class UpdateManager {
   constructor(settings) {
@@ -53,7 +53,7 @@ class UpdateManager {
   }
 
   check() {
-    if (window.electron.sendManualCheck) window.electron.sendManualCheck();
+    window.electron?.sendManualCheck?.();
   }
 
   _onStatus(data) {
@@ -61,7 +61,9 @@ class UpdateManager {
       case 'available': this._handleAvailable(data); break;
       case 'progress': this._handleProgress(data); break;
       case 'downloaded': this._handleDownloaded(data); break;
+      case 'not-available': this._hideDialog(); break;
       case 'error': console.error('[update]', data.message); break;
+      default: console.warn('[update] unknown phase:', data.phase);
     }
   }
 
@@ -70,7 +72,8 @@ class UpdateManager {
   }
 
   passesFilter(info) {
-    if (this.settings.update.channel === 'release' && this._isPrerelease(info.version)) return false;
+    const channel = this.settings.update?.channel || 'release';
+    if (channel === 'release' && this._isPrerelease(info.version)) return false;
     return true;
   }
 
@@ -100,7 +103,7 @@ class UpdateManager {
 
   download() {
     this._hideDialog();
-    if (window.electron.downloadUpdate) window.electron.downloadUpdate();
+    window.electron?.downloadUpdate?.();
   }
 
   skip(version) {
@@ -113,7 +116,7 @@ class UpdateManager {
   }
 
   restart() {
-    if (window.electron.requestRestartToUpdate) window.electron.requestRestartToUpdate();
+    window.electron?.requestRestartToUpdate?.();
   }
 
   _handleProgress(data) {
@@ -124,6 +127,7 @@ class UpdateManager {
 
   _showProgress(version, pct) {
     const p = Math.round(pct || 0);
+    if (!this.els.progressWrap || !this.els.progressPct || !this.els.progressVer || !this.els.progressFill) return;
     this.els.progressWrap.style.display = 'block';
     this.els.progressPct.textContent = p + '%';
     this.els.progressVer.textContent = version;
@@ -142,7 +146,7 @@ class UpdateManager {
   }
 
   _persist() {
-    if (window.electron.saveSettings) window.electron.saveSettings({ ...this.settings });
+    if (window.electron?.saveSettings) window.electron.saveSettings(JSON.parse(JSON.stringify(this.settings)));
   }
 
   setChannel(ch) { this.settings.update.channel = ch; this._persist(); this.check(); }
@@ -150,6 +154,7 @@ class UpdateManager {
   setCheckInterval(m) { this.settings.update.checkIntervalMinutes = m; this._persist(); }
   getCollapsed() { return this.settings.collapsed; }
   setCollapsed(key, val) { this.settings.collapsed[key] = val; this._persist(); }
+  getAnnouncedVersion() { return this.settings.update.availableVersion; }
 }
 
 window.UpdateManager = UpdateManager;

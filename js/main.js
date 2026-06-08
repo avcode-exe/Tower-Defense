@@ -26,7 +26,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   // Check for saved game
   let saveData = null;
   if (window.electron && window.electron.loadGame) {
-    saveData = await window.electron.loadGame();
+    try {
+      saveData = await window.electron.loadGame();
+    } catch (err) {
+      console.error('[main] loadGame failed:', err);
+      saveData = null;
+    }
   }
 
   if (saveData && saveData.troops && saveData.troops.length > 0) {
@@ -55,11 +60,13 @@ window.addEventListener('DOMContentLoaded', async () => {
   let persistedCollapsed = {};
   if (window.electron && window.electron.getSettings) {
     try {
-      const settings = window.electron.getSettings();
+      const settings = await window.electron.getSettings();
       if (settings && settings.collapsed) persistedCollapsed = settings.collapsed;
     } catch (err) { /* non-Electron or first launch */ }
   }
-  Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
+  if (typeof UI_LAYOUT !== 'undefined') {
+    Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
+  }
 
   const barBtnFor = { help: 'bar-controls-btn', monsterInfo: 'bar-monster-btn', settings: 'bar-settings-btn' };
   const popupFor = { help: 'controls-popup', monsterInfo: 'monster-popup', settings: 'settings-popup' };
@@ -80,6 +87,18 @@ function showPopup(key) {
     if (popup) popup.style.display = 'none';
     if (btn) btn.classList.remove('active');
   }
+
+  async function persistCollapsed() {
+    if (window.electron && window.electron.saveSettings) {
+      try {
+        const settings = await window.electron.getSettings() || {};
+        if (!settings.collapsed) settings.collapsed = {};
+        Object.assign(settings.collapsed, UI_LAYOUT.collapsed);
+        window.electron.saveSettings(settings);
+      } catch (err) { /* ignore */ }
+    }
+  }
+
   function togglePopup(key) {
     UI_LAYOUT.collapsed[key] = !UI_LAYOUT.collapsed[key];
     if (UI_LAYOUT.collapsed[key]) hidePopup(key); else showPopup(key);
@@ -97,32 +116,36 @@ function showPopup(key) {
   Object.keys(barBtnFor).forEach((key) => hidePopup(key));
 
   // ── settings form inputs ────────────────────────────────────────────────────
-  function loadSettings() {
+  async function loadSettings() {
     if (!window.electron || !window.electron.getSettings) return null;
-    try { return window.electron.getSettings(); } catch { return null; }
+    try { return await window.electron.getSettings(); } catch { return null; }
   }
-  function persistSettings(callback) {
+  async function persistSettings(callback) {
     if (window.electron && window.electron.saveSettings) {
-      const s = loadSettings() || {};
+      const s = await loadSettings() || {};
       const updated = callback(s) || s;
       window.electron.saveSettings(updated);
     }
   }
 
   // channel radio buttons
-  document.querySelectorAll('input[name="settings-channel"]').forEach((radio) => {
-    const s = loadSettings();
-    if (s && s.update) radio.checked = (s.update.channel === radio.value);
-    radio.addEventListener('change', () => {
-      persistSettings((s) => { if (s && s.update) s.update.channel = radio.value; return s; });
+  {
+    const channelSettings = await loadSettings();
+    document.querySelectorAll('input[name="settings-channel"]').forEach((radio) => {
+      if (channelSettings && channelSettings.update) radio.checked = (channelSettings.update.channel === radio.value);
+      radio.addEventListener('change', () => {
+        persistSettings((s) => { if (s && s.update) s.update.channel = radio.value; return s; });
+      });
     });
-  });
+  }
 
   // auto-download checkbox
   const autoDl = document.getElementById('settings-auto-download');
   if (autoDl) {
-    const s = loadSettings();
-    if (s && s.update) autoDl.checked = s.update.autoDownload !== false;
+    {
+      const s = await loadSettings();
+      if (s && s.update) autoDl.checked = s.update.autoDownload !== false;
+    }
     autoDl.addEventListener('change', () => {
       persistSettings((s) => { if (s && s.update) s.update.autoDownload = autoDl.checked; return s; });
       if (window.electron && window.electron.setAutoDownload) {
@@ -134,8 +157,10 @@ function showPopup(key) {
   // check interval
   const intervalInput = document.getElementById('settings-interval');
   if (intervalInput) {
-    const s = loadSettings();
-    if (s && s.update) intervalInput.value = s.update.checkIntervalMinutes || 60;
+    {
+      const s = await loadSettings();
+      if (s && s.update) intervalInput.value = s.update.checkIntervalMinutes || 60;
+    }
     intervalInput.addEventListener('change', () => {
       persistSettings((s) => { if (s && s.update) s.update.checkIntervalMinutes = parseInt(intervalInput.value, 10) || 60; return s; });
     });
@@ -173,7 +198,7 @@ function showPopup(key) {
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
   if (typeof UpdateManager === 'function') {
-    const settings = loadSettings() || {};
+    const settings = await loadSettings() || {};
     window.updateManager = new UpdateManager(settings);
     window.updateManager.init();
   }
@@ -209,13 +234,4 @@ function showPopup(key) {
     }
   }
 
-  // ── hotkey list (unchanged) ────────────────────────────────────────────────
-  const hotkeyList = document.getElementById('hotkey-list');
-  if (hotkeyList && typeof TROOP_SPECS !== 'undefined') {
-    TROOP_SPECS.forEach(spec => {
-      const li = document.createElement('li');
-      li.textContent = spec.hotkey + ' – ' + spec.name;
-      hotkeyList.appendChild(li);
-    });
-  }
 });
