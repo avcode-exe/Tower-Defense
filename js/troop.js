@@ -33,6 +33,8 @@ class Troop {
     this._cachedSlowFactor = this.spec.slowFactor || 1;
     this._cachedSlowDuration = this.spec.slowDuration || 0;
     this._cachedShatterBonus = this.spec.shatterBonus || 0;
+    this._recomputeStats();
+    this.maxHp = this._cachedMaxHp;
   }
 
   // Scaled stats (1.2x per level). Cached for performance.
@@ -166,8 +168,8 @@ class Troop {
   // Total gold invested in this troop (base cost + all upgrades).
   getTotalInvested() {
     let total = this.spec.cost;
-    for (const stat of ['dmg', 'range', 'speed', 'chain', 'hp']) {
-      const level = stat === 'dmg' ? this.dmgLevel : stat === 'range' ? this.rangeLevel : stat === 'speed' ? this.speedLevel : stat === 'chain' ? this.chainLevel : this.hpLevel;
+    for (const stat of ['dmg', 'range', 'speed', 'chain', 'hp', 'slow']) {
+      const level = stat === 'dmg' ? this.dmgLevel : stat === 'range' ? this.rangeLevel : stat === 'speed' ? this.speedLevel : stat === 'chain' ? this.chainLevel : stat === 'hp' ? this.hpLevel : this.slowLevel;
       for (let l = 1; l < level; l++) {
         total += Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, l - 1));
       }

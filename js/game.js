@@ -1200,7 +1200,7 @@ class Game {
         gx: t.gx, gy: t.gy,
         hp: t.hp, maxHp: t.maxHp,
         dmgLevel: t.dmgLevel, rangeLevel: t.rangeLevel,
-        speedLevel: t.speedLevel, chainLevel: t.chainLevel, hpLevel: t.hpLevel,
+        speedLevel: t.speedLevel, chainLevel: t.chainLevel, hpLevel: t.hpLevel, slowLevel: t.slowLevel,
         shield: t.shield, maxShield: t.maxShield, healCount: t.healCount,
       })),
     };
@@ -1238,6 +1238,7 @@ class Game {
       t.rangeLevel = tData.rangeLevel || 1;
       t.speedLevel = tData.speedLevel || 1;
       t.chainLevel = tData.chainLevel || 1;
+      t.slowLevel = tData.slowLevel || 1;
       t._recomputeStats();
       t.maxHp = t._cachedMaxHp;
       t.hp = Math.min(tData.hp, t.maxHp);
