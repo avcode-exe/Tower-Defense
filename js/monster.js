@@ -4,6 +4,7 @@
 
 class Monster {
   constructor(level, waypoints, sharedPath, hpMult = 1) {
+    this.waypoints = waypoints; // needed for single-cell path edge case
     this.level = level;
     this.hpMult = hpMult || 1;
     const key = level === 'B' ? 'B' : level;
@@ -17,7 +18,6 @@ class Monster {
     this.leak = this.spec ? this.spec.leak : 1;
 
     // Use shared path data (avoids rebuilding per monster).
-    this.waypoints = waypoints;
     this.segments = sharedPath.segments;
     this.totalLength = sharedPath.totalLength;
     this.distance = 0;
@@ -130,9 +130,9 @@ class Monster {
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;
-      return { killed: true, reward: this.reward, hpDamage: amount };
+      return { killed: true, reward: this.reward, hpDamage: hpDamage };
     }
-    return { killed: false, reward: 0, hpDamage: amount };
+    return { killed: false, reward: 0, hpDamage: hpDamage };
   }
 
   applySlow(factor, duration, bonus = 0) {

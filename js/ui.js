@@ -338,9 +338,6 @@ const UI = {
 
     this._toggleShop = null;
 
-    // Update card area bottom based on selected troop panel (must run before scroll calc)
-    this._updateCardAreaBottom(game);
-
     if (UI_LAYOUT.collapsed.shop) {
       c.fillStyle = UI_COLORS.panelBg;
       c.fillRect(0, UI_LAYOUT.hudHeight, 20, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
@@ -909,7 +906,7 @@ const UI = {
   const tipX = (r.x + r.w + gap*2 + tipW > RENDERER.width)
     ? r.x - tipW - gap*2
     : r.x + r.w + gap*2;
-  const tipY = r.y;
+  let tipY = r.y;
   if (tipY + tipH > RENDERER.height - 10) {
     tipY = Math.max(0, RENDERER.height - 10 - tipH);
   }

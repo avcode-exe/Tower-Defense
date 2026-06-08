@@ -52,9 +52,9 @@ class Troop {
     this._cachedAttackSpeed = Math.round(this.spec.attackSpeed * Math.pow(CONFIG.SPEED_SCALE_PER_LEVEL, this.speedLevel - 1) * 100) / 100;
     this._cachedChain = (this.spec.chain || 0) + (this.chainLevel - 1);
     this._cachedMaxHp = Math.round(this.spec.hp * Math.pow(CONFIG.HP_SCALE_PER_LEVEL, this.hpLevel - 1));
-    this._cachedSlowFactor = Math.round(this.spec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, this.slowLevel - 1) * 1000) / 1000;
-    this._cachedSlowDuration = Math.round(this.spec.slowDuration * Math.pow(CONFIG.SLOW_DURATION_SCALE_PER_LEVEL, this.slowLevel - 1) * 10) / 10;
-    this._cachedShatterBonus = Math.round(this.spec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, this.slowLevel - 1) * 1000) / 1000;
+    this._cachedSlowFactor = this.spec.slowFactor != null ? Math.round(this.spec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, this.slowLevel - 1) * 1000) / 1000 : 0;
+    this._cachedSlowDuration = this.spec.slowDuration != null ? Math.round(this.spec.slowDuration * Math.pow(CONFIG.SLOW_DURATION_SCALE_PER_LEVEL, this.slowLevel - 1) * 10) / 10 : 0;
+    this._cachedShatterBonus = this.spec.shatterBonus != null ? Math.round(this.spec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, this.slowLevel - 1) * 1000) / 1000 : 0;
   }
 
   // Cost for next upgrade of a stat: base cost * 2^(level-1).
@@ -162,7 +162,7 @@ class Troop {
 
   // Current HP as a percentage (0-100), for display.
   getHpPercent() {
-    return Math.round(this.hp / this.maxHp * 100);
+    return this.maxHp > 0 ? Math.round(this.hp / this.maxHp * 100) : 0;
   }
 
   // Total gold invested in this troop (base cost + all upgrades).
@@ -279,7 +279,7 @@ class Troop {
   }
 
   getHpRatio() {
-    return this.hp / this.maxHp;
+    return this.maxHp > 0 ? this.hp / this.maxHp : 0;
   }
 
   update(dt, monsters, projectiles, game) {
@@ -330,8 +330,8 @@ class Troop {
         } else {
           game.damageMonster(this.target, dmg);
         }
+        this.cooldown = atkSpd;
       }
-      this.cooldown = atkSpd;
     } else {
       projectiles.push(new Projectile(this, this.target, this.x, this.y));
       this.cooldown = atkSpd;

@@ -1,8 +1,31 @@
-UI polish: fix card scroll bleed and maxed stat button visibility
+v1.3.0 — Bug fixes, performance improvements, and code cleanup
 
-- Move _updateCardAreaBottom() call before card clip rect computation
-  so the scroll area boundary is correct on the first frame
-- Add solid mask below card scroll area to prevent cards from visually
-  bleeding into the stats/upgrade panel
-- Improve maxed stat upgrade button visibility: background opacity 0.04→0.08
-  with 1px border so MAX buttons are distinguishable from the panel
+Bug fixes:
+- Fix window resize crash (renderer.js didn't store canvas reference)
+- Fix takeDamage returning wrong damage value when Ice Wizard shatter fires
+- Fix NaN cached slow stats for non-Ice Wizard troops (null guards)
+- Fix melee troops wasting cooldown when game is null
+- Fix division-by-zero risk in getHpRatio/getHpPercent
+- Fix const reassignment crash in tooltip (ui.js tipY)
+- Fix wave manager custom wave format (objects → tuples)
+- Fix cancel-update not actually preventing downloaded handler
+
+Performance:
+- Reuse splash hit buffer instead of allocating new array per call
+- Hoist performance.now() before troop render loop (called once per frame)
+- Remove duplicate _updateCardAreaBottom call in drawShop
+- Replace JSON deep-clone in settings read with manual spread
+- Cap notifications array at 50 entries
+
+Code cleanup:
+- Remove unused CONFIG constants (SHATTER_WINDOW, hud/hudText/hudAccent/selected/sell colors)
+- Consolidate duplicate pre-release detection functions
+- Remove redundant dSq===0 check in projectile.js
+- Add card overflow mask to prevent scroll bleed into stats panel
+- Improve maxed stat button visibility (background + border)
+
+UI polish:
+- Modern window margin (8px inset)
+- Dynamic-width sidebar panels
+- Gradient shop cards with type badges
+- Improved shield shop design

@@ -39,7 +39,7 @@ class Projectile {
     const dy = this.lastTargetY - this.y;
     const dSq = dx * dx + dy * dy;
     const step = this.speed * dt;
-    if (dSq <= step * step || dSq === 0) {
+    if (dSq <= step * step) {
       // Impact.
       this.x = this.lastTargetX;
       this.y = this.lastTargetY;

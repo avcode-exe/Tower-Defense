@@ -22,13 +22,16 @@ const RENDERER = {
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new Error('Failed to get 2D canvas context');
     this.ctx = ctx;
+    this.canvas = canvas;
     this._bgCache = document.createElement('canvas');
     this._pathCache = document.createElement('canvas');
-    this.resize(canvas);
+    this.resize();
     window.addEventListener('resize', () => { this.resize(); });
   },
 
-  resize(canvas) {
+  resize() {
+    const canvas = this.canvas;
+    if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
     this._dpr = dpr;
     const rect = canvas.getBoundingClientRect();

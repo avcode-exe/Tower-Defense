@@ -32,7 +32,11 @@ let updateCheckInterval = null;
 let skippedVersions = [];
 
 function readSettings() {
-  const defaults = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  const defaults = {
+    version: DEFAULT_SETTINGS.version,
+    update: { ...DEFAULT_SETTINGS.update },
+    collapsed: { ...DEFAULT_SETTINGS.collapsed },
+  };
   let loaded = null;
   // Try persistent path first (survives uninstall/reinstall)
   try {
@@ -87,12 +91,6 @@ function writeSettings(settings) {
   return true;
 }
 
-function getChannelFromVersion(version) {
-  const v = (version || '').toLowerCase();
-  if (/-beta\./.test(v) || /-alpha\./.test(v) || /-rc\./.test(v)) return 'pre-release';
-  return 'release';
-}
-
 // Use same pre-release detection as renderer
 const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
 
@@ -134,7 +132,7 @@ autoUpdater.on('checking-for-update', () => {
 
 autoUpdater.on('update-available', (info) => {
   const settings = readSettings();
-  const channel = getChannelFromVersion(info.version);
+  const channel = isPrerelease(info.version) ? 'pre-release' : 'release';
   info.type = channel;
   if (shouldAnnounceToUser(info, settings)) {
     sendStatus('available', { version: info.version, type: channel });

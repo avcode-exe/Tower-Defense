@@ -63,7 +63,7 @@ class WaveManager {
     }
     this.currentPreview = [];
     for (const [level, count] of Object.entries(previewMap)) {
-      this.currentPreview.push({ level, count });
+      this.currentPreview.push([level, Number(count)]);
     }
   }
 

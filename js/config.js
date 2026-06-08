@@ -71,7 +71,6 @@ const CONFIG = {
   SLOW_FACTOR_SCALE_PER_LEVEL: 0.85,
   SLOW_DURATION_SCALE_PER_LEVEL: 1.2,
   SHATTER_BONUS_SCALE_PER_LEVEL: 1.3,
-  SHATTER_WINDOW: 3.0,
 
   // Visual
   COLORS: {
@@ -80,13 +79,8 @@ const CONFIG = {
     path: '#3a2a18',
     buildableHover: 'rgba(120,200,120,0.24)',
     invalid: 'rgba(220,80,80,0.28)',
-    hud: '#0a0e12',
-    hudText: '#e6edf3',
-    hudAccent: '#58a6ff',
     gold: '#f1c40f',
     heart: '#e74c3c',
-    selected: '#58a6ff',
-    sell: '#e67e22',
     hpBarBg: '#400',
     hpBarFill: '#2ecc71',
     shieldBarBg: '#223',

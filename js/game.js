@@ -48,6 +48,7 @@ class Game {
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
     this._popupPool = [];
     this._tileIndexPool = [];
+    this._splashHitBuf = [];
 
     this.wave = new WaveManager();
 
@@ -639,7 +640,8 @@ class Game {
     const cgy = (y / CONFIG.TILE_SIZE) | 0;
     const ceilR = Math.ceil(radiusTiles);
     const G = CONFIG.GRID_SIZE;
-    const hitMonsters = [];
+    const hitMonsters = this._splashHitBuf;
+    hitMonsters.length = 0;
     for (let dgy = -ceilR; dgy <= ceilR; dgy++) {
       for (let dgx = -ceilR; dgx <= ceilR; dgx++) {
         const gx = cgx + dgx, gy = cgy + dgy;
@@ -724,6 +726,8 @@ class Game {
     const T = CONFIG.TILE_SIZE;
     const ctx = RENDERER.ctx;
 
+    const now = performance.now();
+
     // Troops (index loop) — cached Path2D, no per-troop path construction.
     if (!Game._troopPath) {
       const s = T - 12, rr = 4;
@@ -751,7 +755,7 @@ class Game {
         const sqY = t.gy * T + 6;
         ctx.strokeStyle = CONFIG.COLORS.shieldBarFill;  // #5dade2
         // Subtle sine-wave pulse between ~0.45 and ~0.75, period ~1.5s.
-        const pulse = 0.6 + 0.15 * Math.sin(performance.now() * 0.004);
+        const pulse = 0.6 + 0.15 * Math.sin(now * 0.004);
         ctx.globalAlpha = pulse;
         ctx.lineWidth = 2;
         ctx.strokeRect(sqX, sqY, sqSize, sqSize);

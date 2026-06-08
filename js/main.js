@@ -240,7 +240,7 @@ function showPopup(key) {
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
-  let appVersion = '1.3.0-beta.3'; // fallback
+  let appVersion = '1.3.0'; // fallback
   if (window.electron && window.electron.getVersion) {
     try { appVersion = await window.electron.getVersion(); } catch (_) {}
   }
@@ -311,6 +311,10 @@ function showPopup(key) {
     } else {
       const n = { id: Date.now(), text, type: type || 'info', time: timeAgo(), read: false, group: group || null, actions: opts.actions || null, version: opts.version || null };
       notifications.unshift(n);
+      // Cap at 50 entries to prevent unbounded growth.
+      while (notifications.length > 50) {
+        notifications.pop();
+      }
     }
     renderNotifications();
     // Show toast for important notifications (not progress ticks, not silent)
