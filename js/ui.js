@@ -440,8 +440,23 @@ const UI = {
     if (game.selectedTroopIndex >= 0) {
       const t = game.troops[game.selectedTroopIndex];
       if (t && t.alive) {
-        const panelY = RENDERER.height - 204;
-        const panelH = 72;
+        // Build stat lines dynamically
+        const statLines = [];
+        statLines.push('DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel);
+        statLines.push('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''));
+        if (t.spec.slowFactor) {
+          statLines.push('SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel);
+        }
+        // HP + DPS lines
+        const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
+        statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
+        statLines.push({ text: 'DPS ' + (t.getDamage() / t.getAttackSpeed()).toFixed(1), color: UI_COLORS.accent, bold: true });
+
+        const lineH = 14;
+        const startY = 26;
+        const panelH = 14 + statLines.length * lineH + 8; // name(14) + lines + padding
+        const panelY = RENDERER.height - panelH - 132; // 132 = upgrade buttons area
+
         c.fillStyle = UI_COLORS.cardBg;
         UIRoundRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8);
         c.fill();
@@ -455,23 +470,21 @@ const UI = {
         c.textAlign = 'left'; c.textBaseline = 'middle';
         c.fillText(t.spec.name, 18, panelY + 14);
 
-        c.fillStyle = UI_COLORS.textDim;
         c.font = '10px system-ui, sans-serif';
-        c.fillText('DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel, 18, panelY + 26);
-        c.fillText('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 18, panelY + 38);
-        if (t.spec.slowFactor) {
-          c.fillText('SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel, 18, panelY + 38);
+        c.textBaseline = 'middle';
+        for (let i = 0; i < statLines.length; i++) {
+          const line = statLines[i];
+          const y = panelY + startY + i * lineH;
+          if (typeof line === 'string') {
+            c.fillStyle = UI_COLORS.textDim;
+            c.font = '10px system-ui, sans-serif';
+            c.fillText(line, 18, y);
+          } else {
+            c.fillStyle = line.color || UI_COLORS.textDim;
+            c.font = (line.bold ? 'bold ' : '') + '10px system-ui, sans-serif';
+            c.fillText(line.text, 18, y);
+          }
         }
-        // HP line.
-        const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
-        c.fillStyle = hpColor;
-        c.fillText('HP ' + Math.ceil(t.hp) + '/' + t.maxHp, 18, panelY + 50);
-        c.fillStyle = UI_COLORS.textDim;
-
-        const dps = (t.getDamage() / t.getAttackSpeed()).toFixed(1);
-        c.fillStyle = UI_COLORS.accent;
-        c.font = 'bold 10px system-ui, sans-serif';
-        c.fillText('DPS ' + dps, 18, panelY + 64);
 
         // Upgrade buttons.
         const stats = ['dmg', 'range', 'speed', 'chain', 'slow', 'hp'];

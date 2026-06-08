@@ -1109,7 +1109,7 @@ class Game {
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
       const t = this.troops[this.selectedTroopIndex];
       if (t && t.alive) {
-        const stats = ['dmg', 'range', 'speed', 'chain', 'hp'];
+        const stats = ['dmg', 'range', 'speed', 'chain', 'slow', 'hp'];
         const btnPad = LAYOUT.SHOP.BTN_PAD;
         const btnGap = LAYOUT.SHOP.BTN_GAP;
         // Count visible buttons first to compute dynamic width.
