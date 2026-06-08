@@ -119,6 +119,7 @@ class Game {
     this.troops.push(t);
     if (!this.devMode) this.gold -= spec.cost;
     this._buildTroopTileIndex();
+    AUDIO.troopPlace();
     return true;
   }
 
@@ -139,6 +140,7 @@ class Game {
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
     this.selectedSpec = null;
     this._buildTroopTileIndex();
+    AUDIO.sell();
   }
 
   upgradeTroopStat(index, stat) {
@@ -150,6 +152,7 @@ class Game {
     this.gold -= cost;
     t.upgradeStat(stat);
     this._getPopup(stat.toUpperCase() + ' +1', t.x, t.y - 10, 1.2, '#f1c40f');
+    AUDIO.upgrade();
   }
 
   // Heal a troop by 10% of max HP.
@@ -164,6 +167,7 @@ class Game {
     t.heal();
     const actual = Math.ceil(t.hp - prevHp);
     this._getPopup('+' + actual + ' HP', t.x, t.y - 10, 1.0, '#44cc44');
+    AUDIO.heal();
   }
 
   // Buy a shield for the troop at index. One shield per troop. Cost = 50% of spec.cost.
@@ -178,6 +182,7 @@ class Game {
     this._getPopup('SHIELD!', t.x, t.y - 12, 1.0, '#5dade2');
     if (PARTICLES && PARTICLES.troopShieldActivate) {
       PARTICLES.spawn(t.x, t.y, PARTICLES.troopShieldActivate(t.spec.color));
+      AUDIO.shieldBuy();
     }
     return true;
   }
@@ -193,6 +198,7 @@ class Game {
     const r = m.takeDamage(amount);
     if (r.killed) {
       this.gold = Math.min(this.gold + r.reward, CONFIG.MAX_GOLD);
+      AUDIO.goldEarned();
       this._getPopup('+' + r.reward, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
       PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
       // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
@@ -298,9 +304,11 @@ class Game {
         m.alive = false;
         this.lives -= m.leak;
         this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
+        AUDIO.monsterLeak();
         if (this.lives <= 0) {
           this.lives = 0;
           this.state = 'DEFEAT';
+          AUDIO.defeat();
           if (this._simWorker) this._simWorker.postMessage('stop');
           if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
         }
@@ -362,6 +370,7 @@ class Game {
         && this.monsters.length === 0) {
       const waveNum = this.wave.currentWave + 1;
       this.waveCompleteAnim = { active: true, waveNum: waveNum, startMs: performance.now() };
+      AUDIO.waveComplete();
       if (waveNum % 10 === 0) {
         const bonus = Math.min(CONFIG.BOSS_BONUS_BASE + waveNum * CONFIG.BOSS_BONUS_PER_WAVE, CONFIG.BOSS_BONUS_MAX);
         this.gold = Math.min(this.gold + bonus, CONFIG.MAX_GOLD);
@@ -946,6 +955,7 @@ class Game {
           if (this.wave.startNextWave()) {
             this.wave.buildCustomFromCounts(this.devMonsterCounts);
             this.state = 'WAVE_ACTIVE';
+            AUDIO.waveStart();
           }
           return;
         }
@@ -998,6 +1008,7 @@ class Game {
           if (this.wave.startNextWave()) {
             if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
             this.state = 'WAVE_ACTIVE';
+            AUDIO.waveStart();
           }
         } else if (this.state === 'WAVE_ACTIVE') {
           this.state = 'PAUSED';
@@ -1247,6 +1258,7 @@ class Game {
       if (this.wave.startNextWave()) {
         if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
         this.state = 'WAVE_ACTIVE';
+        AUDIO.waveStart();
       }
     }
 // Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings)
