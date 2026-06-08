@@ -1,8 +1,8 @@
-1.3.0 — Ice Wizard (10th troop with splash, slow & shatter mechanics)
+1.3.0-beta.1 — Ice Wizard + UI fixes
 
 New Features:
 - **Ice Wizard** (hotkey 0): 10th troop type, ranged attacker with splash
-  that applies slow on hit. Cost: 200g, Base HP: 60, Damage: 8, Range: 3,
+  that applies slow on hit. Cost: 200g, Base HP: 60, Damage: 6, Range: 3,
   Attack Speed: 1.4s, **Splash: 1.5 tiles**
 - **Slow Status Effect**: Monsters hit by Ice Wizard are slowed to 50% movement
   speed for 2.5 seconds. Visual indicator: icy blue overlay on slowed monsters
@@ -23,11 +23,11 @@ Balance:
   SHATTER_BONUS_SCALE_PER_LEVEL=1.3, SHATTER_WINDOW=3.0s
 - Upgrade cost follows existing formula (base × 1.35^(level-1))
 
-UI:
-- Shop panel: dynamic 5-button layout (DMG/RNG/SPD/CHN/SLW for Ice Wizard)
-- Selected troop panel: shows slow stats (factor %, duration, level)
-- Hotkey list: "0 – Ice Wizard" automatically included
-- Tooltip: describes slow + shatter mechanic
+UI Fixes:
+- **SLW upgrade button click handler fixed** — was missing 'slow' from stats array
+- **Dynamic troop stats panel** — auto-sizes based on visible stat lines (no text overlap)
+- **Dynamic shop card area** — bottom boundary adjusts per troop (Ice Wizard's extra SLW line no longer blocks shop cards)
+- **Shield monster immunity** — shielded monsters immune to slow while shield active
 
 Visual:
 - Slowed monsters render with semi-transparent icy blue overlay (#7fdbff @ 50%)
@@ -35,11 +35,12 @@ Visual:
 - All splash targets get slow applied + particle effect
 
 Modified:
-- js/config.js (Ice Wizard spec with splash: 1.5, 4 CONFIG constants, projectile style)
-- js/troop.js (slowLevel, cached slow stats, upgrade handling, getSlowFactor/getSlowDuration)
-- js/monster.js (slowTimer, baseSpeed, shatterArmed, shatterBonus, applySlow, _slowColorTint)
-- js/game.js (applyProjectileImpact: slow on all splash/chain/direct hits, particle spawn, icy overlay render)
+- js/config.js (Ice Wizard spec with splash: 1.5, damage: 6, 4 CONFIG constants, projectile style)
+- js/troop.js (slowLevel, cached slow stats, upgrade handling, getSlowFactor/getSlowDuration, init cache in constructor)
+- js/monster.js (slowTimer, baseSpeed, shatterArmed, shatterBonus, applySlow with shield immunity, _slowColorTint)
+- js/game.js (applyProjectileImpact: slow on all splash/chain/direct hits, particle spawn, icy overlay render; upgrade click handler includes 'slow')
 - js/particles.js (slowApply particle effect config)
-- js/ui.js (SLW button, stat display, stat labels/colors)
+- js/ui.js (SLW button, dynamic stat panel, dynamic _cardAreaBottom, stat labels/colors)
 - README.md (troops table, features list, upgrade stats, controls)
+- package.json (version 1.3.0-beta.1)
 - commit.txt (this changelog)

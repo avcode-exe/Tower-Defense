@@ -142,6 +142,26 @@ const UI = {
     return -1;
   },
 
+  // Calculate the bottom boundary for shop cards based on selected troop's panel
+  _updateCardAreaBottom(game) {
+    if (game.selectedTroopIndex >= 0) {
+      const t = game.troops[game.selectedTroopIndex];
+      if (t && t.alive) {
+        // Build stat lines to calculate panel height (same logic as draw)
+        let lineCount = 2; // DMG/SPD + RNG/CHN
+        if (t.spec.slowFactor) lineCount++; // SLW line
+        lineCount += 2; // HP + DPS
+        const lineH = 14;
+        const panelH = 14 + lineCount * lineH + 8;
+        const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
+        const panelY = upgradeBtnY - panelH - 4;
+        this._cardAreaBottom = panelY - 4; // 4px gap above panel
+        return;
+      }
+    }
+    this._cardAreaBottom = RENDERER.height;
+  },
+
   handleToggleClick(px, py) {
     if (UI._toggleShieldShop && hitToggleButton(px, py, UI._toggleShieldShop)) {
       UI_LAYOUT.collapsed.shieldShop = !UI_LAYOUT.collapsed.shieldShop;
@@ -318,6 +338,9 @@ const UI = {
 
     this._toggleShop = null;
 
+    // Update card area bottom based on selected troop panel (must run before scroll calc)
+    this._updateCardAreaBottom(game);
+
     if (UI_LAYOUT.collapsed.shop) {
       c.fillStyle = UI_COLORS.panelBg;
       c.fillRect(0, UI_LAYOUT.hudHeight, 20, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
@@ -355,8 +378,9 @@ const UI = {
     const CARD_H = LAYOUT.SHOP.CARD_H, CARD_GAP = LAYOUT.SHOP.CARD_GAP;
     const totalContentH = TROOP_SPECS.length * (CARD_H + CARD_GAP) - CARD_GAP;
     const areaTop = UI_LAYOUT.hudHeight + 8;
-    // 6px margin between shop cards and the selected troop info panel below.
-    const areaBottom = game.selectedTroopIndex >= 0 ? RENDERER.height - 210 : RENDERER.height - UI_LAYOUT.previewHeight;
+    // Dynamic bottom based on selected troop's panel (calculated in _updateCardAreaBottom)
+    // If no troop selected, use preview height as bottom.
+    const areaBottom = this._cardAreaBottom ?? (RENDERER.height - UI_LAYOUT.previewHeight);
     this._cardAreaBottom = areaBottom;
     const visibleH = Math.max(0, areaBottom - areaTop);
     const maxScroll = Math.max(0, totalContentH - visibleH);
@@ -435,6 +459,9 @@ const UI = {
       UIRoundRect(c, UI_LAYOUT.SHOP_WIDTH - 5, barY, 5, barH, 1.5);
       c.fill();
     }
+
+    // Update shop card area bottom boundary based on selected troop panel
+    this._updateCardAreaBottom(game);
 
     // ── Selected troop info panel ──
     if (game.selectedTroopIndex >= 0) {
