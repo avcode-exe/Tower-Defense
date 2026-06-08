@@ -22,7 +22,10 @@ class Grid {
   }
 
   get(gx, gy) {
-    if (!inBounds(gx, gy)) return TILE.BLOCKED;
+    if (!inBounds(gx, gy)) {
+      console.warn(`Grid.get OOB: (${gx}, ${gy})`);
+      return TILE.BLOCKED;
+    }
     return this.tiles[this.idx(gx, gy)];
   }
 

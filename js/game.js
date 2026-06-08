@@ -311,6 +311,7 @@ class Game {
           AUDIO.defeat();
           if (this._simWorker) this._simWorker.postMessage('stop');
           if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
+          break;
         }
       }
     }
@@ -661,7 +662,7 @@ class Game {
       this._running = true;
       this.lastTime = performance.now();
       const fallbackLoop = () => {
-        if (!this._running) return;
+        if (!this._running || this._rafVersion !== myRafVersion) return;
         this._runSimTick(performance.now());
         requestAnimationFrame(fallbackLoop);
       };
@@ -906,15 +907,11 @@ class Game {
             if (idx >= 0) this.sellTroop(idx);
           }
           this.sellConfirmTroopIndex = null;
-          this.devConfirmPending = false;
-          this.resetConfirmPending = false;
         } else if (this.resetConfirmPending) {
-          this.devConfirmPending = false;
           this.resetConfirmPending = false;
           this.resetGame();
         } else {
           this.devConfirmPending = false;
-          this.resetConfirmPending = false;
           this.toggleDevMode();
         }
         return;
@@ -970,7 +967,7 @@ class Game {
     }
 
     // Triple-click on gold display to toggle dev mode.
-    if (px >= 14 && px <= 116 && py >= 14 && py <= 42) {
+    if (px >= LAYOUT.HUD.GOLD_AREA.x && px <= LAYOUT.HUD.GOLD_AREA.x + LAYOUT.HUD.GOLD_AREA.w && py >= LAYOUT.HUD.GOLD_AREA.y && py <= LAYOUT.HUD.GOLD_AREA.y + LAYOUT.HUD.GOLD_AREA.h) {
       const now = performance.now();
       if (now - this._goldClickTimer > 800) this._goldClicks = 0;
       this._goldClickTimer = now;
@@ -985,7 +982,7 @@ class Game {
     // HUD buttons — only active when HUD is expanded.
     if (!UI_LAYOUT.collapsed.hud) {
       // Reset button.
-      const rstBtn = { x: 310, y: 14, w: 36, h: 28 };
+      const rstBtn = LAYOUT.HUD.RESET_BTN;
       if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) {
         this.resetConfirmPending = true;
         return;
@@ -994,7 +991,7 @@ class Game {
       // Speed buttons.
       const w = RENDERER.width;
       for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
-        const r = { x: w - 370 + i * 28, y: 14, w: 26, h: 28 };
+        const r = { x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28, y: 14, w: LAYOUT.HUD.SPEED_BTN_W, h: LAYOUT.HUD.SPEED_BTN_H };
         if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
           this.speed = CONFIG.GAME_SPEEDS[i];
           return;
@@ -1002,7 +999,7 @@ class Game {
       }
 
       // Start wave / pause button.
-      const btn = { x: w - 116, y: 12, w: 90, h: 32 };
+      const btn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
       if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
         if (this.state === 'PRE_WAVE') {
           if (this.wave.startNextWave()) {
@@ -1043,9 +1040,9 @@ class Game {
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
       const t = this.troops[this.selectedTroopIndex];
       if (t && t.alive && t.canHeal()) {
-        const healBtnY = RENDERER.height - 88;
-        const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
-        if (px >= 8 && px <= 8 + healBtnW && py >= healBtnY && py <= healBtnY + 28) {
+        const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
+        const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
+        if (px >= LAYOUT.SHOP.BTN_PAD && px <= LAYOUT.SHOP.BTN_PAD + healBtnW && py >= healBtnY && py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H) {
           this.healTroop(this.selectedTroopIndex);
           return;
         }
@@ -1054,7 +1051,7 @@ class Game {
 
     // Sell button — show confirmation dialog.
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
-      const sellBtn = { x: 8, y: RENDERER.height - 56, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
+      const sellBtn = { x: LAYOUT.SHOP.BTN_PAD, y: RENDERER.height - LAYOUT.SHOP.SELL_BTN_Y_OFFSET, w: UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW, h: LAYOUT.SHOP.SELL_BTN_H };
       if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
           && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
         if (this.devMode) {
@@ -1072,8 +1069,8 @@ class Game {
       const t = this.troops[this.selectedTroopIndex];
       if (t && t.alive) {
         const stats = ['dmg', 'range', 'speed', 'chain', 'hp'];
-        const btnPad = 8;
-        const btnGap = 2;
+        const btnPad = LAYOUT.SHOP.BTN_PAD;
+        const btnGap = LAYOUT.SHOP.BTN_GAP;
         // Count visible buttons first to compute dynamic width.
         let visibleCount = 0;
         for (const stat of stats) {
@@ -1085,7 +1082,7 @@ class Game {
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
           if (!t.canUpgrade(stat)) continue;
-          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - 130, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET, w: statBtnW, h: LAYOUT.SHOP.UPGRADE_BTN_H };
           visibleBtnIdx++;
           if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
             this.upgradeTroopStat(this.selectedTroopIndex, stat);
@@ -1265,15 +1262,15 @@ class Game {
   if (e.altKey) {
     if (e.key === 'c' || e.key === 'C') {
       UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
-      togglePopupEl('controls-popup', UI_LAYOUT.collapsed.help, 'bar-controls-btn');
+      this.togglePopupEl('controls-popup', UI_LAYOUT.collapsed.help, 'bar-controls-btn');
       e.preventDefault();
     } else if (e.key === 'm' || e.key === 'M') {
       UI_LAYOUT.collapsed.monsterInfo = !UI_LAYOUT.collapsed.monsterInfo;
-      togglePopupEl('monster-popup', UI_LAYOUT.collapsed.monsterInfo, 'bar-monster-btn');
+      this.togglePopupEl('monster-popup', UI_LAYOUT.collapsed.monsterInfo, 'bar-monster-btn');
       e.preventDefault();
     } else if (e.key === 'u' || e.key === 'U') {
       UI_LAYOUT.collapsed.settings = !UI_LAYOUT.collapsed.settings;
-      togglePopupEl('settings-popup', UI_LAYOUT.collapsed.settings, 'bar-settings-btn');
+      this.togglePopupEl('settings-popup', UI_LAYOUT.collapsed.settings, 'bar-settings-btn');
       e.preventDefault();
     }
   }

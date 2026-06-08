@@ -88,6 +88,32 @@ const CONFIG = {
   },
 };
 
+// UI layout constants (shared between game.js and ui.js to avoid hardcoded duplicates)
+const LAYOUT = {
+  HUD: {
+    GOLD_AREA:   {x:14, y:14, w:102, h:28},
+    RESET_BTN:   {x:310, y:14, w:36, h:28},
+    SPEED_OFFSET: 370,
+    SPEED_BTN_W: 26,
+    SPEED_BTN_H: 28,
+    CTRL_RIGHT:  116,
+    CTRL_BTN:    {x:0, y:12, w:90, h:32},
+  },
+  SHOP: {
+    SEW: 16,
+    CARD_H: 58,
+    CARD_GAP: 4,
+    HEAL_BTN_Y_OFFSET: 88,
+    HEAL_BTN_H: 28,
+    SELL_BTN_Y_OFFSET: 56,
+    SELL_BTN_H: 34,
+    UPGRADE_BTN_Y_OFFSET: 130,
+    UPGRADE_BTN_H: 36,
+    BTN_PAD: 8,
+    BTN_GAP: 2,
+  },
+};
+
 // Monster specs. Index = level (1-5). boss is level 'B' keyed separately.
 const MONSTER_SPECS = {
   1: { name: 'Grunt',    hp: 34,   speed: 1.0, reward: 4,  leak: 1, color: '#7ec07e', size: 11, damage: 4,  attackSpeed: 1.0, attackRange: 1 },

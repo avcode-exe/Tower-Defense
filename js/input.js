@@ -63,9 +63,9 @@ class Input {
 
   destroy() {
     const canvas = this.canvas;
-    canvas.removeEventListener('mousemove', this._onMouseMove);
-    canvas.removeEventListener('mouseleave', this._onMouseLeave);
-    canvas.removeEventListener('mousedown', this._onMouseDown);
+    canvas.removeEventListener('mousemove', this._onMouseMove, { passive: true });
+    canvas.removeEventListener('mouseleave', this._onMouseLeave, { passive: true });
+    canvas.removeEventListener('mousedown', this._onMouseDown, { passive: true });
     canvas.removeEventListener('contextmenu', this._onContextMenu);
     canvas.removeEventListener('wheel', this._onWheel);
     window.removeEventListener('keydown', this._onKeyDown);

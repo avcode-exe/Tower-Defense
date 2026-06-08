@@ -107,9 +107,9 @@ const UI = {
   },
 
   shopCardRect(i) {
-  const gap = 4;
-  const x = 8;
-  const cardH = 58;
+  const gap = LAYOUT.SHOP.CARD_GAP;
+  const x = LAYOUT.SHOP.BTN_PAD;
+  const cardH = LAYOUT.SHOP.CARD_H;
   const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
   const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
   return { x, y: baseY - this.shopScrollY, w: cardW, h: cardH };
@@ -117,9 +117,9 @@ const UI = {
 
   // Zero-allocation variant for rendering loops.
   shopCardRectInto(i, out) {
-  const gap = 4;
-  const x = 8;
-  const cardH = 58;
+  const gap = LAYOUT.SHOP.CARD_GAP;
+  const x = LAYOUT.SHOP.BTN_PAD;
+  const cardH = LAYOUT.SHOP.CARD_H;
   const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
   const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
   out.x = x;
@@ -249,7 +249,7 @@ const UI = {
     c.fillText('RST', rstX + rstW / 2, 28);
 
     // Speed.
-    let sx = w - 370;
+    let sx = w - LAYOUT.HUD.SPEED_OFFSET;
     c.fillStyle = UI_COLORS.textDim;
     c.font = '11px system-ui, sans-serif';
     c.textAlign = 'left';
@@ -273,7 +273,7 @@ const UI = {
     }
 
     // Start / pause / resume.
-    const ctrlBtn = { x: w - 116, y: 12, w: 90, h: 32 };
+    const ctrlBtn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
     const label = game.state === 'PRE_WAVE' ? 'Start Wave'
       : game.state === 'WAVE_ACTIVE' ? 'Pause'
       : game.state === 'PAUSED' ? 'Resume'
@@ -352,7 +352,7 @@ const UI = {
     c.fillText('TROOPS', 12, UI_LAYOUT.hudHeight + 16);
 
     // Compute card area bounds and clamp scroll
-    const CARD_H = 58, CARD_GAP = 4;
+    const CARD_H = LAYOUT.SHOP.CARD_H, CARD_GAP = LAYOUT.SHOP.CARD_GAP;
     const totalContentH = TROOP_SPECS.length * (CARD_H + CARD_GAP) - CARD_GAP;
     const areaTop = UI_LAYOUT.hudHeight + 8;
     // 6px margin between shop cards and the selected troop info panel below.
@@ -474,9 +474,9 @@ const UI = {
         const stats = ['dmg', 'range', 'speed', 'chain', 'hp'];
         const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN', hp: 'HP' };
         const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold, hp: '#44cc44' };
-        const btnY = RENDERER.height - 130;
-        const btnPad = 8;
-        const btnGap = 2;
+        const btnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
+        const btnPad = LAYOUT.SHOP.BTN_PAD;
+        const btnGap = LAYOUT.SHOP.BTN_GAP;
         // IMPORTANT: This layout calculation must match game.js upgrade button hit-test exactly.
         // Count visible buttons first to compute dynamic width.
         let visibleCount = 0;
@@ -492,7 +492,7 @@ const UI = {
           if (!t.canUpgrade(stat)) continue;
           const cost = t.getUpgradeCost(stat);
           const affordable = game.devMode || game.gold >= cost;
-          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: btnY, w: statBtnW, h: 36 };
+          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: btnY, w: statBtnW, h: LAYOUT.SHOP.UPGRADE_BTN_H };
           visibleBtnIdx++;
 
           if (t.isMaxed(stat)) {
@@ -527,8 +527,8 @@ const UI = {
         }
 
         // Heal button — always visible when a troop is selected.
-        const healBtnY = RENDERER.height - 88;
-        const healBtnW = UI_LAYOUT.SHOP_WIDTH - 16;
+        const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
+        const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
         const canHeal = t.canHeal();
         const isMaxHp = t.hp >= t.maxHp;
         const healCost = canHeal ? t.getHealCost() : 0;
@@ -537,38 +537,38 @@ const UI = {
         if (isMaxHp) {
           // Max HP — greyed out
           c.fillStyle = 'rgba(255,255,255,0.04)';
-          UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+          UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
           c.fill();
           c.strokeStyle = 'rgba(255,255,255,0.06)';
           c.lineWidth = 1;
-          UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+          UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
           c.stroke();
           c.fillStyle = UI_COLORS.textDim;
           c.font = 'bold 9px system-ui, sans-serif';
           c.textAlign = 'center'; c.textBaseline = 'middle';
-          c.fillText('HEAL  MAX HP', 8 + healBtnW / 2, healBtnY + 14);
+          c.fillText('HEAL  MAX HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 14);
         } else {
           // Can heal — show cost and HP
           c.fillStyle = healAffordable ? '#2ea043' : 'rgba(255,255,255,0.04)';
-          UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+          UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
           c.fill();
           if (!healAffordable) {
             c.strokeStyle = 'rgba(255,255,255,0.06)';
             c.lineWidth = 1;
-            UIRoundRect(c, 8, healBtnY, healBtnW, 28, 6);
+            UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
             c.stroke();
           }
           c.fillStyle = healAffordable ? '#fff' : UI_COLORS.textDim;
           c.font = 'bold 10px system-ui, sans-serif';
           c.textAlign = 'center'; c.textBaseline = 'middle';
-          c.fillText('HEAL  +' + Math.ceil(t.maxHp * 0.1) + ' HP', 8 + healBtnW / 2, healBtnY + 10);
+          c.fillText('HEAL  +' + Math.ceil(t.maxHp * 0.1) + ' HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 10);
           c.fillStyle = healAffordable ? 'rgba(255,255,255,0.7)' : UI_COLORS.textDim;
           c.font = '8px system-ui, sans-serif';
-          c.fillText('(' + healCost + 'g)  ' + t.getHpPercent() + '% HP', 8 + healBtnW / 2, healBtnY + 22);
+          c.fillText('(' + healCost + 'g)  ' + t.getHpPercent() + '% HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 22);
         }
 
         // Sell button with cooldown indicator.
-        const sellBtn = { x: 8, y: RENDERER.height - 56, w: UI_LAYOUT.SHOP_WIDTH - 16, h: 34 };
+        const sellBtn = { x: LAYOUT.SHOP.BTN_PAD, y: RENDERER.height - LAYOUT.SHOP.SELL_BTN_Y_OFFSET, w: UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW, h: LAYOUT.SHOP.SELL_BTN_H };
         const isDevDelete = game.devMode;
         const cd = game.sellCooldownTimer || 0;
         const onCooldown = cd > 0 && !isDevDelete;
@@ -642,7 +642,7 @@ const UI = {
       c.restore();
       const btnRect = { x: panelX + 2, y: panelY + 4, w: 16, h: 16 };
       this._toggleShieldShop = btnRect;
-      drawToggleButton(c, btnRect, true, 'right');
+      drawToggleButton(c, btnRect, true, 'left');
       c.textBaseline = 'alphabetic';
       return;
     }
@@ -787,7 +787,7 @@ const UI = {
   if (!spec.desc) return;
   c.save();
   c.font = '11px system-ui, sans-serif';
-  const rawLines = this._wrapText(c, spec.desc, Infinity, 11, 'system-ui, sans-serif');
+  const rawLines = this._wrapText(c, spec.desc, RENDERER.width - r.w - 60, 11, 'system-ui, sans-serif');
   const maxTextW = Math.max(...rawLines.map(l => c.measureText(l).width), 0);
   c.restore();
   const padX = 14, padTop = 10, padBot = 12, lineH = 14, gap = 6;
@@ -798,6 +798,9 @@ const UI = {
     ? r.x - tipW - gap*2
     : r.x + r.w + gap*2;
   const tipY = r.y;
+  if (tipY + tipH > RENDERER.height - 10) {
+    tipY = Math.max(0, RENDERER.height - 10 - tipH);
+  }
   c.save();
   c.fillStyle = 'rgba(10,16,22,0.96)';
   UIRoundRect(c, tipX, tipY, tipW, tipH, 8); c.fill();

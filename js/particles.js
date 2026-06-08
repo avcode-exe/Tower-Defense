@@ -34,8 +34,11 @@ const PARTICLES = {
   _pool: [],
   _activeCount: 0,
   _maxPool: 300,
-  _buckets: {},
+  _buckets: [],
   _bucketKeys: [],
+  _colorToIndex: {},
+  _colorByIndex: [],
+  _nextColorIndex: 0,
 
   _getParticle() {
     if (this._activeCount < this._maxPool) {
@@ -102,7 +105,9 @@ const PARTICLES = {
     for (let i = 0; i < this._activeCount; i++) {
       const p = this._pool[i];
       const alphaKey = p.maxLife > 0 ? Math.round((p.life / p.maxLife) * 10) / 10 : 0;
-      const key = p.color + '|' + alphaKey;
+      const ci = this._getColorIndex(p.color);
+      const aq = alphaKey > 0 ? Math.min(10, Math.round(alphaKey * 10)) : 0;
+      const key = ci * 11 + aq;
       if (!buckets[key]) {
         buckets[key] = [];
         keys.push(key);
@@ -111,19 +116,17 @@ const PARTICLES = {
     }
     for (let k = 0; k < keys.length; k++) {
       const key = keys[k];
-      const sep = key.indexOf('|');
-      ctx.globalAlpha = parseFloat(key.slice(sep + 1));
-      ctx.fillStyle = key.slice(0, sep);
+      const colorIdx = Math.floor(key / 11);
+      const alpha = (key % 11) / 10;
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = this._colorByIndex[colorIdx];
       const batch = buckets[key];
       for (let j = 0; j < batch.length; j++) {
         const p = batch[j];
         const half = p.size * 0.5;
         ctx.fillRect(p.x - half, p.y - half, p.size, p.size);
       }
-      // Reset bucket for next frame
       batch.length = 0;
-      // NOTE: known perf hotspot — string-key bucketing allocates ~300 strings/frame.
-      // Setting to undefined avoids V8 deopt from delete on object literals.
       buckets[key] = undefined;
     }
     keys.length = 0;
@@ -132,6 +135,18 @@ const PARTICLES = {
 
   clear() {
     this._activeCount = 0;
+    this._nextColorIndex = 0;
+    this._colorToIndex = {};
+    this._colorByIndex = [];
+  },
+
+  _getColorIndex(color) {
+    if (this._colorToIndex[color] === undefined) {
+      const idx = this._nextColorIndex++;
+      this._colorToIndex[color] = idx;
+      this._colorByIndex[idx] = color;
+    }
+    return this._colorToIndex[color];
   },
 
   // Predefined effect configs (returned by copy so mutations don't cross-contaminate).

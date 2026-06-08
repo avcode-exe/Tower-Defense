@@ -43,7 +43,7 @@ class Projectile {
       // Impact.
       this.x = this.lastTargetX;
       this.y = this.lastTargetY;
-      onImpact(this);
+      try { onImpact(this); } catch (e) { console.warn('Projectile impact error:', e); }
       this.alive = false;
       return;
     }

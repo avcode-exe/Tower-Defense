@@ -172,7 +172,10 @@ class Troop {
       if (tileIndex) {
         for (let dx = -1; dx <= 1; dx++) {
           for (let dy = -1; dy <= 1; dy++) {
-            const idx = (tgy + dy) * CONFIG.GRID_SIZE + (tgx + dx);
+            const tx = tgx + dx;
+            const ty = tgy + dy;
+            if (tx < 0 || tx >= CONFIG.GRID_SIZE || ty < 0 || ty >= CONFIG.GRID_SIZE) continue;
+            const idx = ty * CONFIG.GRID_SIZE + tx;
             const tileMonsters = tileIndex[idx];
             if (!tileMonsters) continue;
             for (let i = 0; i < tileMonsters.length; i++) {
@@ -285,7 +288,10 @@ class Troop {
           if (tileIndex) {
             for (let dx = -1; dx <= 1; dx++) {
               for (let dy = -1; dy <= 1; dy++) {
-                const idx = (this.gy + dy) * CONFIG.GRID_SIZE + (this.gx + dx);
+                const tx = this.gx + dx;
+                const ty = this.gy + dy;
+                if (tx < 0 || tx >= CONFIG.GRID_SIZE || ty < 0 || ty >= CONFIG.GRID_SIZE) continue;
+                const idx = ty * CONFIG.GRID_SIZE + tx;
                 const tileMonsters = tileIndex[idx];
                 if (!tileMonsters) continue;
                 for (let i = 0; i < tileMonsters.length; i++) {

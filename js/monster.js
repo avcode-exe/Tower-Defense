@@ -40,9 +40,6 @@ class Monster {
     this.attackTarget = null;
     this.attackTimer = 0;
     this._pendingAttack = null;
-    // Reusable result object to avoid per-hit allocation in takeDamage().
-    // Safe because callers read properties immediately and never store the reference.
-    this._damageResult = { killed: false, reward: 0, hpDamage: 0 };
 
     // Cached tile coordinates (updated in _updatePosition).
     this._tileGx = 0;
@@ -97,41 +94,32 @@ class Monster {
   }
 
   takeDamage(amount) {
-    const r = this._damageResult;
-    r.killed = false;
-    r.reward = 0;
-    r.hpDamage = 0;
-    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return r;
+    if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return { killed: false, reward: 0, hpDamage: 0 };
     if (this.shield > 0) {
       if (amount >= this.shield) {
         const excess = amount - this.shield;
         this.shield = 0;
         this.shieldRegenTimer = 0;
-        // Bleed excess damage through to HP.
-        r.hpDamage = excess;
         this.hp -= excess;
         if (this.hp <= 0) {
           this.hp = 0;
           this.alive = false;
-          r.killed = true;
-          r.reward = this.reward;
+          return { killed: true, reward: this.reward, hpDamage: excess };
         }
-        return r;
+        return { killed: false, reward: 0, hpDamage: excess };
       }
       this.shield -= amount;
       this.shieldRegenTimer = 0;
-      return r;
+      return { killed: false, reward: 0, hpDamage: 0 };
     }
     // No shield — damage goes directly to HP.
-    r.hpDamage = amount;
     this.hp -= amount;
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;
-      r.killed = true;
-      r.reward = this.reward;
+      return { killed: true, reward: this.reward, hpDamage: amount };
     }
-    return r;
+    return { killed: false, reward: 0, hpDamage: amount };
   }
 
   findTarget(troopTileIndex) {
@@ -146,6 +134,7 @@ class Monster {
         const ty = gy + dy;
         if (tx < 0 || tx >= gs || ty < 0 || ty >= gs) continue;
         const tileTroops = troopTileIndex[ty * gs + tx];
+        if (!tileTroops) continue;
         for (let i = 0; i < tileTroops.length; i++) {
           const t = tileTroops[i];
           if (!t.alive) continue;
@@ -210,27 +199,15 @@ class Monster {
     if (this.state === 'MOVING') {
       this.distance += this.speed * CONFIG.TILE_SIZE * dt;
 
-      // Advance segment index.
-      const segs = this.segments;
-      while (this.segIdx < segs.length - 1 && this.distance > segs[this.segIdx + 1].cumStart) {
-        this.segIdx++;
-      }
-
       // Clamp to path end.
       if (this.distance >= this.totalLength) {
         this.distance = this.totalLength;
         this.reachedEnd = true;
+        this._updatePosition();
+        return; // reached end, no attacking
       }
 
-      // Compute position.
-      const seg = segs[this.segIdx];
-      const t = clamp((this.distance - seg.cumStart) / seg.len, 0, 1);
-      this.x = lerp(seg.ax, seg.bx, t);
-      this.y = lerp(seg.ay, seg.by, t);
-
-      // Update cached tile coords.
-      this._tileGx = (this.x / CONFIG.TILE_SIZE) | 0;
-      this._tileGy = (this.y / CONFIG.TILE_SIZE) | 0;
+      this._updatePosition();
 
       // Check for nearby troops to attack.
       if (troopTileIndex) {

@@ -1,62 +1,44 @@
-feat: 1.2.0-beta.3 — in-app update flow, settings persistence, and bottom bar UI
+1.2.0 official release — refactoring, bug fixes, and performance improvements
 
-This release introduces a full in-app update system, persistent settings, and a
-new bottom bar that houses the Controls/Monsters/Settings mini windows.
+This release stabilizes the 1.2.0-beta line with extensive code quality
+improvements and critical bug fixes across the entire codebase.
 
-## In-app update flow (replaces native dialogs)
-- Player is now prompted inside the game when an update is available,
-  with explicit Download / Skip choices — no surprise background downloads.
-- Channel filter: choose Release only (stable, no beta/alpha/rc) or
-  Pre-release (everything) via the Settings panel.
-- Versions the player skips are persisted and never re-nagged.
-- Live progress bar appears at the bottom of the screen during download,
-  driven by `download-progress` IPC events from electron-updater.
-- Update ready prompt (in-app): Restart Now / Later.
+Refactoring:
+- Extract shared LAYOUT constants to config.js, eliminating hardcoded
+  pixel coordinate duplication between ui.js and game.js
+- Monster.js: eliminate duplicate position update code path in update()
+- Troop.pickTarget: add bounds checks for edge grid tiles
+- particles.js: replace string-key particle bucketing with numeric
+  encoding for 300+ fewer string allocations per frame
 
-## Settings persistence
-- Settings are written to `app.getPath('userData')/settings.json`,
-  surviving app reinstall.
-- Persisted keys: update.channel, update.autoDownload,
-  update.checkIntervalMinutes, update.skippedVersions,
-  collapsed state for every panel (HUD, Shop, Preview, ShieldShop,
-  Help, MonsterInfo, Settings).
+Bug fixes (15 total across 9 files):
+- game.js: fix CRITICAL ReferenceError in togglePopupEl (Alt+C/M/U
+  shortcuts); fix worker fallback version guard preventing double-speed
+  simulation after restart; fix confirmation flag stacking; add break
+  after DEFEAT state to prevent duplicate leak sounds
+- monster.js: fix findTarget() null check on empty tiles; replace
+  shared mutable _damageResult with fresh object literals per call
+- ui.js: fix inverted toggle arrow directions; fix shield shop
+  collapse direction; add tooltip vertical bounds clamping; fix
+  tooltip text overflowing background on narrow screens
+- renderer.js: add window resize handler for proper canvas scaling
+- input.js: fix removeEventListener passive option mismatch
+- projectile.js: wrap onImpact in try-catch to prevent zombie
+  projectiles on callback throw
+- particles.js: clear() now fully resets color index state
+- waveManager.js: custom wave preview now reflects actual queue
+- grid.js: add OOB warning when returning BLOCKED
 
-## Bottom bar for mini windows
-- New fixed bar at the bottom of the screen with three buttons:
-  Monsters, Controls, Settings.
-- Clicking a button opens its popup directly above the bar with a small
-  margin; only one popup is open at a time (mutual exclusion).
-- Popups use content-driven width: the Monsters window is wider than
-  Controls/Settings to accommodate its stats table.
-- All popups start hidden on launch (no popups on startup).
-- Alt+C / Alt+M / Alt+U keyboard shortcuts still work.
-
-## Update system rewrite (electron-main.js)
-- `autoUpdater.autoDownload` set to `false` by default; download is
-  triggered only after the player confirms via the in-app dialog.
-- New IPC channels: get-settings, save-settings, check-updates,
-  download-update, restart-to-update, skip-update, set-auto-download,
-  update-status (main → renderer event stream).
-- Version classification: stable vs prerelease determined by regex
-  (`-beta.N`, `-alpha.N`, `-rc.N`); renderer applies channel filter
-  before showing any dialog.
-
-## New files
-- `preload.js` — context bridge exposing settings + update IPC to renderer.
-- `js/updateManager.js` — renderer-side update orchestrator.
-
-## Modified files
-- `electron-main.js` — full update flow rewrite (IPC-only, no native dialogs).
-- `index.html` — removed old right-side panels; added bar, popups,
-  update dialog, progress bar, settings form.
-- `css/style.css` — bar styles, popup styles, per-popup widths,
-  progress bar, settings accordion.
-- `js/main.js` — restore collapsed state from disk, wire bar buttons,
-  settings form, UpdateManager init.
-- `js/game.js` — Alt+U shortcut, togglePopupEl helper.
-- `js/ui.js` — dynamic tooltip width sizing from actual text metrics;
-  shop card width leaves margin before the collapse toggle button;
-  `SHIELD SHOP` header renamed to `SHOP`.
-
-## Version
-- package.json: 1.2.0-beta.2 → 1.2.0-beta.3
+Modified:
+- js/game.js
+- js/monster.js
+- js/troop.js
+- js/ui.js
+- js/renderer.js
+- js/input.js
+- js/projectile.js
+- js/particles.js
+- js/waveManager.js
+- js/grid.js
+- js/config.js
+- package.json

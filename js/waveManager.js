@@ -57,7 +57,14 @@ class WaveManager {
       }
     }
     // Update preview so UI shows accurate wave composition after custom build.
-    this.currentPreview = this._previewForWave(this.currentWave);
+    const previewMap = {};
+    for (const entry of this.queue) {
+      previewMap[entry.level] = (previewMap[entry.level] || 0) + 1;
+    }
+    this.currentPreview = [];
+    for (const [level, count] of Object.entries(previewMap)) {
+      this.currentPreview.push({ level, count });
+    }
   }
 
   startNextWave() {
