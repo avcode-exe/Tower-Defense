@@ -8,11 +8,12 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 
 ## Features
 
-- **9 troop types** (hotkeys 1-9) — melee, ranged, splash, chain lightning, and siege
+- **10 troop types** (hotkeys 0-9) — melee, ranged, splash, chain lightning, siege, and **Ice Wizard** (splash + slow + shatter)
 - **7 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss
+- **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
 - **Monster melee attacks** — monsters stop and attack adjacent troops, dealing damage
 - **Troop HP** — troops have health pools and can be destroyed by monsters
-- **Upgradeable troops** — 4 independently upgradeable stats per troop (DMG / RNG / SPD / CHN), up to level 5 each
+- **Upgradeable troops** — 4 independently upgradeable stats per troop (DMG / RNG / SPD / CHN), up to level 5 each; Ice Wizard adds **SLW** (slow power/duration/shatter)
 - **Dev mode** (F2) — unlimited gold + custom wave composition editor
 - **Adjustable game speed** — 1x / 2x / 4x / 8x / 16x / 32x / 64x / 128x
 - **Web Worker heartbeat** — 16ms tick keeps the main-thread sim running when the window is backgrounded
@@ -34,10 +35,12 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 | 7 | Valkyrie | Melee | 150 | 80 | 22 | 1 | 1.2s | AoE 360° swing |
 | 8 | Lightning | Ranged | 300 | 40 | 100 | 2 | 3s | Chain 2 (+1/level) + stun 0.5s |
 | 9 | Mortar | Ranged | 200 | 30 | 65 | 8 | 3.0s | Splash 2.5 tiles |
+| 0 | Ice Wizard | Ranged | 200 | 60 | 8 | 3 | 1.4s | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50% |
 
 **Upgradeable stats per troop:**
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
 - Lightning: also **CHN** (+1 chain target per level)
+- **Ice Wizard**: also **SLW** (stronger slow, longer duration, bigger shatter per level)
 - **Melee troops take 70% reduced damage from monster attacks**
 
 ## Monsters
@@ -70,7 +73,7 @@ Monsters can attack adjacent troops, dealing their damage stat per hit. Troops h
 
 | Key | Action |
 |-----|--------|
-| Click shop card (or 1-9) | Select troop to place |
+| Click shop card (or 0-9) | Select troop to place |
 | Click tile | Place selected troop |
 | Click existing troop | Select for upgrade / sell |
 | Right-click / Esc | Cancel selection |

@@ -179,4 +179,9 @@ const PARTICLES = {
   troopShieldActivate(color) {
     return { ...this._shieldActivateCfg, color: color || '#5dade2' };
   },
+
+  _slowApplyCfg: { count: 8, color: '#7fdbff', minSize: 2, maxSize: 4, minSpeed: 20, maxSpeed: 60, minLife: 0.4, maxLife: 0.8, gravity: false },
+  slowApply(color) {
+    return { ...this._slowApplyCfg, color: color || '#7fdbff' };
+  },
 };

@@ -1,44 +1,45 @@
-1.2.0 official release — refactoring, bug fixes, and performance improvements
+1.3.0 — Ice Wizard (10th troop with splash, slow & shatter mechanics)
 
-This release stabilizes the 1.2.0-beta line with extensive code quality
-improvements and critical bug fixes across the entire codebase.
+New Features:
+- **Ice Wizard** (hotkey 0): 10th troop type, ranged attacker with splash
+  that applies slow on hit. Cost: 200g, Base HP: 60, Damage: 8, Range: 3,
+  Attack Speed: 1.4s, **Splash: 1.5 tiles**
+- **Slow Status Effect**: Monsters hit by Ice Wizard are slowed to 50% movement
+  speed for 2.5 seconds. Visual indicator: icy blue overlay on slowed monsters
+  + particle burst on slow application.
+- **Shatter Mechanic**: The next hit on a slowed monster deals +50% bonus
+  damage. Re-applying slow refreshes duration but does NOT re-arm shatter.
+- **Shielded Immunity**: Monsters with active shield are immune to slow until
+  shield breaks.
+- **Splash Applies Slow**: All monsters hit by splash take damage AND are slowed.
+- **5th Upgrade Stat (SLW)**: Ice Wizard has a 4th upgradable stat — SLW
+  increases slow potency (factor), duration, and shatter bonus per level:
+  - L1: 50% speed, 2.5s, +50% dmg
+  - L5: 26% speed (74% slow), 5.2s, +143% dmg
 
-Refactoring:
-- Extract shared LAYOUT constants to config.js, eliminating hardcoded
-  pixel coordinate duplication between ui.js and game.js
-- Monster.js: eliminate duplicate position update code path in update()
-- Troop.pickTarget: add bounds checks for edge grid tiles
-- particles.js: replace string-key particle bucketing with numeric
-  encoding for 300+ fewer string allocations per frame
+Balance:
+- Added 4 new CONFIG constants for slow/shatter scaling:
+  SLOW_FACTOR_SCALE_PER_LEVEL=0.85, SLOW_DURATION_SCALE_PER_LEVEL=1.2,
+  SHATTER_BONUS_SCALE_PER_LEVEL=1.3, SHATTER_WINDOW=3.0s
+- Upgrade cost follows existing formula (base × 1.35^(level-1))
 
-Bug fixes (15 total across 9 files):
-- game.js: fix CRITICAL ReferenceError in togglePopupEl (Alt+C/M/U
-  shortcuts); fix worker fallback version guard preventing double-speed
-  simulation after restart; fix confirmation flag stacking; add break
-  after DEFEAT state to prevent duplicate leak sounds
-- monster.js: fix findTarget() null check on empty tiles; replace
-  shared mutable _damageResult with fresh object literals per call
-- ui.js: fix inverted toggle arrow directions; fix shield shop
-  collapse direction; add tooltip vertical bounds clamping; fix
-  tooltip text overflowing background on narrow screens
-- renderer.js: add window resize handler for proper canvas scaling
-- input.js: fix removeEventListener passive option mismatch
-- projectile.js: wrap onImpact in try-catch to prevent zombie
-  projectiles on callback throw
-- particles.js: clear() now fully resets color index state
-- waveManager.js: custom wave preview now reflects actual queue
-- grid.js: add OOB warning when returning BLOCKED
+UI:
+- Shop panel: dynamic 5-button layout (DMG/RNG/SPD/CHN/SLW for Ice Wizard)
+- Selected troop panel: shows slow stats (factor %, duration, level)
+- Hotkey list: "0 – Ice Wizard" automatically included
+- Tooltip: describes slow + shatter mechanic
+
+Visual:
+- Slowed monsters render with semi-transparent icy blue overlay (#7fdbff @ 50%)
+- Particle burst on slow application (ice blue particles)
+- All splash targets get slow applied + particle effect
 
 Modified:
-- js/game.js
-- js/monster.js
-- js/troop.js
-- js/ui.js
-- js/renderer.js
-- js/input.js
-- js/projectile.js
-- js/particles.js
-- js/waveManager.js
-- js/grid.js
-- js/config.js
-- package.json
+- js/config.js (Ice Wizard spec with splash: 1.5, 4 CONFIG constants, projectile style)
+- js/troop.js (slowLevel, cached slow stats, upgrade handling, getSlowFactor/getSlowDuration)
+- js/monster.js (slowTimer, baseSpeed, shatterArmed, shatterBonus, applySlow, _slowColorTint)
+- js/game.js (applyProjectileImpact: slow on all splash/chain/direct hits, particle spawn, icy overlay render)
+- js/particles.js (slowApply particle effect config)
+- js/ui.js (SLW button, stat display, stat labels/colors)
+- README.md (troops table, features list, upgrade stats, controls)
+- commit.txt (this changelog)

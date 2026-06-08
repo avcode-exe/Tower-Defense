@@ -67,6 +67,12 @@ const CONFIG = {
   PARTICLE_GRAVITY: 60,
   TILE_BUFFER: 0.5,
 
+  // Ice Wizard scaling
+  SLOW_FACTOR_SCALE_PER_LEVEL: 0.85,
+  SLOW_DURATION_SCALE_PER_LEVEL: 1.2,
+  SHATTER_BONUS_SCALE_PER_LEVEL: 1.3,
+  SHATTER_WINDOW: 3.0,
+
   // Visual
   COLORS: {
     background: '#0e1418',
@@ -136,6 +142,7 @@ const TROOP_SPECS = [
   { id: 'valkyrie',  name: 'Valkyrie',  type: 'melee',  cost: 150, damage: 22, range: 1, attackSpeed: 1.2, splash: 0, color: '#e67e22', hotkey: '7', hp: 80, aoe: true, desc: 'Melee unit with 80 HP and AoE attacks. Takes 70% less damage from monsters. Clears swarms.' },
   { id: 'lightning', name: 'Lightning', type: 'ranged', cost: 300, damage: 100, range: 2, attackSpeed: 3, splash: 0, color: '#f1c40f', hotkey: '8', hp: 40, chain: 2, stun: 0.5, desc: 'Chain lightning with 40 HP that stuns and jumps to multiple enemies. Stuns help keep her alive.' },
   { id: 'mortar',   name: 'Mortar',   type: 'ranged', cost: 200, damage: 65,  range: 8, attackSpeed: 3.0, splash: 2.5, color: '#8B4513', hotkey: '9', hp: 30, desc: 'Long-range siege unit with 30 HP. Slow but devastating splash — vulnerable if monsters reach her.' },
+  { id: 'icewiz', name: 'Ice Wizard', type: 'ranged', cost: 200, damage: 6, range: 3, attackSpeed: 1.4, splash: 1.5, color: '#7fdbff', hotkey: '0', hp: 60, desc: 'Slows enemies; bonus damage on next hit while slowed.', slowFactor: 0.5, slowDuration: 2.5, shatterBonus: 0.5 },
 ];
 
 // Pre-compute stats strings per troop (avoids string concat every frame).
@@ -166,4 +173,5 @@ const PROJECTILE_STYLES = {
   sniper:    { color: '#e74c3c', size: 2, speed: 18, kind: 'bolt' },
   lightning: { color: '#f1c40f', size: 3, speed: 22, kind: 'bolt' },
   mortar:    { color: '#8B4513', size: 5, speed: 8,  kind: 'orb' },
+  icewiz:    { color: '#7fdbff', size: 3, speed: 12, kind: 'arrow' },
 };

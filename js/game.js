@@ -475,12 +475,20 @@ class Game {
   // Apply damage + optional AoE from a projectile. Also handles reward.
   applyProjectileImpact(proj) {
     const dmg = proj.troop._cachedDamage;
+    const troop = proj.troop;
+    const hasSlow = troop.spec.slowFactor && troop._cachedSlowFactor !== undefined;
+
     if (!proj.target || !proj.target.alive) {
       // Dead before impact: resolve at last known position.
-      if (proj.troop.spec.chain > 0) {
-        this.chainHitAt(proj.lastTargetX, proj.lastTargetY, proj.troop);
-      } else if (proj.troop.spec.splash > 0) {
-        this.splashAt(proj.lastTargetX, proj.lastTargetY, dmg, proj.troop.spec.splash, proj.troop);
+      if (troop.spec.chain > 0) {
+        this.chainHitAt(proj.lastTargetX, proj.lastTargetY, troop);
+      } else if (troop.spec.splash > 0) {
+        const hit = this.splashAt(proj.lastTargetX, proj.lastTargetY, dmg, troop.spec.splash, troop);
+        if (hasSlow) hit.forEach(m => {
+          if (m.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
+            PARTICLES.spawn(m.x, m.y, PARTICLES.slowApply(troop.spec.color));
+          }
+        });
       } else {
         // Direct hit: find closest alive monster to impact point using tile index.
         let closest = null, closestDist = Infinity;
@@ -501,16 +509,38 @@ class Game {
             }
           }
         }
-        if (closest) this.damageMonster(closest, dmg);
+        if (closest) {
+          this.damageMonster(closest, dmg);
+          if (hasSlow) {
+            if (closest.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
+              PARTICLES.spawn(closest.x, closest.y, PARTICLES.slowApply(troop.spec.color));
+            }
+          }
+        }
       }
       return;
     }
-    if (proj.troop.spec.chain > 0) {
-      this.chainHitAt(proj.target.x, proj.target.y, proj.troop);
-    } else if (proj.troop.spec.splash > 0) {
-      this.splashAt(proj.target.x, proj.target.y, dmg, proj.troop.spec.splash, proj.troop);
+    if (troop.spec.chain > 0) {
+      this.chainHitAt(proj.target.x, proj.target.y, troop);
+      if (hasSlow && proj.target.alive) {
+        if (proj.target.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
+          PARTICLES.spawn(proj.target.x, proj.target.y, PARTICLES.slowApply(troop.spec.color));
+        }
+      }
+    } else if (troop.spec.splash > 0) {
+      const hit = this.splashAt(proj.target.x, proj.target.y, dmg, troop.spec.splash, troop);
+      if (hasSlow) hit.forEach(m => {
+        if (m.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
+          PARTICLES.spawn(m.x, m.y, PARTICLES.slowApply(troop.spec.color));
+        }
+      });
     } else {
       this.damageMonster(proj.target, dmg);
+      if (hasSlow) {
+        if (proj.target.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
+          PARTICLES.spawn(proj.target.x, proj.target.y, PARTICLES.slowApply(troop.spec.color));
+        }
+      }
     }
   }
 
@@ -609,6 +639,7 @@ class Game {
     const cgy = (y / CONFIG.TILE_SIZE) | 0;
     const ceilR = Math.ceil(radiusTiles);
     const G = CONFIG.GRID_SIZE;
+    const hitMonsters = [];
     for (let dgy = -ceilR; dgy <= ceilR; dgy++) {
       for (let dgx = -ceilR; dgx <= ceilR; dgx++) {
         const gx = cgx + dgx, gy = cgy + dgy;
@@ -624,11 +655,13 @@ class Game {
             const falloff = 1 - 0.5 * (Math.sqrt(dSq) * rInv);
             const dmg = Math.max(1, Math.round(damage * falloff));
             this.damageMonster(m, dmg);
+            hitMonsters.push(m);
           }
         }
       }
     }
     PARTICLES.spawn(x, y, PARTICLES.splashImpact(troop ? troop.spec.color : '#9b59b6'));
+    return hitMonsters;
   }
 
   start() {
@@ -788,11 +821,19 @@ class Game {
         ctx.stroke();
         ctx.globalAlpha = 1;
       }
-      // Body.
+      // Body (icy tint when slowed).
+      const isSlowed = m._slowColorTint > 0;
       ctx.fillStyle = m.spec.color;
       ctx.beginPath();
       ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, Math.PI * 2);
       ctx.fill();
+      if (isSlowed) {
+        // Icy blue overlay
+        ctx.fillStyle = 'rgba(127, 219, 255, 0.5)';
+        ctx.beginPath();
+        ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
       // Stun overlay.
       if (m.stunTimer > 0) {
         ctx.fillStyle = 'rgba(255,255,255,0.4)';

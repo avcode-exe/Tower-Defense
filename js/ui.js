@@ -459,6 +459,9 @@ const UI = {
         c.font = '10px system-ui, sans-serif';
         c.fillText('DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel, 18, panelY + 26);
         c.fillText('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : ''), 18, panelY + 38);
+        if (t.spec.slowFactor) {
+          c.fillText('SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel, 18, panelY + 38);
+        }
         // HP line.
         const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
         c.fillStyle = hpColor;
@@ -471,9 +474,9 @@ const UI = {
         c.fillText('DPS ' + dps, 18, panelY + 64);
 
         // Upgrade buttons.
-        const stats = ['dmg', 'range', 'speed', 'chain', 'hp'];
-        const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN', hp: 'HP' };
-        const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold, hp: '#44cc44' };
+        const stats = ['dmg', 'range', 'speed', 'chain', 'slow', 'hp'];
+        const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN', slow: 'SLW', hp: 'HP' };
+        const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold, slow: '#7fdbff', hp: '#44cc44' };
         const btnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
         const btnPad = LAYOUT.SHOP.BTN_PAD;
         const btnGap = LAYOUT.SHOP.BTN_GAP;

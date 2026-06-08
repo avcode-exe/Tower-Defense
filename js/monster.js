@@ -35,6 +35,13 @@ class Monster {
     // Passive healing (Boss).
     this.healPerSecond = this.spec ? (this.spec.healPerSecond || 0) : 0;
 
+    // Slow / shatter mechanics (v1.3.0)
+    this.slowTimer = 0;
+    this.baseSpeed = this.speed;
+    this.shatterArmed = false;
+    this.shatterBonus = 0;
+    this._slowColorTint = 0; // for visual darkening
+
     // State machine (melee attack logic).
     this.state = 'MOVING';
     this.attackTarget = null;
@@ -113,7 +120,13 @@ class Monster {
       return { killed: false, reward: 0, hpDamage: 0 };
     }
     // No shield — damage goes directly to HP.
-    this.hp -= amount;
+    // Shatter bonus: if slowed and shatterArmed, apply bonus damage
+    let hpDamage = amount;
+    if (this.slowTimer > 0 && this.shatterArmed) {
+      hpDamage = Math.round(amount * (1 + this.shatterBonus));
+      this.shatterArmed = false;
+    }
+    this.hp -= hpDamage;
     if (this.hp <= 0) {
       this.hp = 0;
       this.alive = false;
@@ -121,6 +134,20 @@ class Monster {
     }
     return { killed: false, reward: 0, hpDamage: amount };
   }
+
+  applySlow(factor, duration, bonus = 0) {
+    // Shielded monsters are immune to slow while shield > 0
+    if (this.shield > 0) return false;
+
+    this.slowTimer = Math.max(this.slowTimer, duration);
+    this.speed = this.baseSpeed * factor;
+    this.shatterArmed = true;
+    this.shatterBonus = bonus;
+    this._slowColorTint = 1; // flag for renderer
+    return true;
+  }
+
+  isSlowed() { return this.slowTimer > 0; }
 
   findTarget(troopTileIndex) {
     const gx = this._tileGx;
@@ -167,6 +194,16 @@ class Monster {
     // Passive healing (ticks even during stun).
     if (this.healPerSecond > 0 && this.hp < this.maxHp) {
       this.hp = Math.min(this.maxHp, this.hp + this.healPerSecond * dt);
+    }
+    // Slow effect decay
+    if (this.slowTimer > 0) {
+      this.slowTimer -= dt;
+      if (this.slowTimer <= 0) {
+        this.slowTimer = 0;
+        this.speed = this.baseSpeed;
+        this.shatterArmed = false;
+        this._slowColorTint = 0;
+      }
     }
     // Stunned: count down timer but don't move.
     if (this.stunTimer > 0) {

@@ -13,6 +13,7 @@ class Troop {
     this.rangeLevel = 1;
     this.speedLevel = 1;
     this.chainLevel = 1;
+    this.slowLevel = 1;
     this.hpLevel = 1;
     this.maxUpgradeLevel = CONFIG.MAX_UPGRADE_LEVEL || 5;
     this.cooldown = 0;
@@ -29,6 +30,9 @@ class Troop {
     this._cachedRange = this.spec.range;
     this._cachedAttackSpeed = this.spec.attackSpeed;
     this._cachedChain = this.spec.chain || 0;
+    this._cachedSlowFactor = this.spec.slowFactor || 1;
+    this._cachedSlowDuration = this.spec.slowDuration || 0;
+    this._cachedShatterBonus = this.spec.shatterBonus || 0;
   }
 
   // Scaled stats (1.2x per level). Cached for performance.
@@ -36,6 +40,8 @@ class Troop {
   getRange()      { return this._cachedRange; }
   getAttackSpeed(){ return this._cachedAttackSpeed; }
   getChain()      { return this._cachedChain; }
+  getSlowFactor() { return this._cachedSlowFactor || this.spec.slowFactor || 1; }
+  getSlowDuration(){ return this._cachedSlowDuration || this.spec.slowDuration || 0; }
 
   // Recompute cached stats (called after upgrade).
   _recomputeStats() {
@@ -44,6 +50,9 @@ class Troop {
     this._cachedAttackSpeed = Math.round(this.spec.attackSpeed * Math.pow(CONFIG.SPEED_SCALE_PER_LEVEL, this.speedLevel - 1) * 100) / 100;
     this._cachedChain = (this.spec.chain || 0) + (this.chainLevel - 1);
     this._cachedMaxHp = Math.round(this.spec.hp * Math.pow(CONFIG.HP_SCALE_PER_LEVEL, this.hpLevel - 1));
+    this._cachedSlowFactor = Math.round(this.spec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, this.slowLevel - 1) * 1000) / 1000;
+    this._cachedSlowDuration = Math.round(this.spec.slowDuration * Math.pow(CONFIG.SLOW_DURATION_SCALE_PER_LEVEL, this.slowLevel - 1) * 10) / 10;
+    this._cachedShatterBonus = Math.round(this.spec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, this.slowLevel - 1) * 1000) / 1000;
   }
 
   // Cost for next upgrade of a stat: base cost * 2^(level-1).
@@ -54,6 +63,7 @@ class Troop {
     else if (stat === 'speed') level = this.speedLevel;
     else if (stat === 'chain') level = this.chainLevel;
     else if (stat === 'hp') level = this.hpLevel;
+    else if (stat === 'slow') level = this.slowLevel;
     else return Infinity;
     return Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
   }
@@ -63,6 +73,7 @@ class Troop {
   canUpgrade(stat) {
     if (stat === 'range' && this.spec.type === 'melee') return false;
     if (stat === 'chain' && !this.spec.chain) return false;
+    if (stat === 'slow' && !this.spec.slowFactor) return false;
     if (stat === 'hp') return true;
     return true;
   }
@@ -76,6 +87,7 @@ class Troop {
     if (stat === 'speed' && this.speedLevel < this.maxUpgradeLevel) { this.speedLevel++; changed = true; }
     if (stat === 'chain' && this.chainLevel < this.maxUpgradeLevel) { this.chainLevel++; changed = true; }
     if (stat === 'hp' && this.hpLevel < this.maxUpgradeLevel) { this.hpLevel++; changed = true; }
+    if (stat === 'slow' && this.slowLevel < this.maxUpgradeLevel) { this.slowLevel++; changed = true; }
     if (changed) {
       const oldMaxHp = this.maxHp;
       this._recomputeStats();
@@ -95,6 +107,7 @@ class Troop {
     if (stat === 'speed') return this.speedLevel >= this.maxUpgradeLevel;
     if (stat === 'chain') return this.chainLevel >= this.maxUpgradeLevel;
     if (stat === 'hp') return this.hpLevel >= this.maxUpgradeLevel;
+    if (stat === 'slow') return this.slowLevel >= this.maxUpgradeLevel;
     return false;
   }
 
