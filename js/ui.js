@@ -380,6 +380,7 @@ const UI = {
     const areaTop = UI_LAYOUT.hudHeight + 8;
     // Dynamic bottom based on selected troop's panel (calculated in _updateCardAreaBottom)
     // If no troop selected, use preview height as bottom.
+    this._updateCardAreaBottom(game);
     const areaBottom = this._cardAreaBottom ?? (RENDERER.height - UI_LAYOUT.previewHeight);
     this._cardAreaBottom = areaBottom;
     const visibleH = Math.max(0, areaBottom - areaTop);
@@ -487,6 +488,11 @@ const UI = {
 
     c.restore();
 
+    // Mask: cover any card overflow below the scroll area so cards don't
+    // bleed into the stats/upgrade panel below.
+    c.fillStyle = UI_COLORS.panelBg;
+    c.fillRect(0, areaBottom, UI_LAYOUT.SHOP_WIDTH, RENDERER.height - areaBottom);
+
     // Scroll indicator
     if (maxScroll > 0) {
       const barH = Math.max(20, visibleH * (visibleH / totalContentH));
@@ -495,9 +501,6 @@ const UI = {
       UIRoundRect(c, UI_LAYOUT.SHOP_WIDTH - 5, barY, 5, barH, 1.5);
       c.fill();
     }
-
-    // Update shop card area bottom boundary based on selected troop panel
-    this._updateCardAreaBottom(game);
 
     // ── Selected troop info panel ──
     if (game.selectedTroopIndex >= 0) {
@@ -577,9 +580,13 @@ const UI = {
           visibleBtnIdx++;
 
           if (t.isMaxed(stat)) {
-            c.fillStyle = 'rgba(255,255,255,0.04)';
+            c.fillStyle = 'rgba(255,255,255,0.08)';
             UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
             c.fill();
+            c.strokeStyle = 'rgba(255,255,255,0.1)';
+            c.lineWidth = 1;
+            UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
+            c.stroke();
             c.fillStyle = UI_COLORS.textDim;
             c.font = 'bold 8px system-ui, sans-serif';
             c.textAlign = 'center'; c.textBaseline = 'middle';

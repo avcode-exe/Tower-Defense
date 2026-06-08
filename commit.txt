@@ -1,15 +1,8 @@
-v1.3.0-beta.4 — UI modernization: shop cards, shield shop, window margin
+UI polish: fix card scroll bleed and maxed stat button visibility
 
-UI improvements:
-- Added 8px window margin between game canvas and window chrome for modern look
-- Game canvas has rounded corners (border-radius: 6px)
-- Increased shop width from 240 to 250px for better text spacing
-- Troop cards redesigned: gradient backgrounds, left color accent bar, hover glow
-  borders, MELEE/RANGE type badges, prominent HP hearts, cleaner stats layout
-- Shield shop redesigned: gradient card, shield icon + label, cleaner info format,
-  inset buy button with cost inline
-- Toggle button dynamically positioned (no more hardcoded x: 221)
-- All panels have increased right padding (16px) for text breathing room
-- Sidebar panels use dynamic width (max-content) instead of fixed width
-- Toast container, bottom bar, and notification panel repositioned for new margin
-- Stats text clipped to card bounds to prevent overflow
+- Move _updateCardAreaBottom() call before card clip rect computation
+  so the scroll area boundary is correct on the first frame
+- Add solid mask below card scroll area to prevent cards from visually
+  bleeding into the stats/upgrade panel
+- Improve maxed stat upgrade button visibility: background opacity 0.04→0.08
+  with 1px border so MAX buttons are distinguishable from the panel
