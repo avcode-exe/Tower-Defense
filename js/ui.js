@@ -471,9 +471,9 @@ const UI = {
         c.fillText('DPS ' + dps, 18, panelY + 64);
 
         // Upgrade buttons.
-        const stats = ['dmg', 'range', 'speed', 'chain'];
-        const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN' };
-        const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold };
+        const stats = ['dmg', 'range', 'speed', 'chain', 'hp'];
+        const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN', hp: 'HP' };
+        const statColors = { dmg: '#e74c3c', range: '#2ea043', speed: '#58a6ff', chain: UI_COLORS.gold, hp: '#44cc44' };
         const btnY = RENDERER.height - 130;
         const btnPad = 8;
         const btnGap = 2;
