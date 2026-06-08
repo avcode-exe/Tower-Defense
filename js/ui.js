@@ -455,7 +455,9 @@ const UI = {
         const lineH = 14;
         const startY = 26;
         const panelH = 14 + statLines.length * lineH + 8; // name(14) + lines + padding
-        const panelY = RENDERER.height - panelH - 132; // 132 = upgrade buttons area
+        // Position panel just above upgrade buttons with 4px gap
+        const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
+        const panelY = upgradeBtnY - panelH - 4;
 
         c.fillStyle = UI_COLORS.cardBg;
         UIRoundRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8);
