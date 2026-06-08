@@ -157,14 +157,31 @@ html, body {
 }
 .monster-stats span { white-space: nowrap; }
 
-/* ── Update dialog (in-app, bottom-right) ── */
-#update-dialog { max-width: 300px; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
-#update-dialog-ver { font-weight: 600; color: #f0f6fc; }
-#update-dialog-type { color: #8b949e; font-size: 10px; margin-bottom: 8px; }
-#update-skip-link { display: inline-block; cursor: pointer; font-size: 10px; color: #8b949e; }
-#update-skip-link:hover { color: #f85149; }
-button#update-download-btn { cursor: pointer; }
-button#update-download-btn:hover { filter: brightness(1.2); }
+/* ── Notification with action buttons (update offer) ── */
+.notify-action-bar {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  align-items: center;
+}
+.notify-action-btn {
+  background: #238636;
+  color: #fff;
+  border: none;
+  padding: 4px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 10px;
+  font-family: inherit;
+  transition: filter 0.15s;
+}
+.notify-action-btn:hover { filter: brightness(1.2); }
+.notify-action-btn.secondary {
+  background: rgba(255,255,255,0.08);
+  color: rgba(255,255,255,0.6);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+.notify-action-btn.secondary:hover { color: #f85149; border-color: rgba(248,81,73,0.3); }
 
 /* ── Settings panel ── */
 #settings { max-width: 300px; z-index: 11; }
@@ -196,4 +213,94 @@ button#update-download-btn:hover { filter: brightness(1.2); }
   width: 0%;
   background: #3b82f6;
   transition: width 0.3s ease;
+}
+.update-restart-btn { cursor: pointer; }
+.update-restart-btn:hover { filter: brightness(1.2); }
+
+/* ── Notification items ── */
+.notify-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.notify-item:hover { background: rgba(255,255,255,0.04); }
+.notify-item.unread { background: rgba(88,166,255,0.06); }
+.notify-item + .notify-item { margin-top: 2px; }
+.notify-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(182,194,204,0.35); flex-shrink: 0; margin-top: 4px;
+}
+.notify-dot.success { background: #3fb950; }
+.notify-dot.error { background: #f85149; }
+.notify-dot.warning { background: #d29922; }
+.notify-text { font-size: 11px; line-height: 1.4; }
+.notify-time { font-size: 9px; color: rgba(182,194,204,0.35); }
+
+/* ── Notification panel (dynamic width, centered) ── */
+#notify-panel {
+  min-width: 220px;
+  max-width: min(420px, calc(100vw - 24px));
+  width: max-content;
+}
+
+/* ── About popup ── */
+#about-popup {
+  min-width: 280px;
+  max-width: min(400px, calc(100vw - 24px));
+}
+
+/* ── Toast notifications (bottom-right corner) ── */
+#toast-container {
+  position: fixed;
+  bottom: 52px;
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 6px;
+  pointer-events: none;
+}
+.toast {
+  background: rgba(7, 11, 15, 0.92);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 11px;
+  color: rgba(230,237,243,0.9);
+  max-width: 300px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  pointer-events: auto;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(20px);
+  animation: toast-in 0.3s ease forwards;
+}
+.toast.toast-out {
+  animation: toast-out 0.4s ease forwards;
+}
+.toast-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+.toast-dot.info { background: #58a6ff; }
+.toast-dot.success { background: #3fb950; }
+.toast-dot.error { background: #f85149; }
+.toast-dot.warning { background: #d29922; }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(20px); }
 }

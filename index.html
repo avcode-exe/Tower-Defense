@@ -16,6 +16,25 @@
     <button id="bar-monster-btn" class="bar-btn">Monsters</button>
     <button id="bar-controls-btn" class="bar-btn">Controls</button>
     <button id="bar-settings-btn" class="bar-btn">Settings</button>
+    <button id="bar-notify-btn" class="bar-btn">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="vertical-align:middle; margin-right:2px;"><path d="M8 1.5a4.5 4.5 0 00-4.5 4.5c0 3.5-1.5 4.5-1.5 4.5h12s-1.5-1-1.5-4.5A4.5 4.5 0 008 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
+    </button>
+    <button id="bar-about-btn" class="bar-btn">
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style="vertical-align:middle; margin-right:2px;"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="5" r="0.8" fill="currentColor"/></svg>
+    </button>
+  </div>
+
+  <!-- Toast notifications (bottom-right corner, fade in/out) -->
+  <div id="toast-container"></div>
+
+  <!-- Notification panel -->
+  <div id="notify-panel" class="bar-popup game-panel" style="display:none;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <strong>Notifications</strong>
+      <a id="notify-clear-all" style="cursor:pointer; font-size:9px; color:#8b949e;">Clear all</a>
+    </div>
+    <div id="notify-list" style="max-height:240px; overflow-y:auto;"></div>
+    <div id="notify-empty" style="text-align:center; padding:8px 0; font-size:10px; color:rgba(182,194,204,0.4);">No notifications</div>
   </div>
 
   <!-- Popup windows that float above the corresponding bar button -->
@@ -51,17 +70,24 @@
         <label style="display:block; margin:4px 0;">
           Check interval (min): <input type="number" id="settings-interval" value="60" min="15" step="15" style="width:60px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#e6edf3; padding:2px 4px; border-radius:4px; font-size:10px;">
         </label>
-      </div>
-    </div>
-  </div>
+        <button id="settings-check-now-btn" style="margin-top:8px; background:rgba(88,166,255,0.12); color:#58a6ff; border:1px solid rgba(88,166,255,0.25); padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;">Check Now</button>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:10px; justify-content:flex-end; align-items:center;">
+          <span id="settings-save-status" style="font-size:10px; color:#3fb950; margin-right:6px; opacity:0; transition:opacity 0.3s;">✓ Saved</span>
+          <button id="settings-cancel-btn" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.12); padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;">Cancel</button>
+          <button id="settings-save-btn" style="background:#238636; color:#fff; border:none; padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit; transition: background 0.2s;">Save</button>
+        </div>
+        </div>
+        </div>
 
-  <!-- In-app update offer dialog (bottom-right, above the bar) -->
-  <div id="update-dialog" class="game-panel" style="display:none; bottom: 64px; right: 10px; max-width: 300px;">
-    <div id="update-dialog-ver" style="font-weight:600; color:#edf2f7;"></div>
-    <div id="update-dialog-type" style="font-size:10px; margin-bottom:8px;"></div>
-    <a id="update-skip-link" style="cursor:pointer; font-size:10px; color:#8b949e;">Skip this version</a>
-    <div style="margin-top:8px; display:flex; gap:6px;">
-      <button id="update-download-btn" style="background:#238636; color:#fff; border:none; padding:4px 12px; border-radius:6px; cursor:pointer; font-size:10px;">Download</button>
+  <!-- About popup -->
+  <div id="about-popup" class="bar-popup game-panel" style="display:none;">
+    <div style="text-align:center; padding:4px 0;">
+      <div style="font-size:14px; font-weight:600; color:#f0f6fc; margin-bottom:2px;">Tower Defense</div>
+      <div id="about-version" style="font-size:10px; color:rgba(182,194,204,0.6); margin-bottom:10px;"></div>
+      <div style="font-size:10px; color:rgba(182,194,204,0.6); margin-bottom:12px;">by AvCode-exe</div>
+      <div style="font-size:10px; color:rgba(182,194,204,0.4); margin-bottom:2px;">Open source on GitHub</div>
+      <a id="about-github-link" href="https://github.com/avcode-exe/Tower-Defense" target="_blank" rel="noopener" style="font-size:10px; color:#58a6ff; text-decoration:none; word-break:break-all;">github.com/avcode-exe/Tower-Defense</a>
     </div>
   </div>
 

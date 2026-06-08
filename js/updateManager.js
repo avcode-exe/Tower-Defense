@@ -24,17 +24,11 @@ class UpdateManager {
     this._ensureArrays();
 
     this.els = {
-      dialog: document.getElementById('update-dialog'),
-      ver: document.getElementById('update-dialog-ver'),
-      type: document.getElementById('update-dialog-type'),
-      skipLink: document.getElementById('update-skip-link'),
-      downloadBtn: document.getElementById('update-download-btn'),
       progressWrap: document.getElementById('update-progress'),
       progressPct: document.getElementById('update-progress-pct'),
       progressVer: document.getElementById('update-progress-ver'),
       progressFill: document.getElementById('update-progress-fill'),
     };
-    this._hideDialog();
     this._hideProgress();
   }
 
@@ -58,12 +52,11 @@ class UpdateManager {
 
   _onStatus(data) {
     switch (data.phase) {
-      case 'available': this._handleAvailable(data); break;
       case 'progress': this._handleProgress(data); break;
       case 'downloaded': this._handleDownloaded(data); break;
-      case 'not-available': this._hideDialog(); break;
+      case 'not-available': break;
       case 'error': console.error('[update]', data.message); break;
-      default: console.warn('[update] unknown phase:', data.phase);
+      default: break;
     }
   }
 
@@ -81,28 +74,11 @@ class UpdateManager {
     return (this.settings.update.skippedVersions || []).includes(version);
   }
 
-  _handleAvailable(info) {
-    if (this.shouldSkip(info.version)) return;
-    if (!this.passesFilter(info)) {
-      console.log('[update] filtered (channel):', info.version);
-      return;
-    }
-    this.settings.update.availableVersion = info.version;
-    this.settings.update.releaseType = info.type;
-    if (this.els.ver) this.els.ver.textContent = info.version;
-    if (this.els.type) this.els.type.textContent = info.releaseType || (this._isPrerelease(info.version) ? 'Prerelease' : 'Release');
-    if (this.els.dialog) this.els.dialog.style.display = 'block';
-  }
-
-  _hideDialog() {
-    if (this.els.dialog) this.els.dialog.style.display = 'none';
-  }
   _hideProgress() {
     if (this.els.progressWrap) this.els.progressWrap.style.display = 'none';
   }
 
   download() {
-    this._hideDialog();
     window.electron?.downloadUpdate?.();
   }
 
@@ -111,7 +87,6 @@ class UpdateManager {
     if (!this.settings.update.skippedVersions.includes(version)) {
       this.settings.update.skippedVersions.push(version);
     }
-    this._hideDialog();
     this._persist();
   }
 
@@ -136,13 +111,18 @@ class UpdateManager {
 
   _handleDownloaded(data) {
     if (data.version) this.settings.update.availableVersion = data.version;
-    this._hideDialog();
     this._showProgress(data.version, 100);
-    setTimeout(() => {
-      if (confirm('Version ' + data.version + ' is ready to install.\n\nRestart now to apply the update?')) {
-        this.restart();
-      }
-    }, 300);
+    // Show restart button in progress area
+    if (this.els.progressWrap) {
+      const existingRestart = this.els.progressWrap.querySelector('.update-restart-btn');
+      if (existingRestart) existingRestart.remove();
+      const btn = document.createElement('button');
+      btn.className = 'update-restart-btn';
+      btn.textContent = 'Restart & Install';
+      btn.style.cssText = 'margin-top:8px; background:#238636; color:#fff; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;';
+      btn.addEventListener('click', () => this.restart());
+      this.els.progressWrap.appendChild(btn);
+    }
   }
 
   _persist() {

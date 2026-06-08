@@ -16,7 +16,7 @@ const DEFAULT_SETTINGS = {
   version: app.getVersion(),
   update: {
     channel: 'release',
-    autoDownload: true,
+    autoDownload: false,
     checkOnStartup: true,
     checkIntervalMinutes: 60,
     skippedVersions: [],
@@ -32,25 +32,40 @@ let updateCheckInterval = null;
 let skippedVersions = [];
 
 function readSettings() {
+  const defaults = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  let loaded = null;
   // Try persistent path first (survives uninstall/reinstall)
   try {
     if (fs.existsSync(PERSISTENT_SETTINGS_PATH)) {
       const raw = fs.readFileSync(PERSISTENT_SETTINGS_PATH, 'utf-8');
-      return JSON.parse(raw);
+      loaded = JSON.parse(raw);
     }
   } catch (err) {
     console.error('[settings] persistent read failed:', err);
   }
   // Fallback to userData (for backward compatibility)
-  try {
-    if (fs.existsSync(SETTINGS_PATH)) {
-      const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8');
-      return JSON.parse(raw);
+  if (!loaded) {
+    try {
+      if (fs.existsSync(SETTINGS_PATH)) {
+        const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8');
+        loaded = JSON.parse(raw);
+      }
+    } catch (err) {
+      console.error('[settings] userData read failed:', err);
     }
-  } catch (err) {
-    console.error('[settings] userData read failed:', err);
   }
-  return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+  if (loaded) {
+    // Deep-merge loaded settings on top of defaults so every key exists
+    if (loaded.update && typeof loaded.update === 'object') {
+      Object.assign(defaults.update, loaded.update);
+    }
+    if (loaded.collapsed && typeof loaded.collapsed === 'object') {
+      Object.assign(defaults.collapsed, loaded.collapsed);
+    }
+    // Top-level keys (e.g. version)
+    if (loaded.version !== undefined) defaults.version = loaded.version;
+  }
+  return defaults;
 }
 
 function writeSettings(settings) {
@@ -88,8 +103,11 @@ function isPrerelease(version) {
 // Apply autoUpdater settings from persisted settings
 function applyAutoUpdaterSettings() {
   const settings = readSettings();
-  autoUpdater.autoDownload = settings.update.autoDownload !== false;
-  autoUpdater.autoInstallOnAppQuit = settings.update.autoDownload !== false;
+  const update = settings.update || {};
+  autoUpdater.autoDownload = update.autoDownload !== false;
+  autoUpdater.autoInstallOnAppQuit = update.autoDownload !== false;
+  // Enable pre-release detection when channel is set to pre-release
+  autoUpdater.allowPrerelease = (update.channel === 'pre-release');
 }
 
 function sendStatus(phase, extra = {}) {
@@ -98,8 +116,9 @@ function sendStatus(phase, extra = {}) {
 }
 
 function shouldAnnounceToUser(info, settings) {
-  if (settings.update.channel === 'release' && isPrerelease(info.version)) return false;
-  if ((settings.update.skippedVersions || []).includes(info.version)) return false;
+  const update = settings.update || {};
+  if (update.channel === 'release' && isPrerelease(info.version)) return false;
+  if ((update.skippedVersions || []).includes(info.version)) return false;
   return true;
 }
 
@@ -150,14 +169,12 @@ ipcMain.handle('save-settings', (_event, settings) => {
 });
 
 ipcMain.on('check-updates', () => {
-  if (!app.isPackaged) return;
   autoUpdater.checkForUpdates().catch((err) => {
     sendStatus('error', { message: err?.message || String(err) });
   });
 });
 
 ipcMain.on('download-update', () => {
-  if (!app.isPackaged) return;
   autoUpdater.downloadUpdate().catch((err) => {
     sendStatus('error', { message: err?.message || String(err) });
   });
@@ -165,6 +182,7 @@ ipcMain.on('download-update', () => {
 
 ipcMain.on('skip-update', (_event, version) => {
   const settings = readSettings();
+  if (!settings.update) settings.update = {};
   settings.update.skippedVersions = settings.update.skippedVersions || [];
   if (!settings.update.skippedVersions.includes(version)) {
     settings.update.skippedVersions.push(version);
@@ -179,6 +197,15 @@ ipcMain.on('restart-to-update', () => {
 ipcMain.on('set-auto-download', (_event, enabled) => {
   autoUpdater.autoDownload = !!enabled;
   autoUpdater.autoInstallOnAppQuit = !!enabled;
+});
+
+ipcMain.on('set-update-channel', (_event, channel) => {
+  autoUpdater.allowPrerelease = (channel === 'pre-release');
+});
+
+ipcMain.on('cancel-update', () => {
+  // Stop any in-progress download
+  autoUpdater.autoDownload = false;
 });
 
 ipcMain.handle('save-game', (_event, data) => {
@@ -234,21 +261,20 @@ function createWindow() {
   mainWindow.webContents.on('did-finish-load', () => {
     applyAutoUpdaterSettings();
     const settings = readSettings();
-    if (settings.update.checkOnStartup !== false) {
+    if ((settings.update || {}).checkOnStartup !== false) {
       checkForUpdates();
     }
   });
 }
 
 function checkForUpdates() {
-  if (!app.isPackaged) return;
   autoUpdater.checkForUpdates().catch((err) => {
     const errMsg = err ? (err.message || String(err)) : 'Unknown error';
     sendStatus('error', { message: errMsg });
   });
   if (!updateCheckInterval) {
     const settings = readSettings();
-    const intervalMs = (settings.update.checkIntervalMinutes || 60) * 60 * 1000;
+    const intervalMs = ((settings.update || {}).checkIntervalMinutes || 60) * 60 * 1000;
     updateCheckInterval = setInterval(() => {
       autoUpdater.checkForUpdates().catch((err) => {
         sendStatus('error', { message: err?.message || String(err) });
