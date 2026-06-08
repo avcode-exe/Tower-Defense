@@ -1,49 +1,9 @@
-v1.3.0-beta.2 — Auto-Update System, Notifications & UI Panels
+fix: version display and update check 404 error
 
-Features:
-- Full auto-update system with channel selection (Release / Pre-release)
-- Update dialog replaced by inline notification with Update/Skip action buttons
-- Download progress bar at bottom-center with real-time percentage
-- Skip button cancels in-progress download and persists skipped version
-- "Check Now" button in Settings for manual update checks
-- Pre-release channel support (beta, alpha, rc) via allowPrerelease
-
-Notification System:
-- Bell icon button in bottom bar with toast popups (bottom-right corner)
-- Notification panel centered above the bar with all update events
-- Toast popups fade in/out automatically (4s duration)
-- Click notification in panel to replay its toast
-- Notifications stack newest-on-top, oldest-on-bottom
-- Action buttons inline: Update, Skip, Restart & Install
-- Progress notifications update in place (deduplicated by group key)
-
-Settings Panel:
-- Update channel radio buttons (Release only / Pre-release)
-- Auto-download toggle with Save/Cancel buttons
-- Check interval input (15-120 minutes)
-- Save visual feedback (green flash + "✓ Saved")
-- Settings persist across reinstalls via ~/.tower-defense/settings.json
-- Deep-merge with defaults prevents TypeError crashes
-
-About Panel:
-- Game name, version with release type (e.g. v1.3.0-beta.2 (Beta))
-- Author: AvCode-exe
-- Clickable GitHub repo link
-
-Bug Fixes:
-- Fixed TypeError crash on startup (readSettings missing update key)
-- Removed app.isPackaged guard from check/download IPC handlers (Check Now works in dev)
-- Deep-merge defaults prevent crashes from missing settings keys
-
-UI/UX:
-- Bottom bar buttons: Monsters, Controls, Settings, 🔔 Notifications, ⓘ About
-- All popups positioned centered above the bar (mutual exclusion)
-- Notification panel dynamically sized (min 220px, max 420px)
-- About popup wider to prevent link wrapping
-- Toast container uses column-reverse for newest-on-top stacking
-
-Tech:
-- electron-updater with configurable allowPrerelease and autoDownload
-- IPC channels: set-update-channel, cancel-update, check-updates, download-update
-- preload.js exposes: setUpdateChannel, cancelUpdate, onUpdateStatus
-- Settings stored in ~/.tower-defense/settings.json (persistent) and %APPDATA% (compat)
+- Version now fetched from app.getVersion() (package.json) instead of
+  hardcoded string or saved settings, fixing "1.2.0" showing on 1.3.0-beta.2
+- Added get-version IPC handler in electron-main.js
+- Exposed getVersion in preload.js
+- main.js fetches real version from main process before initializing UpdateManager
+- Uploaded latest.yml to GitHub release to fix 404 on update check
+- Updated DEFAULT_SETTINGS.version fallback to match current version

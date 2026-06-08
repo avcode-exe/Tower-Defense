@@ -240,8 +240,14 @@ function showPopup(key) {
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
+  let appVersion = '1.3.0-beta.2'; // fallback
+  if (window.electron && window.electron.getVersion) {
+    try { appVersion = await window.electron.getVersion(); } catch (_) {}
+  }
   if (typeof UpdateManager === 'function') {
     const settings = await loadSettings() || {};
+    // Always use the real app version, never the saved one
+    settings.version = appVersion;
     window.updateManager = new UpdateManager(settings);
     window.updateManager.init();
   }
@@ -249,7 +255,7 @@ function showPopup(key) {
   // ── About version display ───────────────────────────────────────────────
   const aboutVersionEl = document.getElementById('about-version');
   if (aboutVersionEl) {
-    const ver = (window.updateManager && window.updateManager.settings && window.updateManager.settings.version) || '1.2.0';
+    const ver = appVersion;
     const typeMatch = ver.match(/-(beta|alpha|rc)\./i);
     const releaseType = typeMatch ? (typeMatch[1].toUpperCase() === 'RC' ? 'RC' : typeMatch[1].charAt(0).toUpperCase() + typeMatch[1].slice(1)) : 'Public release';
     aboutVersionEl.textContent = 'v' + ver + ' (' + releaseType + ')';

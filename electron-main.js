@@ -168,6 +168,10 @@ ipcMain.handle('save-settings', (_event, settings) => {
   return writeSettings(settings);
 });
 
+ipcMain.handle('get-version', () => {
+  return app.getVersion();
+});
+
 ipcMain.on('check-updates', () => {
   autoUpdater.checkForUpdates().catch((err) => {
     sendStatus('error', { message: err?.message || String(err) });
