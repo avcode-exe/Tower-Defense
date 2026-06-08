@@ -1,10 +1,16 @@
 // Bootstrap: wire up the canvas and start the game
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   const canvas = document.getElementById('game');
   if (!canvas) return;
   const game = new Game(canvas);
   new Input(canvas, game);
   game.start();
+  if (window.electron && window.electron.loadGame) {
+    const saveData = await window.electron.loadGame();
+    if (saveData && saveData.troops && saveData.troops.length > 0) {
+      game.restore(saveData);
+    }
+  }
   RENDERER._rebuildCache(game.grid);
 
   // ── persisted collapsed state ──────────────────────────────────────────────

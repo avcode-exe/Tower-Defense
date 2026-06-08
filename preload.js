@@ -11,4 +11,7 @@ contextBridge.exposeInMainWorld('electron', {
     ipcRenderer.on('update-status', (_event, data) => cb(data));
   },
   setAutoDownload: (v) => ipcRenderer.send('set-auto-download', v),
+  saveGame: (data) => ipcRenderer.invoke('save-game', data),
+  loadGame: () => ipcRenderer.invoke('load-game'),
+  deleteSave: () => ipcRenderer.invoke('delete-save'),
 });

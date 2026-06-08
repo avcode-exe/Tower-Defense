@@ -302,6 +302,7 @@ class Game {
           this.lives = 0;
           this.state = 'DEFEAT';
           if (this._simWorker) this._simWorker.postMessage('stop');
+          if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
         }
       }
     }
@@ -379,6 +380,7 @@ class Game {
         }
       }
       this.state = 'PRE_WAVE';
+      this._autoSave();
     }
 
     // Update popups (single pass: decrement timers, compact, and recycle).
@@ -1134,6 +1136,79 @@ class Game {
     }
   }
 
+  getSaveData() {
+    return {
+      version: '1.2.0-beta.3',
+      gold: this.gold,
+      lives: this.lives,
+      seed: this.seed,
+      speed: this.speed,
+      devMode: this.devMode,
+      devMonsterCounts: { ...this.devMonsterCounts },
+      wave: { currentWave: this.wave.currentWave },
+      troops: this.troops.filter(t => t.alive).map(t => ({
+        specId: t.spec.id,
+        gx: t.gx, gy: t.gy,
+        hp: t.hp, maxHp: t.maxHp,
+        dmgLevel: t.dmgLevel, rangeLevel: t.rangeLevel,
+        speedLevel: t.speedLevel, chainLevel: t.chainLevel, hpLevel: t.hpLevel,
+        shield: t.shield, maxShield: t.maxShield, healCount: t.healCount,
+      })),
+    };
+  }
+
+  restore(data) {
+    this.gold = data.gold;
+    this.lives = data.lives;
+    this.speed = data.speed || 1;
+    this.devMode = data.devMode || false;
+    if (data.devMonsterCounts) {
+      this.devMonsterCounts = { ...this._defaultDevCounts(), ...data.devMonsterCounts };
+    }
+    this.seed = data.seed;
+    this.grid = new Grid();
+    this.waypoints = generatePath(this.seed);
+    this.pathSegments = this._buildPathSegments(this.waypoints);
+    this.markPathTiles();
+    RENDERER.markCacheDirty();
+    RENDERER._rebuildCache(this.grid);
+    this.monsters = [];
+    this.projectiles = [];
+    this.popups = [];
+    this._popupPool = [];
+    this.wave = new WaveManager();
+    this.wave.currentWave = data.wave.currentWave;
+    this.wave.buildQueue();
+    this.troops = [];
+    for (const tData of data.troops) {
+      const spec = TROOP_SPECS.find(s => s.id === tData.specId);
+      if (!spec) continue;
+      const t = new Troop(spec, tData.gx, tData.gy);
+      t.hpLevel = tData.hpLevel || 1;
+      t.dmgLevel = tData.dmgLevel || 1;
+      t.rangeLevel = tData.rangeLevel || 1;
+      t.speedLevel = tData.speedLevel || 1;
+      t.chainLevel = tData.chainLevel || 1;
+      t._recomputeStats();
+      t.maxHp = t._cachedMaxHp;
+      t.hp = Math.min(tData.hp, t.maxHp);
+      t.shield = tData.shield || 0;
+      t.maxShield = tData.maxShield || 0;
+      t.healCount = tData.healCount || 0;
+      this.troops.push(t);
+    }
+    this._buildTroopTileIndex();
+    this.state = 'PRE_WAVE';
+    if (window.electron && window.electron.deleteSave) {
+      window.electron.deleteSave();
+    }
+  }
+
+  _autoSave() {
+    if (!window.electron || !window.electron.saveGame) return;
+    window.electron.saveGame(this.getSaveData());
+  }
+
   onKeyDown(e) {
     // Restart.
     if ((e.key === 'r' || e.key === 'R')
@@ -1197,6 +1272,7 @@ class Game {
     if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
     if (this._resizeRAF) { cancelAnimationFrame(this._resizeRAF); this._resizeRAF = null; }
     this._running = false;
+    if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
     this.state = 'PRE_WAVE';
     this.speed = 1;
     this.gold = this.devMode ? CONFIG.DEV_STARTING_GOLD : CONFIG.STARTING_GOLD;

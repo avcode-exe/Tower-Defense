@@ -6,6 +6,7 @@ const { autoUpdater } = require('electron-updater');
 Menu.setApplicationMenu(null);
 
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
+const SAVE_PATH = path.join(app.getPath('userData'), 'game-save.json');
 const DEFAULT_SETTINGS = {
   version: app.getVersion(),
   update: {
@@ -141,6 +142,36 @@ ipcMain.on('restart-to-update', () => {
 ipcMain.on('set-auto-download', (_event, enabled) => {
   autoUpdater.autoDownload = !!enabled;
   autoUpdater.autoInstallOnAppQuit = !!enabled;
+});
+
+ipcMain.handle('save-game', (_event, data) => {
+  try {
+    fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
+    fs.writeFileSync(SAVE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('[save] failed:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('load-game', () => {
+  try {
+    if (fs.existsSync(SAVE_PATH)) {
+      return JSON.parse(fs.readFileSync(SAVE_PATH, 'utf-8'));
+    }
+  } catch (err) {
+    console.error('[save] load failed:', err);
+  }
+  return null;
+});
+
+ipcMain.handle('delete-save', () => {
+  try {
+    if (fs.existsSync(SAVE_PATH)) fs.unlinkSync(SAVE_PATH);
+  } catch (err) {
+    console.error('[save] delete failed:', err);
+  }
 });
 
 function createWindow() {
