@@ -1,9 +1,9 @@
-fix: version display and update check 404 error
+v1.3.0-beta.3 — Fix version display and update check
 
+Bug fixes:
 - Version now fetched from app.getVersion() (package.json) instead of
-  hardcoded string or saved settings, fixing "1.2.0" showing on 1.3.0-beta.2
+  hardcoded string or saved settings — fixes "1.2.0" showing on 1.3.0-beta.2
 - Added get-version IPC handler in electron-main.js
 - Exposed getVersion in preload.js
 - main.js fetches real version from main process before initializing UpdateManager
 - Uploaded latest.yml to GitHub release to fix 404 on update check
-- Updated DEFAULT_SETTINGS.version fallback to match current version

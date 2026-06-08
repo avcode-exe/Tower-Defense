@@ -240,7 +240,7 @@ function showPopup(key) {
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
-  let appVersion = '1.3.0-beta.2'; // fallback
+  let appVersion = '1.3.0-beta.3'; // fallback
   if (window.electron && window.electron.getVersion) {
     try { appVersion = await window.electron.getVersion(); } catch (_) {}
   }
