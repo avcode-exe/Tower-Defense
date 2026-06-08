@@ -4,14 +4,52 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (!canvas) return;
   const game = new Game(canvas);
   new Input(canvas, game);
-  game.start();
-  if (window.electron && window.electron.loadGame) {
-    const saveData = await window.electron.loadGame();
-    if (saveData && saveData.troops && saveData.troops.length > 0) {
+
+  // ── Load progress dialog ─────────────────────────────────────────────────────
+  const loadDialog = document.getElementById('load-progress-dialog');
+  const loadYesBtn = document.getElementById('load-progress-yes');
+  const loadNoBtn = document.getElementById('load-progress-no');
+
+  function hideLoadDialog() {
+    if (loadDialog) loadDialog.style.display = 'none';
+  }
+
+  function startGame(shouldRestore, saveData) {
+    hideLoadDialog();
+    if (shouldRestore && saveData) {
       game.restore(saveData);
     }
+    game.start();
+    RENDERER._rebuildCache(game.grid);
   }
-  RENDERER._rebuildCache(game.grid);
+
+  // Check for saved game
+  let saveData = null;
+  if (window.electron && window.electron.loadGame) {
+    saveData = await window.electron.loadGame();
+  }
+
+  if (saveData && saveData.troops && saveData.troops.length > 0) {
+    // Show load progress dialog
+    if (loadDialog) loadDialog.style.display = 'block';
+
+    // Handle button clicks
+    if (loadYesBtn) {
+      loadYesBtn.onclick = () => startGame(true, saveData);
+    }
+    if (loadNoBtn) {
+      loadNoBtn.onclick = () => {
+        // Delete the save data when starting new
+        if (window.electron && window.electron.deleteSave) {
+          window.electron.deleteSave();
+        }
+        startGame(false, null);
+      };
+    }
+  } else {
+    // No save data, start fresh
+    startGame(false, null);
+  }
 
   // ── persisted collapsed state ──────────────────────────────────────────────
   let persistedCollapsed = {};

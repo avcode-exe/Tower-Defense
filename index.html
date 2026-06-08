@@ -68,6 +68,16 @@
     </div>
   </div>
 
+  <!-- Load progress dialog (centered modal) -->
+  <div id="load-progress-dialog" class="game-panel" style="display:none; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; min-width: 300px; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,0.6);">
+    <div style="font-weight:600; color:#edf2f7; margin-bottom:8px; font-size:14px;">Load Previous Progress?</div>
+    <div style="font-size:11px; color:#b6c2cc; margin-bottom:16px;">A saved game was found. Do you want to continue where you left off?</div>
+    <div style="display:flex; gap:8px; justify-content:center;">
+      <button id="load-progress-yes" style="background:#238636; color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:11px;">Load Progress</button>
+      <button id="load-progress-no" style="background:#da3633; color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:11px;">Start New Game</button>
+    </div>
+  </div>
+
   <!-- In-app progress bar (bottom-center, above the bar) -->
   <div id="update-progress" class="game-panel" style="display:none; bottom: 64px; left: 50%; transform: translateX(-50%); min-width: 220px; text-align: center;">
     <div class="update-progress-text" style="font-size: 11px; color: rgba(182,194,204,0.8);">Downloading <span id="update-progress-ver"></span></div>
