@@ -1,9 +1,15 @@
-v1.3.0-beta.3 — Fix version display and update check
+v1.3.0-beta.4 — UI modernization: shop cards, shield shop, window margin
 
-Bug fixes:
-- Version now fetched from app.getVersion() (package.json) instead of
-  hardcoded string or saved settings — fixes "1.2.0" showing on 1.3.0-beta.2
-- Added get-version IPC handler in electron-main.js
-- Exposed getVersion in preload.js
-- main.js fetches real version from main process before initializing UpdateManager
-- Uploaded latest.yml to GitHub release to fix 404 on update check
+UI improvements:
+- Added 8px window margin between game canvas and window chrome for modern look
+- Game canvas has rounded corners (border-radius: 6px)
+- Increased shop width from 240 to 250px for better text spacing
+- Troop cards redesigned: gradient backgrounds, left color accent bar, hover glow
+  borders, MELEE/RANGE type badges, prominent HP hearts, cleaner stats layout
+- Shield shop redesigned: gradient card, shield icon + label, cleaner info format,
+  inset buy button with cost inline
+- Toggle button dynamically positioned (no more hardcoded x: 221)
+- All panels have increased right padding (16px) for text breathing room
+- Sidebar panels use dynamic width (max-content) instead of fixed width
+- Toast container, bottom bar, and notification panel repositioned for new margin
+- Stats text clipped to card bounds to prevent overflow

@@ -13,17 +13,19 @@ html, body {
 
 #wrap {
   position: fixed;
-  inset: 0;
+  inset: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 #game {
-  width: 100vw;
-  height: 100vh;
+  width: calc(100vw - 16px);
+  height: calc(100vh - 16px);
   display: block;
   cursor: crosshair;
+  border-radius: 6px;
+  overflow: hidden;
 }
 
 /* ── Hideable panel system ── */
@@ -34,7 +36,7 @@ html, body {
   -webkit-backdrop-filter: blur(8px);
   border: 1px solid rgba(255,255,255,0.08);
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 10px 16px;
   font-size: 11px;
   line-height: 1.6;
   color: rgba(182, 194, 204, 0.7);
@@ -58,7 +60,7 @@ html, body {
 }
 
 .game-panel.collapsed {
-  padding: 3px 6px;
+  padding: 4px 10px;
   border-radius: 8px;
 }
 .game-panel.collapsed .panel-body { display: none; }
@@ -67,7 +69,7 @@ html, body {
 #panel-bar {
   position: fixed;
   left: 50%;
-  bottom: 0;
+  bottom: 8px;
   transform: translateX(-50%);
   display: flex;
   gap: 6px;
@@ -96,7 +98,7 @@ html, body {
 /* ── Bar popup windows (float above the bar button) ── */
 .bar-popup {
   position: fixed;
-  bottom: 48px;
+  bottom: 56px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 19;
@@ -105,7 +107,7 @@ html, body {
   max-height: 60vh;
   overflow-y: auto;
   box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
-  padding: 10px 14px;
+  padding: 10px 16px;
 }
 #monster-popup  { min-width: 340px; }
 #controls-popup { min-width: 220px; max-width: 280px; }
@@ -114,18 +116,19 @@ html, body {
 /* Panel positions */
 #right-panels {
   position: fixed;
-  right: 10px;
-  bottom: 10px;
+  right: 18px;
+  bottom: 18px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   align-items: flex-end;
-  max-width: 440px;
+  max-width: calc(100vw - 36px);
   z-index: 10;
 }
 #help, #monster-info {
   position: static;
-  max-width: 320px;
+  width: max-content;
+  max-width: 340px;
 }
 
 /* Monster info rows */
@@ -256,8 +259,8 @@ html, body {
 /* ── Toast notifications (bottom-right corner) ── */
 #toast-container {
   position: fixed;
-  bottom: 52px;
-  right: 12px;
+  bottom: 60px;
+  right: 18px;
   z-index: 30;
   display: flex;
   flex-direction: column-reverse;

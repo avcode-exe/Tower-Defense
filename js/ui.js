@@ -5,7 +5,7 @@
 
 const UI_LAYOUT = {
   HUD_HEIGHT: 56,
-  SHOP_WIDTH: 240,
+  SHOP_WIDTH: 250,
   PREVIEW_HEIGHT: 80,
   SHIELD_SHOP_WIDTH: CONFIG.SHIELD_SHOP_WIDTH,
 
@@ -364,7 +364,7 @@ const UI = {
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(0, UI_LAYOUT.hudHeight, UI_LAYOUT.SHOP_WIDTH, h - UI_LAYOUT.hudHeight);
 
-    const btnRect = { x: 221, y: UI_LAYOUT.hudHeight + 5, w: 16, h: 16 };
+    const btnRect = { x: UI_LAYOUT.SHOP_WIDTH - 19, y: UI_LAYOUT.hudHeight + 5, w: 16, h: 16 };
     this._toggleShop = btnRect;
     drawToggleButton(c, btnRect, false, 'left');
 
@@ -400,31 +400,76 @@ const UI = {
       const isSelected = game.selectedSpec === spec;
       const isHovered = this.hoveredShopIndex === i;
 
-      // Card background.
-      c.fillStyle = isSelected ? UI_COLORS.cardSelect : (isHovered ? UI_COLORS.cardHover : UI_COLORS.cardBg);
+      // Card background with subtle gradient.
+      const grad = c.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+      if (isSelected) {
+        grad.addColorStop(0, '#1a3355');
+        grad.addColorStop(1, '#142840');
+      } else if (isHovered) {
+        grad.addColorStop(0, '#1a2838');
+        grad.addColorStop(1, '#15202e');
+      } else {
+        grad.addColorStop(0, '#131d28');
+        grad.addColorStop(1, '#0f1820');
+      }
+      c.fillStyle = grad;
       UIRoundRect(c, r.x, r.y, r.w, r.h, 8);
       c.fill();
 
-      // Color dot.
+      // Left accent bar.
       c.fillStyle = spec.color;
-      c.beginPath(); c.arc(r.x + 16, r.y + 16, 5, 0, Math.PI * 2); c.fill();
+      UIRoundRect(c, r.x, r.y + 6, 3, r.h - 12, 1.5);
+      c.fill();
 
-      // Name + hotkey.
+      // Hover glow border.
+      if (isHovered && !isSelected) {
+        c.strokeStyle = spec.color + '40';
+        c.lineWidth = 1;
+        UIRoundRect(c, r.x, r.y, r.w, r.h, 8);
+        c.stroke();
+      }
+
+      // ── Row 1: Color dot + Name ──
+      const leftPad = r.x + 10;
+      c.fillStyle = spec.color;
+      c.beginPath(); c.arc(leftPad + 4, r.y + 13, 4, 0, Math.PI * 2); c.fill();
+
       c.fillStyle = affordable ? UI_COLORS.textBright : UI_COLORS.textDim;
-      c.font = 'bold 12px system-ui, sans-serif';
+      c.font = 'bold 11px system-ui, sans-serif';
       c.textAlign = 'left'; c.textBaseline = 'middle';
-      c.fillText(spec.name, r.x + 26, r.y + 14);
+      c.fillText(spec.name, leftPad + 14, r.y + 13);
 
-      // Cost.
+      // Type badge (right-aligned).
+      const typeLabel = spec.type === 'melee' ? 'MELEE' : 'RANGE';
+      c.font = '7px system-ui, sans-serif';
+      const typeW = c.measureText(typeLabel).width + 6;
+      const badgeX = r.x + r.w - typeW - 6;
+      c.fillStyle = spec.type === 'melee' ? 'rgba(231,76,60,0.25)' : 'rgba(39,174,96,0.25)';
+      UIRoundRect(c, badgeX, r.y + 6, typeW, 13, 3);
+      c.fill();
+      c.fillStyle = spec.type === 'melee' ? '#e74c3c' : '#27ae60';
+      c.textAlign = 'center';
+      c.fillText(typeLabel, badgeX + typeW / 2, r.y + 12);
+
+      // ── Row 2: Cost + HP ──
+      c.textAlign = 'left';
       c.fillStyle = affordable ? UI_COLORS.gold : UI_COLORS.textDim;
-      c.font = '11px system-ui, sans-serif';
-      c.fillText(spec.cost + 'g', r.x + 26, r.y + 32);
-
-      // Spec stats below.
-      c.fillStyle = UI_COLORS.textDim;
       c.font = '10px system-ui, sans-serif';
-      c.textAlign = 'left'; c.textBaseline = 'middle';
-      c.fillText(spec._statsStr, r.x + 14, r.y + 48);
+      c.fillText(spec.cost + 'g', leftPad, r.y + 30);
+
+      c.fillStyle = 'rgba(231,76,60,0.7)';
+      c.font = '9px system-ui, sans-serif';
+      c.fillText('♥' + spec.hp, leftPad + 40, r.y + 30);
+
+      // ── Row 3: Stats (clipped) ──
+      c.fillStyle = UI_COLORS.textDim;
+      c.font = '9px system-ui, sans-serif';
+      c.save();
+      c.beginPath();
+      c.rect(r.x, r.y, r.w, r.h);
+      c.clip();
+      c.fillText(spec._statsStr, leftPad, r.y + 44);
+      c.restore();
 
       // Selected outline.
       if (isSelected) {
@@ -700,46 +745,71 @@ const UI = {
     c.textAlign = 'left'; c.textBaseline = 'middle';
     c.fillText('SHOP', panelX + 12, panelY + 16);
 
-    // Buy card centered in the panel.
+    // Buy card with gradient background.
     const cardX = panelX + 10;
     const cardY = panelY + 32;
     const cardW = panelW - 20;
-    const cardH = 58;
-    c.fillStyle = UI_COLORS.cardBg;
+    const cardH = 64;
+
+    // Gradient card bg (same style as troop cards).
+    const grad = c.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
+    grad.addColorStop(0, '#131d28');
+    grad.addColorStop(1, '#0f1820');
+    c.fillStyle = grad;
     UIRoundRect(c, cardX, cardY, cardW, cardH, 8);
     c.fill();
-    c.strokeStyle = 'rgba(93,173,226,0.25)';
-    c.lineWidth = 1;
-    UIRoundRect(c, cardX, cardY, cardW, cardH, 8);
-    c.stroke();
+
+    // Left accent bar (shield blue).
+    c.fillStyle = '#5dade2';
+    UIRoundRect(c, cardX, cardY + 6, 3, cardH - 12, 1.5);
+    c.fill();
 
     // Determine selected troop state for the strict 4-way button chain AND the
     // info line below — compute early so the info text is drawn before the button.
     const _selIdxEarly = game.selectedTroopIndex;
     const _tEarly = _selIdxEarly >= 0 ? game.troops[_selIdxEarly] : null;
     const _hasSelEarly = !!(_tEarly && _tEarly.alive);
+
+    // Shield icon (small, subtle).
+    const iconX = cardX + 14;
+    const iconY = cardY + 14;
+    c.fillStyle = _hasSelEarly ? 'rgba(93,173,226,0.3)' : 'rgba(255,255,255,0.06)';
+    c.beginPath();
+    c.moveTo(iconX, iconY - 5);
+    c.quadraticCurveTo(iconX + 5, iconY - 4, iconX + 5, iconY + 1);
+    c.quadraticCurveTo(iconX + 5, iconY + 5, iconX, iconY + 6);
+    c.quadraticCurveTo(iconX - 5, iconY + 5, iconX - 5, iconY + 1);
+    c.quadraticCurveTo(iconX - 5, iconY - 4, iconX, iconY - 5);
+    c.fill();
+
+    // Shield label next to icon.
+    c.fillStyle = _hasSelEarly ? '#5dade2' : UI_COLORS.textDim;
+    c.font = 'bold 10px system-ui, sans-serif';
+    c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillText('SHIELD', iconX + 9, iconY);
+
+    // Info text (below icon row).
     let _infoText;
+    let _infoColor = UI_COLORS.textDim;
     if (!_hasSelEarly) {
       _infoText = 'Select a troop to buy shield';
     } else if (_tEarly.shield > 0) {
-      // Compute waves remaining until shield expires. Shields expire at the
-      // start of wave 11, 21, 31, ... (boss waves + 1), so remaining = 10 - (currentWave % 10).
       const _cw = game.wave.currentWave;
       const _wavesLeft = CONFIG.SHIELD_EXPIRE_WAVES - (_cw % CONFIG.SHIELD_EXPIRE_WAVES);
-      _infoText = 'Shield: +100% HP   Expires in: ' + _wavesLeft + ' waves';
+      _infoText = '+100% HP · Expires in ' + _wavesLeft + ' waves';
+      _infoColor = '#5dade2';
     } else {
       const _cost = _tEarly.getShieldCost();
-      _infoText = 'Shield: +100% HP   Cost: ' + _cost + 'g   Lasts: ' + CONFIG.SHIELD_EXPIRE_WAVES + ' waves';
+      _infoText = '+' + Math.round(_tEarly.spec.hp) + ' HP · ' + _cost + 'g · ' + CONFIG.SHIELD_EXPIRE_WAVES + ' waves';
     }
-    c.fillStyle = UI_COLORS.textDim;
+    c.fillStyle = _infoColor;
     c.font = '8px system-ui, sans-serif';
-    c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillText(_infoText, cardX + 8, cardY + 10);
+    c.fillText(_infoText, cardX + 10, cardY + 30);
 
     // Buy button rect — STASH for game.js click handler.
-    const buyBtnY = cardY + cardH - 32;
-    const buyBtnH = 28;
-    const buyBtnRect = { x: cardX, y: buyBtnY, w: cardW, h: buyBtnH };
+    const buyBtnY = cardY + cardH - 26;
+    const buyBtnH = 22;
+    const buyBtnRect = { x: cardX + 4, y: buyBtnY, w: cardW - 8, h: buyBtnH };
     this._shieldBuyBtn = buyBtnRect;
 
     // Determine selected troop state for the strict 4-way button chain.
@@ -757,64 +827,63 @@ const UI = {
     if (!hasSelection) {
       // a) No troop selected or not alive — greyed out.
       c.fillStyle = 'rgba(255,255,255,0.04)';
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.fill();
       c.strokeStyle = 'rgba(255,255,255,0.06)';
       c.lineWidth = 1;
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.stroke();
       c.fillStyle = UI_COLORS.textDim;
-      c.font = 'bold 10px system-ui, sans-serif';
+      c.font = '9px system-ui, sans-serif';
       c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('SELECT A TROOP', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
     } else if (t.shield > 0) {
       // b) Shield already active — cyan-tinted.
       c.fillStyle = 'rgba(93,173,226,0.18)';
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.fill();
       c.strokeStyle = 'rgba(93,173,226,0.45)';
       c.lineWidth = 1;
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.stroke();
       c.fillStyle = '#5dade2';
-      c.font = 'bold 11px system-ui, sans-serif';
+      c.font = 'bold 10px system-ui, sans-serif';
       c.textAlign = 'center'; c.textBaseline = 'middle';
       c.fillText('ACTIVE', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
     } else if (!canAfford) {
       // c) Can't afford — greyed out with cost.
       c.fillStyle = 'rgba(255,255,255,0.04)';
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.fill();
       c.strokeStyle = 'rgba(255,255,255,0.06)';
       c.lineWidth = 1;
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.stroke();
       c.fillStyle = UI_COLORS.textDim;
-      c.font = 'bold 10px system-ui, sans-serif';
+      c.font = '9px system-ui, sans-serif';
       c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText('BUY SHIELD (' + cost + 'g)', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
+      c.fillText('BUY (' + cost + 'g)', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
     } else {
       // d) Can buy — bright cyan button.
       c.fillStyle = 'rgba(93,173,226,0.28)';
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.fill();
       c.strokeStyle = 'rgba(93,173,226,0.6)';
       c.lineWidth = 1;
-      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 6);
+      UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
       c.stroke();
       c.fillStyle = '#5dade2';
-      c.font = 'bold 11px system-ui, sans-serif';
+      c.font = 'bold 10px system-ui, sans-serif';
       c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText('BUY SHIELD', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
+      c.fillText('BUY SHIELD (' + cost + 'g)', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
     }
 
-    // Status line below the card. Shield state is now shown in the info text
-    // inside the card, so the status line is just the selected troop name.
+    // Selected troop name below the card.
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '9px system-ui, sans-serif';
+    c.font = '8px system-ui, sans-serif';
     c.textAlign = 'center'; c.textBaseline = 'middle';
     const statusName = hasSelection ? t.spec.name : 'none';
-    c.fillText('Selected: ' + statusName, cardX + cardW / 2, cardY + cardH + 14);
+    c.fillText('Selected: ' + statusName, cardX + cardW / 2, cardY + cardH + 10);
 
     c.textBaseline = 'alphabetic';
   },
