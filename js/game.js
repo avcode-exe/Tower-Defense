@@ -66,6 +66,27 @@ class Game {
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = null;
     this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
+    this._pauseRafId = null;
+  }
+
+  // Lightweight rAF loop that only renders — used when the sim worker is
+  // stopped (PAUSED / DEFEAT) so the canvas stays interactive.
+  _startPauseRender() {
+    if (this._pauseRafId != null) return; // already running
+    const loop = () => {
+      this._pauseRafId = null;
+      if (this.state !== 'PAUSED' && this.state !== 'DEFEAT') return;
+      this.render();
+      this._pauseRafId = requestAnimationFrame(loop);
+    };
+    this._pauseRafId = requestAnimationFrame(loop);
+  }
+
+  _stopPauseRender() {
+    if (this._pauseRafId != null) {
+      cancelAnimationFrame(this._pauseRafId);
+      this._pauseRafId = null;
+    }
   }
 
   _getPopup(text, x, y, t, color) {
@@ -305,12 +326,12 @@ class Game {
         m.alive = false;
         this.lives -= m.leak;
         this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
-        AUDIO.monsterLeak();
-        if (this.lives <= 0) {
+        AUDIO.monsterLeak();          if (this.lives <= 0) {
           this.lives = 0;
           this.state = 'DEFEAT';
           AUDIO.defeat();
           if (this._simWorker) this._simWorker.postMessage('stop');
+          this._startPauseRender();
           if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
           break;
         }
@@ -423,7 +444,10 @@ class Game {
   _runSimTick(now) {
     const realDt = Math.min((now - this.lastTime) / 1000, 0.1);
     this.lastTime = now;
-    if (this.state === 'PAUSED' || this.state === 'DEFEAT') return;
+    if (this.state === 'PAUSED' || this.state === 'DEFEAT') {
+      this.render();
+      return;
+    }
     const fixed = CONFIG.FIXED_TIMESTEP;
     this.accumulator += realDt * this.speed;
     const maxSteps = Math.max(8, this.speed * 4);
@@ -1055,8 +1079,10 @@ class Game {
         } else if (this.state === 'WAVE_ACTIVE') {
           this.state = 'PAUSED';
           if (this._simWorker) this._simWorker.postMessage('stop');
+          this._startPauseRender();
         } else if (this.state === 'PAUSED') {
           this.state = 'WAVE_ACTIVE';
+          this._stopPauseRender();
           if (this._simWorker) this._simWorker.postMessage('start');
         }
         return;
@@ -1281,8 +1307,10 @@ class Game {
       if (this.state === 'WAVE_ACTIVE') {
         this.state = 'PAUSED';
         if (this._simWorker) this._simWorker.postMessage('stop');
+        this._startPauseRender();
       } else if (this.state === 'PAUSED') {
         this.state = 'WAVE_ACTIVE';
+        this._stopPauseRender();
         if (this._simWorker) this._simWorker.postMessage('start');
       }
     }
@@ -1314,6 +1342,7 @@ class Game {
 
   restart() {
     if (this._simWorker) { this._simWorker.terminate(); this._simWorker = null; }
+    this._stopPauseRender();
     if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
     if (this._resizeRAF) { cancelAnimationFrame(this._resizeRAF); this._resizeRAF = null; }
     this._running = false;

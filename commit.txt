@@ -20,6 +20,10 @@ Implementation:
 - Monster info panel updated with Spear stats
 - README updated with 8 monster types
 
+Bug fixes:
+- Fix pause/resume: canvas now stays interactive when paused via
+  lightweight rAF render loop (previously all buttons froze)
+
 Balance notes:
 - Spears are fast but fragile (50 HP vs Grunt's 34)
 - ~6 DPS to ranged troops, ~1.8 DPS to melee troops
