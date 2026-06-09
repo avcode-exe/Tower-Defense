@@ -1,68 +1,46 @@
-v1.4.0 — Spear monster, Game class refactor, code quality overhaul, and code formatting
+Release 1.4.1-beta.1 — ES Module Refactor, Bug Fixes, and Production Hardening
 
-This release consolidates all v1.4.0-beta.1 through beta.4 features, code quality
-improvements, and applies consistent code formatting across the entire codebase.
+Summary
+- Converted the entire codebase from 18 inline script-tag files to a modern ES module architecture
+- Fixed runtime errors that caused blank screen and tooltip rendering failures
+- Disabled automatic DevTools auto-open on Electron startup
+- Bumped version from 1.4.0 to 1.4.1-beta.1 and updated Electron Builder configuration
 
-Version bump:
-- package.json, package-lock.json, gamePersistence.js save version
-  bumped from 1.4.0-beta.4 to 1.4.0
+Codebase Modularization
+- Replaced 18 <script src="js/..."> tags in index.html with a single <script type="module" src="src/main.js">
+- Created 27 ES modules under src/ with explicit import/export dependency graph
+- Extracted Game.render() into standalone renderGame() and updateCursor() in src/rendering/gameRenderer.js
+- Split monolithic ui.js (1388 lines) into 9 focused sub-modules under src/ui/
+- Preserved backward compatibility by exposing window.game, window.showToast, and window.electron globals
+- Added src/**/* to Electron Builder files array so packaged app includes all modules
 
-Code formatting (Prettier):
-- Applied Prettier formatting to all JS and CSS files for consistent style
-- 2-space indentation, single quotes, trailing commas, 120 char line width
+Bug Fixes
+- Fixed ReferenceError: CONFIG is not defined in src/utils.js by adding missing import { CONFIG } from './config.js'
+- Fixed TypeError: this._drawShopTooltip is not a function by binding _drawShopTooltip and _wrapText onto the UI object in src/ui/index.js
+- Fixed stale game.render() call in src/gameRuntime.js pause-render loop; replaced with renderGame(game) and added updateCursor(game)
+- Removed debug openDevTools call from electron-main.js so DevTools no longer auto-open on game launch
 
-New features (since v1.3.0):
-- Spear monster (level X) — new monster type that slows troops to half speed
-  while attacking from a 2.5-tile radius, attacks while moving
-- Game class decomposition — extracted GameRuntimeController (Web Worker
-  lifecycle, pause/resume, resize) and persistence layer (SaveSerializer,
-  GameWorldFactory, GameSnapshotRestorer)
-- Animated tray windows — smooth roll-up/down transitions for bottom bar popups,
-  only one popup open at a time
-- Smart cursor — standard arrow by default, hand pointer on clickable elements
-- Monster info panel — bottom bar popup showing all monster stats
-- Dev mode improvements — dedicated DEV popup with per-monster count controls
-- Mute/unmute button — toggle audio with volume save/restore
-- Monster attack mode rework — three distinct modes: stop, pass (penetration),
-  slow (slows near troops)
+Module Structure
+- src/main.js — Application entry point, canvas initialization, save/load wiring
+- src/game.js — Core Game orchestrator, simulation tick loop, pause/render coordination
+- src/rendering/gameRenderer.js — All canvas rendering: map, troops, monsters, projectiles, particles, HUD, shop
+- src/ui/index.js — Barrel export assembling unified UI namespace from 9 sub-modules
+- src/ui/shop.js, hud.js, shieldShop.js, preview.js, placement.js, overlays.js, utils.js, constants.js
+- src/config.js — Centralized CONFIG, LAYOUT, monster/troop specs, waves, projectile styles
+- src/audio.js — AudioManager with mute and volume controls
+- src/updateManager.js, input.js, gamePersistence.js, gameRuntime.js, grid.js, pathGenerator.js, monster.js, troop.js, projectile.js, waveManager.js, particles.js, utils.js, simWorker.js
 
-Monster attack modes:
-- stop: Stops moving when a troop is in range, attacks, then resumes (default)
-- pass: Always moves at full speed, deals damage while passing (Runner, Spear)
-- slow: Slows to half speed near troops, attacks closest (Spear)
+Verification
+- All 28 module files pass Node.js syntax validation
+- Zero missing import paths confirmed via dependency verification
+- Game launches without console errors in Electron
+- Canvas renders correctly and game is playable end-to-end
 
-Code quality improvements:
-- Fixed XSS vulnerability in toast notifications (innerHTML → createTextNode)
-- Removed dead code (~100 lines): drawDevRightPanel, _buildPathSegments,
-  unused DEV_STARTING_GOLD constant
-- Added error boundary for sim tick to render crash screen on exceptions
-- Extracted magic numbers into CONFIG constants (MELEE_DAMAGE_REDUCTION,
-  TROOP_HEAL_HP_RATIO, TROOP_HEAL_COST_RATIO)
-- Replaced O(n) canPlace() scan with O(1) tile-index lookup
-- Eliminated per-frame gradient allocations in UI shop cards
-- Added ESLint and Prettier tooling with npm scripts
+Breaking Changes
+- None. The bundled renderer and preserved window globals keep existing integrations working.
 
-Bug fixes:
-- Fixed reset button hitbox (w:36 → w:50 to match visual label)
-- Fixed formatting bug in step() method
-- Fixed inconsistent indentation in onKeyDown
-
-Files changed:
-- package.json, package-lock.json: Version 1.4.0, added eslint + prettier
-- gamePersistence.js: Save version bumped to 1.4.0
-- game.js: Refactored lifecycle, error boundary, canPlace optimization,
-  dead code removal, formatting bug fix, indentation fix
-- ui.js: Animated tray windows, dev panel, monster info, dead code removal,
-  gradient cache optimization
-- main.js: Bottom bar popups, monster info, DEV panel, XSS fix
-- config.js: Added new layout constants, removed unused DEV_STARTING_GOLD,
-  added MELEE_DAMAGE_REDUCTION and heal ratio constants
-- monster.js: Spear monster, attack mode rework (stop/pass/slow)
-- audio.js: Mute/unmute button support
-- renderer.js: Cache management improvements
-- input.js: No changes
-- css/style.css: Tray window animations, panel styling
-- index.html: Updated script tags, bottom bar button structure
-- icon.png, icon.svg: Redesigned tower icon with glowing beacon
-- .eslintrc.json, .prettierrc.json: New — code quality tooling
-- README.md: Updated tech stack, controls, troop/monster tables, build commands
+Files Changed
+- Modified: index.html, package.json, electron-main.js
+- Added: src/ (27 module files)
+- Removed: js/ (18 legacy script files no longer referenced)
+- Note: Generated build artifacts exe and latest.yaml are not tracked in source control

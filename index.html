@@ -122,24 +122,7 @@
     <div class="update-progress-bar"><div class="update-progress-fill" id="update-progress-fill"></div></div>
   </div>
 
-  <!-- Load order: config & utils first, then game, then bootstrap -->
-  <script src="js/config.js"></script>
-  <script src="js/utils.js"></script>
-  <script src="js/grid.js"></script>
-  <script src="js/pathGenerator.js"></script>
-  <script src="js/particles.js"></script>
-  <script src="js/monster.js"></script>
-  <script src="js/projectile.js"></script>
-  <script src="js/troop.js"></script>
-  <script src="js/waveManager.js"></script>
-  <script src="js/renderer.js"></script>
-  <script src="js/ui.js"></script>
-  <script src="js/input.js"></script>
-  <script src="js/gameRuntime.js"></script>
-  <script src="js/gamePersistence.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/updateManager.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/main.js"></script>
+  <!-- ES module entry point (all imports resolved by the module system) -->
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

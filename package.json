@@ -1,15 +1,15 @@
 {
   "name": "tower-defense",
-  "version": "1.4.0",
+  "version": "1.4.1-beta.1",
   "description": "Tower Defense Game",
   "main": "electron-main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win --x64",
     "release": "electron-builder --win --x64 --publish always",
-    "lint": "eslint js/ electron-main.js preload.js",
-    "lint:fix": "eslint --fix js/ electron-main.js preload.js",
-    "format": "prettier --write \"js/**/*.js\" \"*.js\" \"css/**/*.css\"",
+    "lint": "eslint src/ js/ electron-main.js preload.js",
+    "lint:fix": "eslint --fix src/ js/ electron-main.js preload.js",
+    "format": "prettier --write \"src/**/*.js\" \"js/**/*.js\" \"*.js\" \"css/**/*.css\"",
     "test": "echo \"No tests yet — add Vitest and write tests in tests/\" && exit 0"
   },
   "build": {
