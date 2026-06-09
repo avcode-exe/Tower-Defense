@@ -17,6 +17,7 @@ const UI_LAYOUT = {
     help: false,
     monsterInfo: false,
     shieldShop: false,
+    settings: false,
     dev: false,
   },
 
@@ -185,6 +186,14 @@ const UI = {
       return true;
     }
     return false;
+  },
+
+  // Non-mutating hit test for toggle buttons (for cursor).
+  hitToggleButtons(px, py) {
+    return (UI._toggleShieldShop && hitToggleButton(px, py, UI._toggleShieldShop))
+        || (this._toggleHud && hitToggleButton(px, py, this._toggleHud))
+        || (this._toggleShop && hitToggleButton(px, py, this._toggleShop))
+        || (this._togglePreview && hitToggleButton(px, py, this._togglePreview));
   },
 
   drawHUD(game) {

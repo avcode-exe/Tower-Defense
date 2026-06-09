@@ -185,6 +185,7 @@ class Game {
     const cost = t.getHealCost();
     if (this.gold < cost) return;
     this.gold -= cost;
+    t.healGoldSpent = (t.healGoldSpent || 0) + cost;
     const prevHp = t.hp;
     t.heal();
     const actual = Math.ceil(t.hp - prevHp);
@@ -217,6 +218,12 @@ class Game {
   // Apply damage to a monster and queue reward popup. Returns true if killed.
   damageMonster(m, amount) {
     if (!m.alive) return false;
+    // Guard: if monster HP is already zero or below, force-kill without reward
+    // to prevent double-reward from the defensive kill path in step().
+    if (m.hp <= 0) {
+      m.alive = false;
+      return true;
+    }
     const r = m.takeDamage(amount);
     if (r.killed) {
       this.gold = Math.min(this.gold + r.reward, CONFIG.MAX_GOLD);
@@ -259,6 +266,11 @@ class Game {
     if (this.selectedTroopIndex >= 0) {
       const sel = this.troops[this.selectedTroopIndex];
       if (!sel || !sel.alive) this.selectedTroopIndex = -1;
+    }
+    // Clear sell confirmation if the confirmed troop was killed.
+    if (this.sellConfirmPending && this.sellConfirmTroopIndex === troop) {
+      this.sellConfirmPending = false;
+      this.sellConfirmTroopIndex = null;
     }
   }
 
@@ -342,6 +354,8 @@ class Game {
     }
 
     // Monster attacks on troops.
+    // Snapshot before processing: split children added by damageMonster during
+    // troop/melee damage must not attack in the same tick they were spawned.
     const attackCount = this.monsters.length;
     for (let i = 0; i < attackCount; i++) {
       const m = this.monsters[i];
@@ -951,7 +965,85 @@ class Game {
     UI.drawWaveTransition(this);
     UI.drawOverlay(this);
     UI.drawDevConfirmDialog(this);
-    // Dev right panel removed — spawn controls moved to bottom bar DEV popup
+    this._updateCursor();
+  }
+
+  // Update canvas cursor based on what the mouse is hovering.
+  _updateCursor() {
+    const canvas = RENDERER.canvas;
+    if (!canvas || RENDERER.hoverPx == null) { canvas.style.cursor = 'default'; return; }
+    const px = RENDERER.hoverPx;
+    const py = RENDERER.hoverPy;
+    const cursor = this._hitTestCursor(px, py);
+    if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
+  }
+
+  _hitTestCursor(px, py) {
+    // Confirmation dialogs take priority.
+    if (this.devConfirmPending || this.resetConfirmPending || this.sellConfirmPending) {
+      if (UI._devConfirmYes && px >= UI._devConfirmYes.x && px <= UI._devConfirmYes.x + UI._devConfirmYes.w && py >= UI._devConfirmYes.y && py <= UI._devConfirmYes.y + UI._devConfirmYes.h) return 'pointer';
+      if (UI._devConfirmNo && px >= UI._devConfirmNo.x && px <= UI._devConfirmNo.x + UI._devConfirmNo.w && py >= UI._devConfirmNo.y && py <= UI._devConfirmNo.y + UI._devConfirmNo.h) return 'pointer';
+      return 'default';
+    }
+    // Panel toggle buttons (shop/hud/preview/shield toggles).
+    if (UI.hitToggleButtons(px, py)) return 'pointer';
+    // Gold area (triple-click dev mode).
+    if (px >= LAYOUT.HUD.GOLD_AREA.x && px <= LAYOUT.HUD.GOLD_AREA.x + LAYOUT.HUD.GOLD_AREA.w && py >= LAYOUT.HUD.GOLD_AREA.y && py <= LAYOUT.HUD.GOLD_AREA.y + LAYOUT.HUD.GOLD_AREA.h) return 'pointer';
+    // HUD buttons when expanded.
+    if (!UI_LAYOUT.collapsed.hud) {
+      const rstBtn = LAYOUT.HUD.RESET_BTN;
+      if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) return 'pointer';
+      const w = RENDERER.width;
+      for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
+        const r = { x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28, y: 14, w: LAYOUT.HUD.SPEED_BTN_W, h: LAYOUT.HUD.SPEED_BTN_H };
+        if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return 'pointer';
+      }
+      const btn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
+      if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) return 'pointer';
+    }
+    // Shop cards.
+    if (UI.hitShop(px, py) >= 0) return 'pointer';
+    // Shield buy button.
+    if (!UI_LAYOUT.collapsed.shieldShop && UI._shieldBuyBtn) {
+      const sb = UI._shieldBuyBtn;
+      if (px >= sb.x && px <= sb.x + sb.w && py >= sb.y && py <= sb.y + sb.h) return 'pointer';
+    }
+    // Heal / Sell buttons when a troop is selected.
+    if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
+      const t = this.troops[this.selectedTroopIndex];
+      if (t && t.alive) {
+        const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
+        const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
+        if (px >= LAYOUT.SHOP.BTN_PAD && px <= LAYOUT.SHOP.BTN_PAD + healBtnW && py >= healBtnY && py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H) return 'pointer';
+        // Sell button (below heal).
+        const sellBtnY = healBtnY - LAYOUT.SHOP.HEAL_BTN_H - 4;
+        if (px >= LAYOUT.SHOP.BTN_PAD && px <= LAYOUT.SHOP.BTN_PAD + healBtnW && py >= sellBtnY && py <= sellBtnY + LAYOUT.SHOP.HEAL_BTN_H) return 'pointer';
+      }
+    }
+    // Troop on grid (clickable to select).
+    if (px > UI_LAYOUT.shopWidth && px < RENDERER.width - (UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth)) {
+      const w = RENDERER.toWorldInto(px, py, UI._ghostPos);
+      if (inBounds(Math.floor(w.x / CONFIG.TILE_SIZE), Math.floor(w.y / CONFIG.TILE_SIZE))) {
+        const tileKey = Math.floor(w.y / CONFIG.TILE_SIZE) * CONFIG.GRID_SIZE + Math.floor(w.x / CONFIG.TILE_SIZE);
+        const tileTroops = this._troopTileIndex[tileKey];
+        if (tileTroops) {
+          for (let i = 0; i < tileTroops.length; i++) {
+            const t = tileTroops[i];
+            if (t.alive && Math.abs(px - t.x) < CONFIG.TILE_SIZE / 2 && Math.abs(py - t.y) < CONFIG.TILE_SIZE / 2) return 'pointer';
+          }
+        }
+      }
+    }
+    // Placement ghost (valid tile).
+    if (this.selectedSpec && RENDERER.hoverPx != null) {
+      const w = RENDERER.toWorldInto(RENDERER.hoverPx, RENDERER.hoverPy, UI._ghostPos);
+      const tgx = Math.floor(w.x / CONFIG.TILE_SIZE);
+      const tgy = Math.floor(w.y / CONFIG.TILE_SIZE);
+      if (inBounds(tgx, tgy) && px > UI_LAYOUT.shopWidth && px < RENDERER.width && py > UI_LAYOUT.hudHeight && py < RENDERER.height - UI_LAYOUT.previewHeight) {
+        return this.canPlace(tgx, tgy, this.selectedSpec) ? 'pointer' : 'default';
+      }
+    }
+    return 'default';
   }
 
   // ===== Input =====
@@ -1176,17 +1268,17 @@ class Game {
     const popup = document.getElementById(popupId);
     const btn = document.getElementById(btnId);
     if (collapsed) {
-      if (popup) popup.style.display = 'none';
+      if (popup) popup.classList.add('bar-popup--closed');
       if (btn) btn.classList.remove('active');
     } else {
-      if (popup) popup.style.display = 'block';
+      if (popup) popup.classList.remove('bar-popup--closed');
       if (btn) btn.classList.add('active');
     }
   }
 
   getSaveData() {
     return {
-      version: '1.2.0-beta.3',
+      version: '1.4.0-beta.3',
       gold: this.gold,
       lives: this.lives,
       seed: this.seed,
@@ -1200,7 +1292,7 @@ class Game {
         hp: t.hp, maxHp: t.maxHp,
         dmgLevel: t.dmgLevel, rangeLevel: t.rangeLevel,
         speedLevel: t.speedLevel, chainLevel: t.chainLevel, hpLevel: t.hpLevel, slowLevel: t.slowLevel,
-        shield: t.shield, maxShield: t.maxShield, healCount: t.healCount,
+        shield: t.shield, maxShield: t.maxShield, healCount: t.healCount, healGoldSpent: t.healGoldSpent || 0,
       })),
     };
   }
@@ -1244,17 +1336,22 @@ class Game {
       t.shield = tData.shield || 0;
       t.maxShield = tData.maxShield || 0;
       t.healCount = tData.healCount || 0;
+      t.healGoldSpent = tData.healGoldSpent || 0;
       this.troops.push(t);
     }
     this._buildTroopTileIndex();
     this.state = 'PRE_WAVE';
-    if (window.electron && window.electron.deleteSave) {
-      window.electron.deleteSave();
-    }
+    // Flag to delete the old save on next autoSave — not here, so a crash
+    // during restoration doesn't lose the save permanently.
+    this._needsSaveCleanup = true;
   }
 
   _autoSave() {
     if (!window.electron || !window.electron.saveGame) return;
+    if (this._needsSaveCleanup && window.electron.deleteSave) {
+      window.electron.deleteSave();
+      this._needsSaveCleanup = false;
+    }
     window.electron.saveGame(this.getSaveData());
   }
 
@@ -1285,30 +1382,48 @@ class Game {
     }
     if (e.key === 'Enter' && this.state === 'PRE_WAVE') {
       e.preventDefault();
+      if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
       if (this.wave.startNextWave()) {
-        if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
         this.state = 'WAVE_ACTIVE';
         AUDIO.waveStart();
       }
     }
-// Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings)
+// Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings), Alt+D (Dev)
   if (e.altKey) {
-    if (e.key === 'c' || e.key === 'C') {
-      UI_LAYOUT.collapsed.help = !UI_LAYOUT.collapsed.help;
-      this.togglePopupEl('controls-popup', UI_LAYOUT.collapsed.help, 'bar-controls-btn');
+    const popupKeys = [
+      { key: 'c', popupId: 'controls-popup', collapsedKey: 'help', btnId: 'bar-controls-btn' },
+      { key: 'm', popupId: 'monster-popup', collapsedKey: 'monsterInfo', btnId: 'bar-monster-btn' },
+      { key: 'u', popupId: 'settings-popup', collapsedKey: 'settings', btnId: 'bar-settings-btn' },
+      { key: 'd', popupId: 'dev-popup', collapsedKey: 'dev', btnId: 'bar-dev-btn' },
+    ];
+    const match = popupKeys.find(p => e.key.toLowerCase() === p.key);
+    if (match) {
       e.preventDefault();
-    } else if (e.key === 'm' || e.key === 'M') {
-      UI_LAYOUT.collapsed.monsterInfo = !UI_LAYOUT.collapsed.monsterInfo;
-      this.togglePopupEl('monster-popup', UI_LAYOUT.collapsed.monsterInfo, 'bar-monster-btn');
-      e.preventDefault();
-    } else if (e.key === 'u' || e.key === 'U') {
-      UI_LAYOUT.collapsed.settings = !UI_LAYOUT.collapsed.settings;
-      this.togglePopupEl('settings-popup', UI_LAYOUT.collapsed.settings, 'bar-settings-btn');
-      e.preventDefault();
-    } else if (e.key === 'd' || e.key === 'D') {
-      UI_LAYOUT.collapsed.dev = !UI_LAYOUT.collapsed.dev;
-      this.togglePopupEl('dev-popup', UI_LAYOUT.collapsed.dev, 'bar-dev-btn');
-      e.preventDefault();
+      // If already open, close it.
+      if (!UI_LAYOUT.collapsed[match.collapsedKey]) {
+        this.togglePopupEl(match.popupId, true, match.btnId);
+      } else {
+        // Find any currently open popup and close it, wait for animation, then open target.
+        const openKey = popupKeys.find(p => !UI_LAYOUT.collapsed[p.collapsedKey]);
+        if (openKey) {
+          this.togglePopupEl(openKey.popupId, true, openKey.btnId);
+          const el = document.getElementById(openKey.popupId);
+          const openFn = () => {
+            UI_LAYOUT.collapsed[match.collapsedKey] = false;
+            this.togglePopupEl(match.popupId, false, match.btnId);
+          };
+          if (el) {
+            const onDone = () => { el.removeEventListener('transitionend', onDone); openFn(); };
+            el.addEventListener('transitionend', onDone);
+            setTimeout(openFn, 350);
+          } else {
+            openFn();
+          }
+        } else {
+          UI_LAYOUT.collapsed[match.collapsedKey] = false;
+          this.togglePopupEl(match.popupId, false, match.btnId);
+        }
+      }
     }
   }
 }

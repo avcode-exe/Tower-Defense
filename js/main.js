@@ -68,24 +68,47 @@ window.addEventListener('DOMContentLoaded', async () => {
     Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
   }
 
-  const barBtnFor = { help: 'bar-controls-btn', monsterInfo: 'bar-monster-btn', settings: 'bar-settings-btn', about: 'bar-about-btn' };
-  const popupFor = { help: 'controls-popup', monsterInfo: 'monster-popup', settings: 'settings-popup', about: 'about-popup' };
+  const barBtnFor = { help: 'bar-controls-btn', monsterInfo: 'bar-monster-btn', settings: 'bar-settings-btn', about: 'bar-about-btn', dev: 'bar-dev-btn' };
+  const popupFor = { help: 'controls-popup', monsterInfo: 'monster-popup', settings: 'settings-popup', about: 'about-popup', dev: 'dev-popup' };
 
-function showPopup(key) {
-  const popup = document.getElementById(popupFor[key]);
-  const btn = document.getElementById(barBtnFor[key]);
-  if (!popup) return;
-  Object.keys(popupFor).forEach((otherKey) => {
-    if (otherKey !== key) hidePopup(otherKey);
-  });
-  popup.style.display = 'block';
-  if (btn) btn.classList.add('active');
-}
-  function hidePopup(key) {
+// Close animation duration (must match CSS .bar-popup transition)
+  const POPUP_ANIM_MS = 300;
+
+  function showPopup(key) {
     const popup = document.getElementById(popupFor[key]);
     const btn = document.getElementById(barBtnFor[key]);
-    if (popup) popup.style.display = 'none';
-    if (btn) btn.classList.remove('active');
+    if (!popup) return;
+    // Find any currently-open popup (not this one) and close it first.
+    const openKey = Object.keys(popupFor).find((k) =>
+      k !== key && !UI_LAYOUT.collapsed[k]
+    );
+    if (openKey) {
+      hidePopup(openKey);
+      // After the close animation finishes, open the target.
+      const openPopup = document.getElementById(popupFor[openKey]);
+      const onDone = () => {
+        openPopup.removeEventListener('transitionend', onDone);
+        openTarget();
+      };
+      openPopup.addEventListener('transitionend', onDone);
+      // Fallback if transitionend never fires (e.g. element hidden).
+      setTimeout(openTarget, POPUP_ANIM_MS + 50);
+      return;
+    }
+    openTarget();
+
+    function openTarget() {
+      popup.classList.remove('bar-popup--closed');
+      if (btn) btn.classList.add('active');
+      UI_LAYOUT.collapsed[key] = false;
+    }
+  }
+  function hidePopup(key) {
+      const popup = document.getElementById(popupFor[key]);
+      const btn = document.getElementById(barBtnFor[key]);
+      if (popup) popup.classList.add('bar-popup--closed');
+      if (btn) btn.classList.remove('active');
+      UI_LAYOUT.collapsed[key] = true;
   }
 
   async function persistCollapsed() {
@@ -601,21 +624,9 @@ function showPopup(key) {
       if (typeof game !== 'undefined') {
         game.wave.buildCustomFromCounts(game.devMonsterCounts);
         if (game.wave.startNextWave()) {
-          game.wave.buildCustomFromCounts(game.devMonsterCounts);
           game.state = 'WAVE_ACTIVE';
           AUDIO.waveStart();
         }
-      }
-    });
-  }
-
-  // DEV bar button
-  const devBarBtn = document.getElementById('bar-dev-btn');
-  if (devBarBtn) {
-    devBarBtn.addEventListener('click', () => {
-      if (typeof UI_LAYOUT !== 'undefined' && typeof game !== 'undefined') {
-        UI_LAYOUT.collapsed.dev = !UI_LAYOUT.collapsed.dev;
-        game.togglePopupEl('dev-popup', UI_LAYOUT.collapsed.dev, 'bar-dev-btn');
       }
     });
   }

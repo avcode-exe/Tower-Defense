@@ -23,7 +23,7 @@ html, body {
   width: calc(100vw - 16px);
   height: calc(100vh - 16px);
   display: block;
-  cursor: crosshair;
+  cursor: default;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -106,8 +106,24 @@ html, body {
   max-width: 92vw;
   max-height: 60vh;
   overflow-y: auto;
+  scrollbar-width: none;           /* Firefox */
   box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
   padding: 10px 16px;
+  /* Roll animation */
+  transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              opacity 0.25s ease-out;
+  opacity: 1;
+  transform-origin: bottom center;
+}
+.bar-popup::-webkit-scrollbar { display: none; }  /* Chrome / Safari / Edge */
+
+/* Closed / hidden state — rolls up to nothing */
+.bar-popup.bar-popup--closed {
+  max-height: 0;
+  opacity: 0;
+  padding: 0 16px;
+  pointer-events: none;
+  overflow: hidden;
 }
 #monster-popup  { min-width: 340px; }
 #controls-popup { min-width: 220px; max-width: 280px; }

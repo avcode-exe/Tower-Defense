@@ -127,7 +127,7 @@ const PARTICLES = {
         ctx.fillRect(p.x - half, p.y - half, p.size, p.size);
       }
       batch.length = 0;
-      buckets[key] = undefined;
+      delete buckets[key];
     }
     keys.length = 0;
     ctx.globalAlpha = 1;

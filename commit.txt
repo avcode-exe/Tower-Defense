@@ -1,55 +1,56 @@
-v1.4.0-beta.2 — Monster attack mode rework, dev mode improvements, icon refresh
+v1.4.0-beta.3 — Bug fixes, animated tray windows, smart cursor
 
-Monster attack system reworked with three distinct modes:
+Bug fixes (from comprehensive codebase audit):
+- Fixed wave queue ordering in dev mode — buildCustomFromCounts now called
+  before startNextWave so custom monster counts take effect correctly
+- Fixed Spear monster attack range — findTarget tile search radius now uses
+  Math.ceil(attackRange) instead of hardcoded 1-tile neighborhood
+- Fixed Spear slow mode no longer overriding Ice Wizard slow debuff — uses
+  Math.min(speed, slowModeSpeed) to respect existing debuffs
+- Fixed monster attack loop snapshot — split children from damageMonster
+  during troop/melee phase can no longer attack in the same tick they spawn
+- Fixed sell confirmation dialog persisting after confirmed troop is destroyed
+- Fixed double gold reward exploit — damageMonster now guards against
+  hp <= 0 monsters to prevent re-rewarding
+- Fixed heal gold costs now included in sell refund (healGoldSpent tracked
+  in Troop, saved/restored, included in getTotalInvested)
+- Fixed pass-mode monster _hitTroops Set growing unboundedly — prunes
+  dead troop references when Set exceeds 16 entries
 
-- **stop** (default): Monster stops moving when a troop is in range,
-  attacks with attackSpeed cooldown, then resumes. Used by Grunt,
-  Brute, Elite, Champion, Boss, Shielded.
+UI/UX improvements:
+- Bottom tray windows animate with smooth roll-up/roll-down CSS transitions
+  (max-height + opacity, 0.3s cubic-bezier easing)
+- Only one tray window can be open at a time — opening a new window
+  waits for the previous one to fully collapse before expanding
+- Sequential animation applies to both bar button clicks and keyboard
+  shortcuts (Alt+C/M/U/D)
+- Scrollbar hidden on tray popup windows for cleaner appearance
+- Standard arrow cursor by default, hand pointer on clickable elements
+- Dynamic cursor changes based on hover target: shop cards, HUD buttons,
+  toggle arrows, troops on grid, placement ghost, confirmation dialogs
+- Fixed dev popup to use same mutual exclusion system as other tray windows
+- Removed duplicate canvas resize event handler (was registered by both
+  Renderer.init and Game.start)
 
-- **slow**: Monster moves at normal speed when no troop is nearby.
-  Slows to half speed when a defense troop is in range and attacks
-  the closest troop within 2.5 tile radius with attackSpeed cooldown.
-  Used by Spear (changed from pass mode).
+Technical fixes:
+- Particle bucket memory leak fixed (delete instead of undefined assignment)
+- Save file deletion deferred to first autoSave after restore to prevent
+  data loss on crash during restoration
+- Added missing 'settings' key to UI_LAYOUT.collapsed defaults
+- Cleaned up HTML settings popup div indentation
 
-- **pass**: Monster always moves at full speed. Deals damage to troops
-  while passing — each troop is hit at most once (penetration mechanic).
-  Used by Runner (changed to pass mode, damage doubled).
-
-Balance changes:
-- Runner: speed 1.8→3.0, damage 3→6, attackMode changed to 'pass'
-- Spear: attackMode changed from 'pass'→'slow', attackSpeed 0→0.8,
-  attackRange 1→2.5 (now slows near troops and attacks closest)
-
-Dev mode improvements:
-- Dev mode now grants infinite gold and infinite lives
-- Moved spawn controls from right-panel to dedicated DEV popup in
-  bottom bar (accessible via DEV button or D key)
-- Start Wave button is greyed out in dev mode with "(Button disabled)"
-  sub-text — players must use DEV popup to start custom waves
-- Monster leak damage is ignored in dev mode
-- Pass-mode monsters (Runner) no longer split on death
-- Added DEV bar button with keyboard shortcut (D key)
-
-UI/UX:
-- Modernized app icon with glowing beacon, vibrant blue gradients,
-  battlements, arched doorway, and ambient glow effects
-- DEV Mode badge displayed at center of HUD when dev mode is active
-- Reset button widened and relabeled from "RST" to "Reset"
-- Monster info panel shows attack mode for slow/pass monsters
-- Shield shop icon changed from hand-drawn shape to emoji
-
-Implementation:
-- config.js: Added attackMode field to all monster specs
-- monster.js: Rewrote update() to handle stop/slow/pass modes
-- monster.js: Added _hitTroops Set for pass-mode penetration tracking
-- monster.js: Slow mode reduces speed and attacks while moving
-- game.js: Dev right panel removed, spawn controls moved to bottom bar
-- game.js: Dev mode sets gold/lives to Infinity on restart
-- game.js: Pass-mode monsters skip splitting on death
-- ui.js: Start Wave button greyed out in dev mode with sub-text
-- ui.js: Fixed stop-color attributes for SVG compliance (no rgba)
-- main.js: DEV popup event handlers for monster spawning
-- index.html: Added DEV popup markup and bottom bar button
-- icon.svg: Complete redesign with modern tower + beacon design
-- icon.png: Regenerated from updated SVG (512x512)
-- README.md: Updated monster table, attack modes, dev mode docs
+Files changed:
+- config.js: Documented unused DEV_STARTING_GOLD
+- css/style.css: Bar popup animation styles, hidden scrollbar, cursor default
+- game.js: Wave queue ordering, attack loop snapshot, damageMonster guard,
+  sell confirmation cleanup, togglePopupEl with animation, _updateCursor,
+  _hitTestCursor, save version format, healGoldSpent in save/restore
+- index.html: Bar popups use bar-popup--closed class instead of display:none
+- main.js: Sequential showPopup/hidePopup, removed dev popup duplicate handler
+- monster.js: findTarget dynamic range, slow mode respects debuff, _hitTroops prune
+- particles.js: Bucket cleanup with delete
+- renderer.js: Removed duplicate resize listener
+- troop.js: Added healGoldSpent field, included in getTotalInvested
+- README.md: Added animated tray windows and smart cursor to features
+- package.json: Version bumped to 1.4.0-beta.3
+- commit.txt: This file

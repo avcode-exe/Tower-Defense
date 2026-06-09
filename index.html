@@ -39,12 +39,12 @@
   </div>
 
   <!-- Popup windows that float above the corresponding bar button -->
-  <div id="monster-popup" class="bar-popup game-panel" style="display:none;">
+  <div id="monster-popup" class="bar-popup bar-popup--closed game-panel">
     <strong>Monster Info</strong>
     <div id="monster-info-content"></div>
   </div>
 
-  <div id="controls-popup" class="bar-popup game-panel" style="display:none;">
+  <div id="controls-popup" class="bar-popup bar-popup--closed game-panel">
     <strong>Controls</strong>
     <ul>
       <li>Click a shop card then click a tile to place</li>
@@ -54,7 +54,7 @@
     </ul>
   </div>
 
-  <div id="dev-popup" class="bar-popup game-panel" style="display:none; min-width: 280px;">
+  <div id="dev-popup" class="bar-popup bar-popup--closed game-panel" style="min-width: 280px;">
     <strong style="color:#2ea043;">DEV</strong>
     <div style="display:flex; gap:12px; margin-top:8px; margin-bottom:8px; font-size:10px; color:rgba(182,194,204,0.6);">
       <span>Gold: ∞</span>
@@ -67,7 +67,7 @@
     </div>
   </div>
 
-  <div id="settings-popup" class="bar-popup game-panel" style="display:none;">
+  <div id="settings-popup" class="bar-popup bar-popup--closed game-panel">
     <strong>Settings</strong>
     <div class="settings-section">
       <div class="settings-section-header" data-target="settings-update">Updates ▸</div>
@@ -85,17 +85,17 @@
           Check interval (min): <input type="number" id="settings-interval" value="60" min="15" step="15" style="width:60px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#e6edf3; padding:2px 4px; border-radius:4px; font-size:10px;">
         </label>
         <button id="settings-check-now-btn" style="margin-top:8px; background:rgba(88,166,255,0.12); color:#58a6ff; border:1px solid rgba(88,166,255,0.25); padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;">Check Now</button>
-        </div>
-        <div style="display:flex; gap:6px; margin-top:10px; justify-content:flex-end; align-items:center;">
-          <span id="settings-save-status" style="font-size:10px; color:#3fb950; margin-right:6px; opacity:0; transition:opacity 0.3s;">✓ Saved</span>
-          <button id="settings-cancel-btn" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.12); padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;">Cancel</button>
-          <button id="settings-save-btn" style="background:#238636; color:#fff; border:none; padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit; transition: background 0.2s;">Save</button>
-        </div>
-        </div>
-        </div>
+      </div>
+      <div style="display:flex; gap:6px; margin-top:10px; justify-content:flex-end; align-items:center;">
+        <span id="settings-save-status" style="font-size:10px; color:#3fb950; margin-right:6px; opacity:0; transition:opacity 0.3s;">✓ Saved</span>
+        <button id="settings-cancel-btn" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.12); padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;">Cancel</button>
+        <button id="settings-save-btn" style="background:#238636; color:#fff; border:none; padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit; transition: background 0.2s;">Save</button>
+      </div>
+    </div>
+  </div>
 
   <!-- About popup -->
-  <div id="about-popup" class="bar-popup game-panel" style="display:none;">
+  <div id="about-popup" class="bar-popup bar-popup--closed game-panel">
     <div style="text-align:center; padding:4px 0;">
       <div style="font-size:14px; font-weight:600; color:#f0f6fc; margin-bottom:2px;">Tower Defense</div>
       <div id="about-version" style="font-size:10px; color:rgba(182,194,204,0.6); margin-bottom:10px;"></div>

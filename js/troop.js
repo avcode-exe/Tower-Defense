@@ -35,6 +35,7 @@ class Troop {
     this._cachedShatterBonus = this.spec.shatterBonus || 0;
     this._recomputeStats();
     this.maxHp = this._cachedMaxHp;
+    this.healGoldSpent = 0;
   }
 
   // Scaled stats (1.2x per level). Cached for performance.
@@ -174,6 +175,7 @@ class Troop {
         total += Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, l - 1));
       }
     }
+    total += this.healGoldSpent;
     return total;
   }
 

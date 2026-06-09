@@ -52,7 +52,7 @@ const CONFIG = {
   PATH_EDGE_REJECTION: 0.35,
 
   // Dev mode
-  DEV_STARTING_GOLD: 999999,
+  DEV_STARTING_GOLD: 999999,  // unused — Game.restart() uses Infinity for dev mode
 
   // Projectile
   PROJECTILE_TIMEOUT: 3.0,

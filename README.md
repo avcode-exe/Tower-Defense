@@ -22,6 +22,8 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **Notification system** — bell icon with toast popups, notification panel with action buttons
 - **Settings panel** — persistent settings with Save/Cancel, update channel selection, check interval
 - **About page** — game info, version, and GitHub repo link
+- **Animated tray windows** — smooth roll-up/down transitions, only one tray window open at a time
+- **Smart cursor** — standard arrow by default, hand pointer on clickable elements (shop, buttons, troops, grid)
 - **16x16 grid** with procedurally generated winding paths
 - **Monster splitting** — non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
 - **Sell confirmation** — 30% refund with 3-second global cooldown

@@ -26,7 +26,6 @@ const RENDERER = {
     this._bgCache = document.createElement('canvas');
     this._pathCache = document.createElement('canvas');
     this.resize();
-    window.addEventListener('resize', () => { this.resize(); });
   },
 
   resize() {

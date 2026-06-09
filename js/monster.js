@@ -160,8 +160,9 @@ class Monster {
     let bestTroop = null;
     let bestDist = Infinity;
     const gs = CONFIG.GRID_SIZE;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
+    const tileRange = Math.ceil(this.spec.attackRange);
+    for (let dy = -tileRange; dy <= tileRange; dy++) {
+      for (let dx = -tileRange; dx <= tileRange; dx++) {
         const tx = gx + dx;
         const ty = gy + dy;
         if (tx < 0 || tx >= gs || ty < 0 || ty >= gs) continue;
@@ -170,8 +171,8 @@ class Monster {
         for (let i = 0; i < tileTroops.length; i++) {
           const t = tileTroops[i];
           if (!t.alive) continue;
-          const dist = Math.max(Math.abs(tx - gx), Math.abs(ty - gy));
-          if (dist <= this.spec.attackRange) {
+          const d = Math.max(Math.abs(tx - gx), Math.abs(ty - gy));
+          if (d <= this.spec.attackRange) {
             const pdx = t.x - this.x;
             const pdy = t.y - this.y;
             const pxDist = pdx * pdx + pdy * pdy;
@@ -245,13 +246,16 @@ class Monster {
       if (attackMode === 'slow' && troopTileIndex) {
         const nearTarget = this.findTarget(troopTileIndex);
         if (nearTarget) {
-          this.speed = this.baseSpeed * 0.5;
+          // Respect any existing slow debuff (e.g. Ice Wizard) by taking the
+          // slower of the two speeds instead of always overwriting.
+          const slowModeSpeed = this.baseSpeed * 0.5;
+          this.speed = Math.min(this.speed, slowModeSpeed);
           this.attackTimer -= dt;
           if (this.attackTimer <= 0) {
             this.attackTimer = this.spec.attackSpeed;
             this._pendingAttack = nearTarget;
           }
-        } else {
+        } else if (this.slowTimer <= 0) {
           this.speed = this.baseSpeed;
         }
       }
@@ -269,7 +273,13 @@ class Monster {
       this._updatePosition();
 
       // Pass-mode penetration: deal damage to each troop at most once while moving.
+      // Prune dead troops from the Set periodically to prevent unbounded growth.
       if (attackMode === 'pass' && troopTileIndex) {
+        if (this._hitTroops.size > 16) {
+          for (const t of this._hitTroops) {
+            if (!t.alive) this._hitTroops.delete(t);
+          }
+        }
         const gx = this._tileGx;
         const gy = this._tileGy;
         const gs = CONFIG.GRID_SIZE;
