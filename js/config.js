@@ -92,7 +92,8 @@ const CONFIG = {
 const LAYOUT = {
   HUD: {
     GOLD_AREA:   {x:14, y:14, w:102, h:28},
-    RESET_BTN:   {x:310, y:14, w:36, h:28},
+    RESET_BTN:   {x:310, y:14, w:50, h:28},
+    MUTE_BTN:    {x:366, y:14, w:28, h:28},
     SPEED_OFFSET: 370,
     SPEED_BTN_W: 26,
     SPEED_BTN_H: 28,

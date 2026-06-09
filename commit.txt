@@ -1,56 +1,45 @@
-v1.4.0-beta.3 — Bug fixes, animated tray windows, smart cursor
+v1.4.0-beta.4 — Game class refactor, reset button hitbox fix, mute button
 
-Bug fixes (from comprehensive codebase audit):
-- Fixed wave queue ordering in dev mode — buildCustomFromCounts now called
-  before startNextWave so custom monster counts take effect correctly
-- Fixed Spear monster attack range — findTarget tile search radius now uses
-  Math.ceil(attackRange) instead of hardcoded 1-tile neighborhood
-- Fixed Spear slow mode no longer overriding Ice Wizard slow debuff — uses
-  Math.min(speed, slowModeSpeed) to respect existing debuffs
-- Fixed monster attack loop snapshot — split children from damageMonster
-  during troop/melee phase can no longer attack in the same tick they spawn
-- Fixed sell confirmation dialog persisting after confirmed troop is destroyed
-- Fixed double gold reward exploit — damageMonster now guards against
-  hp <= 0 monsters to prevent re-rewarding
-- Fixed heal gold costs now included in sell refund (healGoldSpent tracked
-  in Troop, saved/restored, included in getTotalInvested)
-- Fixed pass-mode monster _hitTroops Set growing unboundedly — prunes
-  dead troop references when Set exceeds 16 entries
+Refactoring (Game class decomposition):
+- Extracted GameRuntimeController (js/gameRuntime.js) — owns Web Worker
+  lifecycle, pause/resume render loop, resize subscription, and centralised
+  state transitions (startWave, pauseGame, resumeGame, togglePause,
+  applyDefeat, stopLoop, startLoop)
+- Extracted SaveSerializer, GameWorldFactory, GameSnapshotRestorer
+  (js/gamePersistence.js) — single touch-point for save/restore/restart
+  logic; constructor and restart both reuse GameWorldFactory.createFresh
+- Game.start(), restart(), restore(), getSaveData() now one-liners that
+  delegate to the extracted helpers; all duplicated worker/state/RAF
+  management removed from Game class
+- pause/resume branches in onMouseDown, onKeyDown, and step() defeat
+  handler collapsed from 4-5 call sites to single method calls
+- index.html loads new modules before game.js; main.js dev-start-btn
+  guarded with state check
 
-UI/UX improvements:
-- Bottom tray windows animate with smooth roll-up/roll-down CSS transitions
-  (max-height + opacity, 0.3s cubic-bezier easing)
-- Only one tray window can be open at a time — opening a new window
-  waits for the previous one to fully collapse before expanding
-- Sequential animation applies to both bar button clicks and keyboard
-  shortcuts (Alt+C/M/U/D)
-- Scrollbar hidden on tray popup windows for cleaner appearance
-- Standard arrow cursor by default, hand pointer on clickable elements
-- Dynamic cursor changes based on hover target: shop cards, HUD buttons,
-  toggle arrows, troops on grid, placement ghost, confirmation dialogs
-- Fixed dev popup to use same mutual exclusion system as other tray windows
-- Removed duplicate canvas resize event handler (was registered by both
-  Renderer.init and Game.start)
+Bug fix:
+- Reset button hitbox (LAYOUT.HUD.RESET_BTN) updated from w:36 to w:50
+  to match the visual width of the "Reset" label (was sized for old "RST")
 
-Technical fixes:
-- Particle bucket memory leak fixed (delete instead of undefined assignment)
-- Save file deletion deferred to first autoSave after restore to prevent
-  data loss on crash during restoration
-- Added missing 'settings' key to UI_LAYOUT.collapsed defaults
-- Cleaned up HTML settings popup div indentation
+New feature:
+- Added mute/unmute button in top HUD, right of Reset button
+- AUDIO.toggleMute() saves and restores previous volume level
+- Button shows music note when active, red X when muted
+- Cursor changes to pointer on hover, click toggles mute
+
+Version bump:
+- package.json, package-lock.json, gamePersistence.js save version
+  bumped to 1.4.0-beta.4
 
 Files changed:
-- config.js: Documented unused DEV_STARTING_GOLD
-- css/style.css: Bar popup animation styles, hidden scrollbar, cursor default
-- game.js: Wave queue ordering, attack loop snapshot, damageMonster guard,
-  sell confirmation cleanup, togglePopupEl with animation, _updateCursor,
-  _hitTestCursor, save version format, healGoldSpent in save/restore
-- index.html: Bar popups use bar-popup--closed class instead of display:none
-- main.js: Sequential showPopup/hidePopup, removed dev popup duplicate handler
-- monster.js: findTarget dynamic range, slow mode respects debuff, _hitTroops prune
-- particles.js: Bucket cleanup with delete
-- renderer.js: Removed duplicate resize listener
-- troop.js: Added healGoldSpent field, included in getTotalInvested
-- README.md: Added animated tray windows and smart cursor to features
-- package.json: Version bumped to 1.4.0-beta.3
-- commit.txt: This file
+- config.js: Added MUTE_BTN layout constant, fixed RESET_BTN width
+- audio.js: Added muted getter, toggleMute() with volume save/restore
+- game.js: Delegated lifecycle/persistence to runtime/persistence modules,
+  added mute button hit test and click handler
+- gamePersistence.js: New file — SaveSerializer, GameWorldFactory,
+  GameSnapshotRestorer
+- gameRuntime.js: New file — GameRuntimeController class
+- index.html: Added script tags for gameRuntime.js, gamePersistence.js
+- main.js: Guarded dev-start-btn with state check
+- ui.js: Drew mute button in HUD, added it to drawHUD
+- package.json: Version bumped to 1.4.0-beta.4
+- package-lock.json: Version bumped to 1.4.0-beta.4

@@ -6,6 +6,10 @@ class Game {
     this.canvas = canvas;
     RENDERER.init(canvas);
 
+    // Runtime controller owns worker lifecycle, pause render, resize, and
+    // centralised state transitions.
+    this.runtime = new GameRuntimeController(this);
+
     this.state = 'PRE_WAVE';   // PRE_WAVE | WAVE_ACTIVE | PAUSED | DEFEAT
     this.speed = 1;
     this.gold = CONFIG.STARTING_GOLD;
@@ -19,13 +23,12 @@ class Game {
     // Wave transition animation.
     this.waveCompleteAnim = { active: false, waveNum: 0 };
 
-    this._simWorker = null;
-
-    // World.
-    this.grid = new Grid();
+    // World — built from a fresh seed via the persistence factory.
     this.seed = Math.floor(Math.random() * 0xffffffff);
-    this.waypoints = generatePath(this.seed);
-    this.pathSegments = this._buildPathSegments(this.waypoints);
+    const world = GameWorldFactory.createFresh(this.seed);
+    this.grid = world.grid;
+    this.waypoints = world.waypoints;
+    this.pathSegments = world.pathSegments;
     this.markPathTiles();
 
     // Entities.
@@ -52,11 +55,7 @@ class Game {
 
     this.wave = new WaveManager();
 
-    this._resizeHandler = () => {
-      if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
-      this._resizeRAF = requestAnimationFrame(() => { this._resizeRAF = null; RENDERER.resize(canvas); });
-    };
-    window.addEventListener('resize', this._resizeHandler);
+    this.runtime.installResize(canvas);
 
     this.devMode = false;
     this.devConfirmPending = false;
@@ -66,28 +65,11 @@ class Game {
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = null;
     this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
-    this._pauseRafId = null;
   }
 
-  // Lightweight rAF loop that only renders — used when the sim worker is
-  // stopped (PAUSED / DEFEAT) so the canvas stays interactive.
-  _startPauseRender() {
-    if (this._pauseRafId != null) return; // already running
-    const loop = () => {
-      this._pauseRafId = null;
-      if (this.state !== 'PAUSED' && this.state !== 'DEFEAT') return;
-      this.render();
-      this._pauseRafId = requestAnimationFrame(loop);
-    };
-    this._pauseRafId = requestAnimationFrame(loop);
-  }
-
-  _stopPauseRender() {
-    if (this._pauseRafId != null) {
-      cancelAnimationFrame(this._pauseRafId);
-      this._pauseRafId = null;
-    }
-  }
+  // Pause render loop — delegated to the runtime controller.
+  _startPauseRender() { this.runtime.startPauseRender(); }
+  _stopPauseRender() { this.runtime.stopPauseRender(); }
 
   _getPopup(text, x, y, t, color) {
     if (this._popupPool.length > 0) {
@@ -341,12 +323,7 @@ class Game {
           this.lives -= m.leak;
           this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
           AUDIO.monsterLeak();          if (this.lives <= 0) {
-            this.lives = 0;
-            this.state = 'DEFEAT';
-            AUDIO.defeat();
-            if (this._simWorker) this._simWorker.postMessage('stop');
-            this._startPauseRender();
-            if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
+            this.runtime.applyDefeat();
             break;
           }
         }
@@ -708,54 +685,7 @@ class Game {
   }
 
   start() {
-    // Use a Web Worker for simulation so the game runs at full speed
-    // even when the tab is in the background (workers are never throttled).
-    if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
-    if (this._resizeRAF) { cancelAnimationFrame(this._resizeRAF); this._resizeRAF = null; }
-    this._resizeHandler = () => {
-      if (this._resizeRAF) cancelAnimationFrame(this._resizeRAF);
-      this._resizeRAF = requestAnimationFrame(() => { this._resizeRAF = null; RENDERER.resize(this.canvas); });
-    };
-    window.addEventListener('resize', this._resizeHandler);
-    this.lastTime = performance.now();
-    this._running = true;
-    this._rafVersion = (this._rafVersion || 0) + 1;
-    const myRafVersion = this._rafVersion;
-
-    // Spawn the sim worker.
-    try {
-      this._simWorker = new Worker('js/simWorker.js');
-      this._simWorker.onmessage = (e) => {
-      if (e.data === 'tick') {
-        if (!this._running) return;
-        this._runSimTick(performance.now());
-      }
-    };
-    this._simWorker.onerror = (e) => {
-      console.error('Sim worker error, falling back to main thread:', e);
-      this._simWorker = null;
-      // Start fallback rAF loop so the game doesn't freeze.
-      this._running = true;
-      this.lastTime = performance.now();
-      const fallbackLoop = () => {
-        if (!this._running || this._rafVersion !== myRafVersion) return;
-        this._runSimTick(performance.now());
-        requestAnimationFrame(fallbackLoop);
-      };
-      requestAnimationFrame(fallbackLoop);
-    };
-    this._simWorker.postMessage('start');
-    } catch (err) {
-      console.warn('Web Worker unavailable, falling back to main-thread loop:', err);
-      this._running = true;
-      this.lastTime = performance.now();
-      const fallbackLoop = () => {
-        if (!this._running || this._rafVersion !== myRafVersion) return;
-        this._runSimTick(performance.now());
-        requestAnimationFrame(fallbackLoop);
-      };
-      requestAnimationFrame(fallbackLoop);
-    }
+    this.runtime.startLoop(this.canvas);
   }
 
   // ===== Rendering =====
@@ -993,6 +923,9 @@ class Game {
     if (!UI_LAYOUT.collapsed.hud) {
       const rstBtn = LAYOUT.HUD.RESET_BTN;
       if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) return 'pointer';
+      // Mute button.
+      const muteBtn = LAYOUT.HUD.MUTE_BTN;
+      if (px >= muteBtn.x && px <= muteBtn.x + muteBtn.w && py >= muteBtn.y && py <= muteBtn.y + muteBtn.h) return 'pointer';
       const w = RENDERER.width;
       for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
         const r = { x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28, y: 14, w: LAYOUT.HUD.SPEED_BTN_W, h: LAYOUT.HUD.SPEED_BTN_H };
@@ -1114,6 +1047,13 @@ class Game {
         return;
       }
 
+      // Mute button.
+      const muteBtn = LAYOUT.HUD.MUTE_BTN;
+      if (px >= muteBtn.x && px <= muteBtn.x + muteBtn.w && py >= muteBtn.y && py <= muteBtn.y + muteBtn.h) {
+        AUDIO.toggleMute();
+        return;
+      }
+
       // Speed buttons.
       const w = RENDERER.width;
       for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
@@ -1128,23 +1068,9 @@ class Game {
       const btn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
       if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
         if (this.state === 'PRE_WAVE') {
-          if (this.devMode) {
-            // Dev mode: show toast to use DEV popup instead
-            if (window.showToast) window.showToast('Use the DEV window to start a custom wave', 'warning');
-            return;
-          }
-          if (this.wave.startNextWave()) {
-            this.state = 'WAVE_ACTIVE';
-            AUDIO.waveStart();
-          }
-        } else if (this.state === 'WAVE_ACTIVE') {
-          this.state = 'PAUSED';
-          if (this._simWorker) this._simWorker.postMessage('stop');
-          this._startPauseRender();
-        } else if (this.state === 'PAUSED') {
-          this.state = 'WAVE_ACTIVE';
-          this._stopPauseRender();
-          if (this._simWorker) this._simWorker.postMessage('start');
+          this.runtime.startWave();
+        } else {
+          this.runtime.togglePause();
         }
         return;
       }
@@ -1277,73 +1203,11 @@ class Game {
   }
 
   getSaveData() {
-    return {
-      version: '1.4.0-beta.3',
-      gold: this.gold,
-      lives: this.lives,
-      seed: this.seed,
-      speed: this.speed,
-      devMode: this.devMode,
-      devMonsterCounts: { ...this.devMonsterCounts },
-      wave: { currentWave: this.wave.currentWave },
-      troops: this.troops.filter(t => t.alive).map(t => ({
-        specId: t.spec.id,
-        gx: t.gx, gy: t.gy,
-        hp: t.hp, maxHp: t.maxHp,
-        dmgLevel: t.dmgLevel, rangeLevel: t.rangeLevel,
-        speedLevel: t.speedLevel, chainLevel: t.chainLevel, hpLevel: t.hpLevel, slowLevel: t.slowLevel,
-        shield: t.shield, maxShield: t.maxShield, healCount: t.healCount, healGoldSpent: t.healGoldSpent || 0,
-      })),
-    };
+    return SaveSerializer.fromGame(this);
   }
 
   restore(data) {
-    this.gold = data.gold;
-    this.lives = data.lives;
-    this.speed = data.speed || 1;
-    this.devMode = data.devMode || false;
-    if (data.devMonsterCounts) {
-      this.devMonsterCounts = { ...this._defaultDevCounts(), ...data.devMonsterCounts };
-    }
-    this.seed = data.seed;
-    this.grid = new Grid();
-    this.waypoints = generatePath(this.seed);
-    this.pathSegments = this._buildPathSegments(this.waypoints);
-    this.markPathTiles();
-    RENDERER.markCacheDirty();
-    RENDERER._rebuildCache(this.grid);
-    this.monsters = [];
-    this.projectiles = [];
-    this.popups = [];
-    this._popupPool = [];
-    this.wave = new WaveManager();
-    this.wave.currentWave = data.wave.currentWave;
-    this.wave.buildQueue();
-    this.troops = [];
-    for (const tData of data.troops) {
-      const spec = TROOP_SPECS.find(s => s.id === tData.specId);
-      if (!spec) continue;
-      const t = new Troop(spec, tData.gx, tData.gy);
-      t.hpLevel = tData.hpLevel || 1;
-      t.dmgLevel = tData.dmgLevel || 1;
-      t.rangeLevel = tData.rangeLevel || 1;
-      t.speedLevel = tData.speedLevel || 1;
-      t.chainLevel = tData.chainLevel || 1;
-      t.slowLevel = tData.slowLevel || 1;
-      t._recomputeStats();
-      t.maxHp = t._cachedMaxHp;
-      t.hp = Math.min(tData.hp, t.maxHp);
-      t.shield = tData.shield || 0;
-      t.maxShield = tData.maxShield || 0;
-      t.healCount = tData.healCount || 0;
-      t.healGoldSpent = tData.healGoldSpent || 0;
-      this.troops.push(t);
-    }
-    this._buildTroopTileIndex();
-    this.state = 'PRE_WAVE';
-    // Flag to delete the old save on next autoSave — not here, so a crash
-    // during restoration doesn't lose the save permanently.
-    this._needsSaveCleanup = true;
+    GameSnapshotRestorer.apply(this, data);
   }
 
   _autoSave() {
@@ -1370,23 +1234,12 @@ class Game {
     }
     if (e.key === ' ') {
       e.preventDefault();
-      if (this.state === 'WAVE_ACTIVE') {
-        this.state = 'PAUSED';
-        if (this._simWorker) this._simWorker.postMessage('stop');
-        this._startPauseRender();
-      } else if (this.state === 'PAUSED') {
-        this.state = 'WAVE_ACTIVE';
-        this._stopPauseRender();
-        if (this._simWorker) this._simWorker.postMessage('start');
-      }
+      this.runtime.togglePause();
     }
     if (e.key === 'Enter' && this.state === 'PRE_WAVE') {
       e.preventDefault();
       if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
-      if (this.wave.startNextWave()) {
-        this.state = 'WAVE_ACTIVE';
-        AUDIO.waveStart();
-      }
+      this.runtime.startWave();
     }
 // Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings), Alt+D (Dev)
   if (e.altKey) {
@@ -1429,11 +1282,7 @@ class Game {
 }
 
   restart() {
-    if (this._simWorker) { this._simWorker.terminate(); this._simWorker = null; }
-    this._stopPauseRender();
-    if (this._resizeHandler) window.removeEventListener('resize', this._resizeHandler);
-    if (this._resizeRAF) { cancelAnimationFrame(this._resizeRAF); this._resizeRAF = null; }
-    this._running = false;
+    this.runtime.stopLoop();
     if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
     this.state = 'PRE_WAVE';
     this.speed = 1;
@@ -1447,26 +1296,8 @@ class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = null;
-    this.grid = new Grid();
     this.seed = Math.floor(Math.random() * 0xffffffff);
-    this.waypoints = generatePath(this.seed);
-    this.pathSegments = this._buildPathSegments(this.waypoints);
-    this.markPathTiles();
-    RENDERER.markCacheDirty();
-    RENDERER._rebuildCache(this.grid);
-    this.monsters = [];
-    this.troops = [];
-    this.projectiles = [];
-    this.popups = [];
-    this._popupPool = [];
-    this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
-    this._tileIndexPool = [];
-    this._troopTileIndex = [];
-    for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
-    this.waveCompleteAnim = { active: false, waveNum: 0 };
-    PARTICLES.clear();
-    UI.shopScrollY = 0;
-    this.wave = new WaveManager();
+    GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();
     this.start(); // re-start the background loop
   }

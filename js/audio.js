@@ -5,7 +5,19 @@ class AudioManager {
   constructor() {
     this._ctx = null;
     this._volume = 0.5;
+    this._volumeBeforeMute = 0.5;
     this._enabled = true;
+  }
+
+  get muted() { return this._volume === 0; }
+
+  toggleMute() {
+    if (this._volume > 0) {
+      this._volumeBeforeMute = this._volume;
+      this._volume = 0;
+    } else {
+      this._volume = this._volumeBeforeMute || 0.5;
+    }
   }
 
   _ensure() {

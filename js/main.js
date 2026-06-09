@@ -623,7 +623,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     devStartBtn.addEventListener('click', () => {
       if (typeof game !== 'undefined') {
         game.wave.buildCustomFromCounts(game.devMonsterCounts);
-        if (game.wave.startNextWave()) {
+        if (game.state === 'PRE_WAVE' && game.wave.startNextWave()) {
           game.state = 'WAVE_ACTIVE';
           AUDIO.waveStart();
         }

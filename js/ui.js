@@ -298,6 +298,20 @@ const UI = {
     c.textAlign = 'center';
     c.fillText('Reset', rstX + rstW / 2, 28);
 
+    // Mute button.
+    const muteBtn = LAYOUT.HUD.MUTE_BTN;
+    c.fillStyle = 'rgba(255,255,255,0.04)';
+    UIRoundRect(c, muteBtn.x, muteBtn.y, muteBtn.w, muteBtn.h, 6);
+    c.fill();
+    c.strokeStyle = 'rgba(255,255,255,0.1)';
+    c.lineWidth = 1;
+    UIRoundRect(c, muteBtn.x, muteBtn.y, muteBtn.w, muteBtn.h, 6);
+    c.stroke();
+    c.fillStyle = AUDIO.muted ? '#e74c3c' : UI_COLORS.textDim;
+    c.font = 'bold 11px system-ui, sans-serif';
+    c.textAlign = 'center';
+    c.fillText(AUDIO.muted ? '\u2716' : '\u266A', muteBtn.x + muteBtn.w / 2, 29);
+
     // Speed.
     let sx = w - LAYOUT.HUD.SPEED_OFFSET;
     c.fillStyle = UI_COLORS.textDim;
