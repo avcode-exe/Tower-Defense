@@ -114,9 +114,9 @@ class Troop {
     return false;
   }
 
-  // Heal cost: 10% of base troop price, rounded up.
+  // Heal cost: percentage of base troop price, rounded up.
   getHealCost() {
-    return Math.ceil(this.spec.cost * 0.1);
+    return Math.ceil(this.spec.cost * CONFIG.TROOP_HEAL_COST_RATIO);
   }
 
   // Can this troop be healed?
@@ -124,10 +124,10 @@ class Troop {
     return this.alive && this.hp < this.maxHp;
   }
 
-  // Heal the troop by 10% of max HP. Returns true if healed.
+  // Heal the troop by a percentage of max HP. Returns true if healed.
   heal() {
     if (!this.canHeal()) return false;
-    const healAmount = Math.ceil(this.maxHp * 0.1);
+    const healAmount = Math.ceil(this.maxHp * CONFIG.TROOP_HEAL_HP_RATIO);
     this.hp = Math.min(this.hp + healAmount, this.maxHp);
     this.healCount++;
     return true;

@@ -462,19 +462,14 @@ const UI = {
       const isSelected = game.selectedSpec === spec;
       const isHovered = this.hoveredShopIndex === i;
 
-      // Card background with subtle gradient.
-      const grad = c.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+      // Card background — solid fill (gradient over 58px is imperceptible).
       if (isSelected) {
-        grad.addColorStop(0, '#1a3355');
-        grad.addColorStop(1, '#142840');
+        c.fillStyle = '#1a3355';
       } else if (isHovered) {
-        grad.addColorStop(0, '#1a2838');
-        grad.addColorStop(1, '#15202e');
+        c.fillStyle = '#1a2838';
       } else {
-        grad.addColorStop(0, '#131d28');
-        grad.addColorStop(1, '#0f1820');
+        c.fillStyle = '#131d28';
       }
-      c.fillStyle = grad;
       UIRoundRect(c, r.x, r.y, r.w, r.h, 8);
       c.fill();
 
@@ -710,7 +705,7 @@ const UI = {
           c.fillStyle = healAffordable ? '#fff' : UI_COLORS.textDim;
           c.font = 'bold 10px system-ui, sans-serif';
           c.textAlign = 'center'; c.textBaseline = 'middle';
-          c.fillText('HEAL  +' + Math.ceil(t.maxHp * 0.1) + ' HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 10);
+          c.fillText('HEAL  +' + Math.ceil(t.maxHp * CONFIG.TROOP_HEAL_HP_RATIO) + ' HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 10);
           c.fillStyle = healAffordable ? 'rgba(255,255,255,0.7)' : UI_COLORS.textDim;
           c.font = '8px system-ui, sans-serif';
           c.fillText('(' + healCost + 'g)  ' + t.getHpPercent() + '% HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 22);
@@ -819,11 +814,8 @@ const UI = {
     const cardW = panelW - 20;
     const cardH = 64;
 
-    // Gradient card bg (same style as troop cards).
-    const grad = c.createLinearGradient(cardX, cardY, cardX, cardY + cardH);
-    grad.addColorStop(0, '#131d28');
-    grad.addColorStop(1, '#0f1820');
-    c.fillStyle = grad;
+    // Card bg (solid fill, same style as troop cards).
+    c.fillStyle = '#131d28';
     UIRoundRect(c, cardX, cardY, cardW, cardH, 8);
     c.fill();
 
@@ -1260,85 +1252,6 @@ const UI = {
     c.textBaseline = 'alphabetic';
   },
 
-  drawDevRightPanel(game) {
-    if (!game.devMode) return;
-    if (game.state === 'WAVE_ACTIVE') return;
-    const c = RENDERER.ctx;
-    const pW = 220;
-    const pH = 310;
-    const pX = RENDERER.width - pW - 12 - UI_LAYOUT.shieldShopWidth;
-    const pY = UI_LAYOUT.hudHeight + 50;
-
-    this._devRightPanelRect = { x: pX, y: pY, w: pW, h: pH };
-
-    c.fillStyle = '#111a24';
-    UIRoundRect(c, pX, pY, pW, pH, 10);
-    c.fill();
-    c.strokeStyle = 'rgba(88,166,255,0.15)';
-    c.lineWidth = 1;
-    UIRoundRect(c, pX, pY, pW, pH, 10);
-    c.stroke();
-
-    c.fillStyle = UI_COLORS.textBright;
-    c.font = 'bold 11px system-ui, sans-serif';
-    c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillText('Spawn Monsters', pX + 12, pY + 18);
-
-    const levels = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
-    const rowH = 28;
-    const btnW = 22;
-    this._devRightButtons = [];
-    for (let i = 0; i < levels.length; i++) {
-      const level = levels[i];
-      const ry = pY + 34 + i * rowH;
-      const spec = MONSTER_SPECS[level];
-      c.fillStyle = spec.color;
-      c.beginPath(); c.arc(pX + 16, ry + rowH / 2, 5, 0, Math.PI * 2); c.fill();
-      c.fillStyle = UI_COLORS.textBody;
-      c.font = '10px system-ui, sans-serif';
-      c.textAlign = 'left'; c.textBaseline = 'middle';
-      c.fillText(spec.name + ' x' + (game.devMonsterCounts[level] || 0), pX + 28, ry + rowH / 2);
-
-      const row = { level };
-      for (const [tag, dx] of [['m10', -80], ['m1', -58], ['p1', -36], ['p10', -14]]) {
-        const bx = pX + pW - 12 + dx;
-        const btn = { x: bx, y: ry + 2, w: btnW, h: rowH - 4 };
-        c.fillStyle = 'rgba(255,255,255,0.06)';
-        UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 4);
-        c.fill();
-        c.fillStyle = UI_COLORS.textDim;
-        c.font = 'bold 9px system-ui, sans-serif';
-        c.textAlign = 'center'; c.textBaseline = 'middle';
-        c.fillText(tag.replace('m', '-').replace('p', '+'), btn.x + btn.w / 2, btn.y + btn.h / 2);
-        row[tag] = btn;
-      }
-      this._devRightButtons.push(row);
-    }
-
-    const stX = pX + 12, stY = pY + pH - 40, stW = pW - 24, stH = 30;
-    this._devRightStartBtn = { x: stX, y: stY, w: stW, h: stH };
-    c.fillStyle = 'rgba(46,160,67,0.15)';
-    UIRoundRect(c, stX, stY, stW, stH, 8);
-    c.fill();
-    c.strokeStyle = 'rgba(46,160,67,0.3)';
-    c.lineWidth = 1;
-    UIRoundRect(c, stX, stY, stW, stH, 8);
-    c.stroke();
-    c.fillStyle = UI_COLORS.green;
-    c.font = 'bold 11px system-ui, sans-serif';
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('Start Custom Wave', stX + stW / 2, stY + stH / 2);
-
-    const rstX = pX + 12, rstY = stY - 32, rstW = pW - 24, rstH = 22;
-    this._devRightResetBtn = { x: rstX, y: rstY, w: rstW, h: rstH };
-    c.fillStyle = 'rgba(255,255,255,0.04)';
-    UIRoundRect(c, rstX, rstY, rstW, rstH, 6);
-    c.fill();
-    c.fillStyle = UI_COLORS.textDim;
-    c.font = '9px system-ui, sans-serif';
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.fillText('Reset counts to defaults', rstX + rstW / 2, rstY + rstH / 2);
-  },
 };
 
 window.UI_LAYOUT = UI_LAYOUT;

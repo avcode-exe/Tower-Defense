@@ -16,6 +16,13 @@ const CONFIG = {
   SELL_REFUND_RATIO: 0.3,
   SELL_COOLDOWN: 3.0, // seconds before selling again
 
+  // Troop combat
+  MELEE_DAMAGE_REDUCTION: 0.3, // melee troops take 30% damage from monsters (70% less)
+
+  // Troop healing
+  TROOP_HEAL_HP_RATIO: 0.1,    // heal 10% of max HP per heal
+  TROOP_HEAL_COST_RATIO: 0.1,  // heal costs 10% of base troop price
+
   // Simulation
   FIXED_TIMESTEP: 1 / 60,  // 60 Hz simulation
   TARGET_REFRESH_INTERVAL: 0.2, // seconds between troop target re-evaluation
@@ -50,9 +57,6 @@ const CONFIG = {
 
   // Path generation
   PATH_EDGE_REJECTION: 0.35,
-
-  // Dev mode
-  DEV_STARTING_GOLD: 999999,  // unused — Game.restart() uses Infinity for dev mode
 
   // Projectile
   PROJECTILE_TIMEOUT: 3.0,

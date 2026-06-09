@@ -1,0 +1,78 @@
+{
+  "env": {
+    "browser": true,
+    "worker": true,
+    "es2020": true,
+    "node": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020,
+    "sourceType": "script"
+  },
+  "globals": {
+    "CONFIG": "writable",
+    "LAYOUT": "writable",
+    "MONSTER_SPECS": "writable",
+    "TROOP_SPECS": "writable",
+    "WAVES": "writable",
+    "PROJECTILE_STYLES": "writable",
+    "RENDERER": "writable",
+    "UI": "writable",
+    "UI_LAYOUT": "writable",
+    "PARTICLES": "writable",
+    "AUDIO": "writable",
+    "TILE": "writable",
+    "Grid": "writable",
+    "Game": "writable",
+    "GameRuntimeController": "writable",
+    "GameWorldFactory": "writable",
+    "GameSnapshotRestorer": "writable",
+    "SaveSerializer": "writable",
+    "WaveManager": "writable",
+    "Monster": "writable",
+    "Troop": "writable",
+    "Projectile": "writable",
+    "Input": "writable",
+    "UpdateManager": "writable",
+    "UIRoundRect": "writable",
+    "drawToggleButton": "writable",
+    "hitToggleButton": "writable",
+    "makeRNG": "writable",
+    "shuffleInPlace": "writable",
+    "clamp": "writable",
+    "lerp": "writable",
+    "dist": "writable",
+    "tileCenterInto": "writable",
+    "pixelToTile": "writable",
+    "inBounds": "writable",
+    "generatePath": "writable",
+    "showToast": "writable"
+  },
+  "overrides": [
+    {
+      "files": ["electron-main.js", "preload.js"],
+      "env": {
+        "browser": false,
+        "node": true
+      }
+    },
+    {
+      "files": ["js/simWorker.js"],
+      "env": {
+        "browser": false,
+        "worker": true,
+        "node": false
+      }
+    }
+  ],
+  "rules": {
+    "no-unused-vars": "off",
+    "no-undef": "error",
+    "no-redeclare": "off",
+    "eqeqeq": ["warn", "smart"],
+    "no-constant-condition": "warn",
+    "no-empty": ["warn", { "allowEmptyCatch": true }],
+    "no-unreachable": "error",
+    "no-duplicate-case": "error"
+  }
+}

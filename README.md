@@ -154,6 +154,8 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Web Worker heartbeat** — 16ms tick that keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
+- **ESLint** — static code analysis for bug detection and code quality
+- **Prettier** — consistent code formatting across all source files
 
 ## Data Storage
 
@@ -178,10 +180,13 @@ To do a clean reset, delete the `.tower-defense` folder in your user profile and
 ## Building
 
 ```bash
-npm install        # Install dependencies
-npm start          # Run in dev mode
-npm run build      # Build NSIS installer (dist/Tower Defense Setup X.X.X.exe)
-npm run release    # Build + publish to GitHub Releases (requires GH_TOKEN)
+npm install          # Install dependencies
+npm start            # Run in dev mode
+npm run build        # Build NSIS installer (dist/Tower Defense Setup X.X.X.exe)
+npm run release      # Build + publish to GitHub Releases (requires GH_TOKEN)
+npm run lint         # Check code for bugs and issues
+npm run lint:fix     # Auto-fix lint issues
+npm run format       # Reformat all code with Prettier
 ```
 
 ## License

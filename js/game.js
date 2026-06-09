@@ -85,22 +85,6 @@ class Game {
     this.popups.push({ text, x, y, t, color });
   }
 
-  _buildPathSegments(waypoints) {
-    const segments = [];
-    let total = 0;
-    const T = CONFIG.TILE_SIZE;
-    for (let i = 1; i < waypoints.length; i++) {
-      const [ax, ay] = waypoints[i - 1];
-      const [bx, by] = waypoints[i];
-      const axp = ax * T + T / 2, ayp = ay * T + T / 2;
-      const bxp = bx * T + T / 2, byp = by * T + T / 2;
-      const len = dist(axp, ayp, bxp, byp);
-      total += len;
-      segments.push({ ax: axp, ay: ayp, bx: bxp, by: byp, len, cumStart: total - len });
-    }
-    return { segments, totalLength: total };
-  }
-
   markPathTiles() {
     for (const [gx, gy] of this.waypoints) {
       this.grid.set(gx, gy, TILE.PATH);
@@ -110,9 +94,13 @@ class Game {
   canPlace(gx, gy, spec) {
     if (!this.devMode && this.gold < spec.cost) return false;
     if (!this.grid.isBuildable(gx, gy)) return false;
-    for (let i = 0; i < this.troops.length; i++) {
-      const t = this.troops[i];
-      if (t.alive && t.gx === gx && t.gy === gy) return false;
+    // O(1) tile index lookup instead of linear scan.
+    const idx = gy * CONFIG.GRID_SIZE + gx;
+    const tileTroops = this._troopTileIndex[idx];
+    if (tileTroops) {
+      for (let i = 0; i < tileTroops.length; i++) {
+        if (tileTroops[i].alive) return false;
+      }
     }
     return true;
   }
@@ -259,8 +247,8 @@ class Game {
   // Apply monster melee damage to a troop.
   damageTroop(monster, troop) {
     let dmg = monster.spec.damage;
-    // Melee troops take 70% less damage from monsters (they can block).
-    if (troop.spec.type === 'melee') dmg = Math.round(dmg * 0.3);
+    // Melee troops take reduced damage from monsters (they can block).
+    if (troop.spec.type === 'melee') dmg = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
     const killed = troop.takeDamage(dmg);
     this._getPopup(
       '-' + dmg,
@@ -283,7 +271,7 @@ class Game {
     this.wave.update(dt);
 
     // Spawn due monsters.
-    while (true) {
+    while (true) { // eslint-disable-line no-constant-condition
       const monData = this.wave.popDueMonster();
       if (monData == null) break;
       this.spawnMonster(monData.level, monData.hpMult);
@@ -322,7 +310,8 @@ class Game {
         if (!this.devMode) {
           this.lives -= m.leak;
           this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
-          AUDIO.monsterLeak();          if (this.lives <= 0) {
+          AUDIO.monsterLeak();
+          if (this.lives <= 0) {
             this.runtime.applyDefeat();
             break;
           }
@@ -436,22 +425,42 @@ class Game {
 
   // Fixed-timestep sim tick shared by worker and fallback paths.
   _runSimTick(now) {
-    const realDt = Math.min((now - this.lastTime) / 1000, 0.1);
-    this.lastTime = now;
-    if (this.state === 'PAUSED' || this.state === 'DEFEAT') {
+    try {
+      const realDt = Math.min((now - this.lastTime) / 1000, 0.1);
+      this.lastTime = now;
+      if (this.state === 'PAUSED' || this.state === 'DEFEAT') {
+        this.render();
+        return;
+      }
+      const fixed = CONFIG.FIXED_TIMESTEP;
+      this.accumulator += realDt * this.speed;
+      const maxSteps = Math.max(8, this.speed * 4);
+      this.accumulator = Math.min(this.accumulator, fixed * maxSteps);
+      let safety = maxSteps;
+      while (this.accumulator >= fixed && safety-- > 0) {
+        this.step(fixed);
+        this.accumulator -= fixed;
+      }
       this.render();
-      return;
+    } catch (err) {
+      console.error('[Game] Sim tick crashed:', err);
+      // Show crash state on canvas instead of white-screening.
+      try {
+        const c = RENDERER.ctx;
+        if (c) {
+          c.fillStyle = '#0e1418';
+          c.fillRect(0, 0, RENDERER.width, RENDERER.height);
+          c.fillStyle = '#da3633';
+          c.font = 'bold 20px system-ui, sans-serif';
+          c.textAlign = 'center';
+          c.textBaseline = 'middle';
+          c.fillText('Game Error — Press R to restart', RENDERER.width / 2, RENDERER.height / 2 - 10);
+          c.fillStyle = 'rgba(255,255,255,0.4)';
+          c.font = '12px system-ui, sans-serif';
+          c.fillText(err.message || String(err), RENDERER.width / 2, RENDERER.height / 2 + 16);
+        }
+      } catch (_) { /* render fallback failed, nothing more to do */ }
     }
-    const fixed = CONFIG.FIXED_TIMESTEP;
-    this.accumulator += realDt * this.speed;
-    const maxSteps = Math.max(8, this.speed * 4);
-    this.accumulator = Math.min(this.accumulator, fixed * maxSteps);
-    let safety = maxSteps;
-    while (this.accumulator >= fixed && safety-- > 0) {
-      this.step(fixed);
-      this.accumulator -= fixed;
-    }
-    this.render();
   }
 
   // Build tile-based spatial index of alive monsters for fast targeting.
@@ -1241,45 +1250,45 @@ class Game {
       if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
       this.runtime.startWave();
     }
-// Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings), Alt+D (Dev)
-  if (e.altKey) {
-    const popupKeys = [
-      { key: 'c', popupId: 'controls-popup', collapsedKey: 'help', btnId: 'bar-controls-btn' },
-      { key: 'm', popupId: 'monster-popup', collapsedKey: 'monsterInfo', btnId: 'bar-monster-btn' },
-      { key: 'u', popupId: 'settings-popup', collapsedKey: 'settings', btnId: 'bar-settings-btn' },
-      { key: 'd', popupId: 'dev-popup', collapsedKey: 'dev', btnId: 'bar-dev-btn' },
-    ];
-    const match = popupKeys.find(p => e.key.toLowerCase() === p.key);
-    if (match) {
-      e.preventDefault();
-      // If already open, close it.
-      if (!UI_LAYOUT.collapsed[match.collapsedKey]) {
-        this.togglePopupEl(match.popupId, true, match.btnId);
-      } else {
-        // Find any currently open popup and close it, wait for animation, then open target.
-        const openKey = popupKeys.find(p => !UI_LAYOUT.collapsed[p.collapsedKey]);
-        if (openKey) {
-          this.togglePopupEl(openKey.popupId, true, openKey.btnId);
-          const el = document.getElementById(openKey.popupId);
-          const openFn = () => {
+    // Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings), Alt+D (Dev)
+    if (e.altKey) {
+      const popupKeys = [
+        { key: 'c', popupId: 'controls-popup', collapsedKey: 'help', btnId: 'bar-controls-btn' },
+        { key: 'm', popupId: 'monster-popup', collapsedKey: 'monsterInfo', btnId: 'bar-monster-btn' },
+        { key: 'u', popupId: 'settings-popup', collapsedKey: 'settings', btnId: 'bar-settings-btn' },
+        { key: 'd', popupId: 'dev-popup', collapsedKey: 'dev', btnId: 'bar-dev-btn' },
+      ];
+      const match = popupKeys.find(p => e.key.toLowerCase() === p.key);
+      if (match) {
+        e.preventDefault();
+        // If already open, close it.
+        if (!UI_LAYOUT.collapsed[match.collapsedKey]) {
+          this.togglePopupEl(match.popupId, true, match.btnId);
+        } else {
+          // Find any currently open popup and close it, wait for animation, then open target.
+          const openKey = popupKeys.find(p => !UI_LAYOUT.collapsed[p.collapsedKey]);
+          if (openKey) {
+            this.togglePopupEl(openKey.popupId, true, openKey.btnId);
+            const el = document.getElementById(openKey.popupId);
+            const openFn = () => {
+              UI_LAYOUT.collapsed[match.collapsedKey] = false;
+              this.togglePopupEl(match.popupId, false, match.btnId);
+            };
+            if (el) {
+              const onDone = () => { el.removeEventListener('transitionend', onDone); openFn(); };
+              el.addEventListener('transitionend', onDone);
+              setTimeout(openFn, 350);
+            } else {
+              openFn();
+            }
+          } else {
             UI_LAYOUT.collapsed[match.collapsedKey] = false;
             this.togglePopupEl(match.popupId, false, match.btnId);
-          };
-          if (el) {
-            const onDone = () => { el.removeEventListener('transitionend', onDone); openFn(); };
-            el.addEventListener('transitionend', onDone);
-            setTimeout(openFn, 350);
-          } else {
-            openFn();
           }
-        } else {
-          UI_LAYOUT.collapsed[match.collapsedKey] = false;
-          this.togglePopupEl(match.popupId, false, match.btnId);
         }
       }
     }
   }
-}
 
   restart() {
     this.runtime.stopLoop();

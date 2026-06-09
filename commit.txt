@@ -1,45 +1,66 @@
-v1.4.0-beta.4 — Game class refactor, reset button hitbox fix, mute button
+Code quality overhaul: security fix, dead code removal, performance improvements, and linting setup
 
-Refactoring (Game class decomposition):
-- Extracted GameRuntimeController (js/gameRuntime.js) — owns Web Worker
-  lifecycle, pause/resume render loop, resize subscription, and centralised
-  state transitions (startWave, pauseGame, resumeGame, togglePause,
-  applyDefeat, stopLoop, startLoop)
-- Extracted SaveSerializer, GameWorldFactory, GameSnapshotRestorer
-  (js/gamePersistence.js) — single touch-point for save/restore/restart
-  logic; constructor and restart both reuse GameWorldFactory.createFresh
-- Game.start(), restart(), restore(), getSaveData() now one-liners that
-  delegate to the extracted helpers; all duplicated worker/state/RAF
-  management removed from Game class
-- pause/resume branches in onMouseDown, onKeyDown, and step() defeat
-  handler collapsed from 4-5 call sites to single method calls
-- index.html loads new modules before game.js; main.js dev-start-btn
-  guarded with state check
+Security:
+- Fixed XSS vulnerability in toast notifications (main.js) — replaced innerHTML
+  with safe appendChild + createTextNode to prevent HTML injection from update
+  version strings
 
-Bug fix:
-- Reset button hitbox (LAYOUT.HUD.RESET_BTN) updated from w:36 to w:50
-  to match the visual width of the "Reset" label (was sized for old "RST")
+Bug fixes:
+- Fixed formatting bug in game.js step() — two statements on one line with
+  inconsistent whitespace (AUDIO.monsterLeak() and if block on same line)
+- Fixed inconsistent indentation in Game.onKeyDown() — Alt+key popup toggle
+  block was dedented outside the method scope
 
-New feature:
-- Added mute/unmute button in top HUD, right of Reset button
-- AUDIO.toggleMute() saves and restores previous volume level
-- Button shows music note when active, red X when muted
-- Cursor changes to pointer on hover, click toggles mute
+Dead code removal:
+- Removed unused _buildPathSegments() method from Game (duplicated logic in
+  GameWorldFactory.createFresh)
+- Removed unused drawDevRightPanel() from UI (~80 lines, DEV panel moved to
+  bottom-bar popups in main.js)
+- Removed unused DEV_STARTING_GOLD constant from config (code uses Infinity)
 
-Version bump:
-- package.json, package-lock.json, gamePersistence.js save version
-  bumped to 1.4.0-beta.4
+Performance:
+- Replaced O(n) linear troop scan in canPlace() with O(1) tile-index lookup
+  using the existing _troopTileIndex spatial index
+- Eliminated createLinearGradient() calls per card per frame in UI shop and
+  shield shop — replaced with solid fills (gradient over 58px is imperceptible),
+  removing 10+ gradient allocations per frame
+
+Config centralization:
+- Added CONFIG.MELEE_DAMAGE_REDUCTION (0.3) — replaces hardcoded 30% in
+  Game.damageTroop()
+- Added CONFIG.TROOP_HEAL_HP_RATIO (0.1) — heal amount percentage
+- Added CONFIG.TROOP_HEAL_COST_RATIO (0.1) — heal cost percentage
+- Updated Troop.getHealCost(), Troop.heal(), and UI heal display to use
+  new CONFIG constants
+
+Error handling:
+- Added try/catch error boundary around Game._runSimTick() to render a crash
+  screen instead of white-screening on unhandled exceptions
+
+Tooling:
+- Added ESLint with .eslintrc.json configured for script-tag architecture
+  (all globals declared, browser+worker+node envs, file overrides)
+- Added Prettier with .prettierrc.json (single quotes, trailing commas,
+  2-space indent, 120 char width)
+- Added npm run lint, npm run lint:fix, npm run format, npm run test scripts
+- Added eslint and prettier as devDependencies
+- ESLint passes clean: 0 errors, 0 warnings
+
+Docs:
+- Updated README.md: added ESLint and Prettier to Tech Stack, added
+  lint/format commands to Building section
 
 Files changed:
-- config.js: Added MUTE_BTN layout constant, fixed RESET_BTN width
-- audio.js: Added muted getter, toggleMute() with volume save/restore
-- game.js: Delegated lifecycle/persistence to runtime/persistence modules,
-  added mute button hit test and click handler
-- gamePersistence.js: New file — SaveSerializer, GameWorldFactory,
-  GameSnapshotRestorer
-- gameRuntime.js: New file — GameRuntimeController class
-- index.html: Added script tags for gameRuntime.js, gamePersistence.js
-- main.js: Guarded dev-start-btn with state check
-- ui.js: Drew mute button in HUD, added it to drawHUD
-- package.json: Version bumped to 1.4.0-beta.4
-- package-lock.json: Version bumped to 1.4.0-beta.4
+- .eslintrc.json: New — ESLint configuration
+- .prettierrc.json: New — Prettier configuration
+- README.md: Updated tech stack and build commands
+- js/config.js: Added MELEE_DAMAGE_REDUCTION, TROOP_HEAL_HP_RATIO,
+  TROOP_HEAL_COST_RATIO; removed unused DEV_STARTING_GOLD
+- js/game.js: XSS fix (toast), formatting fix, removed _buildPathSegments,
+  canPlace optimization, magic number extraction, error boundary, indentation
+- js/main.js: XSS fix — safe DOM construction for toast notifications
+- js/troop.js: Updated heal cost/amount to use CONFIG constants
+- js/ui.js: Removed drawDevRightPanel, removed gradient allocations, used
+  CONFIG.TROOP_HEAL_HP_RATIO for heal display
+- package.json: Added lint/format/test scripts, added eslint + prettier deps
+- package-lock.json: Updated dependencies

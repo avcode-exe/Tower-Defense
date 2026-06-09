@@ -303,7 +303,10 @@ window.addEventListener('DOMContentLoaded', async () => {
     const toast = document.createElement('div');
     toast.className = 'toast';
     const dotClass = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
-    toast.innerHTML = '<span class="toast-dot ' + dotClass + '"></span>' + text;
+    const dot = document.createElement('span');
+    dot.className = 'toast-dot ' + dotClass;
+    toast.appendChild(dot);
+    toast.appendChild(document.createTextNode(text));
     toast.addEventListener('click', () => {
       removeToast(toast);
     });
