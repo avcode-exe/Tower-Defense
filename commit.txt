@@ -1,31 +1,27 @@
-v1.3.0 — Bug fixes, performance improvements, and code cleanup
+v1.4.0-beta.1 — Spear monster (pass-through attack mode)
 
-Bug fixes:
-- Fix window resize crash (renderer.js didn't store canvas reference)
-- Fix takeDamage returning wrong damage value when Ice Wizard shatter fires
-- Fix NaN cached slow stats for non-Ice Wizard troops (null guards)
-- Fix melee troops wasting cooldown when game is null
-- Fix division-by-zero risk in getHpRatio/getHpPercent
-- Fix const reassignment crash in tooltip (ui.js tipY)
-- Fix wave manager custom wave format (objects → tuples)
-- Fix cancel-update not actually preventing downloaded handler
+New monster:
+- Spear (X): fast pike-wielder (50 HP, 2.0 speed, 3 damage, 5g reward)
+- Uses new "pass" attack mode — scans 3x3 tile area each frame while
+  moving, dealing damage to adjacent troops without stopping
+- _lastPassTile cooldown ensures exactly one hit per tile traversal (~6 DPS)
+- Small sprite (size 9), grey color (#a3a3a3)
 
-Performance:
-- Reuse splash hit buffer instead of allocating new array per call
-- Hoist performance.now() before troop render loop (called once per frame)
-- Remove duplicate _updateCardAreaBottom call in drawShop
-- Replace JSON deep-clone in settings read with manual spread
-- Cap notifications array at 50 entries
+Wave changes:
+- Wave 5: +4 Spears (was: 8 Brutes + 4 Grunts)
+- Wave 6: +6 Spears (was: 6 Elite + 4 Brutes)
+- Wave 7: +8 Spears (was: 10 Elite + 6 Runners)
+- Wave 8: +6 Spears (was: 8 Elite + 2 Shielded + 4 Runners)
 
-Code cleanup:
-- Remove unused CONFIG constants (SHATTER_WINDOW, hud/hudText/hudAccent/selected/sell colors)
-- Consolidate duplicate pre-release detection functions
-- Remove redundant dSq===0 check in projectile.js
-- Add card overflow mask to prevent scroll bleed into stats panel
-- Improve maxed stat button visibility (background + border)
+Implementation:
+- New `attackMode: 'pass'` field on monster specs
+- Monster.js pass-mode: 3x3 scan with per-tile cooldown
+- Dev mode (F2) custom wave composer updated with Spear row
+- Monster info panel updated with Spear stats
+- README updated with 8 monster types
 
-UI polish:
-- Modern window margin (8px inset)
-- Dynamic-width sidebar panels
-- Gradient shop cards with type badges
-- Improved shield shop design
+Balance notes:
+- Spears are fast but fragile (50 HP vs Grunt's 34)
+- ~6 DPS to ranged troops, ~1.8 DPS to melee troops
+- Natural counter: Ice Wizard slow + shatter, or melee wall
+- Scales normally in infinite waves via countMult/hpMult

@@ -499,7 +499,7 @@ function showPopup(key) {
   // ── populate monster info (unchanged) ──────────────────────────────────────
   const monsterInfoContent = document.getElementById('monster-info-content');
   if (monsterInfoContent && typeof MONSTER_SPECS !== 'undefined') {
-    const order = [1, 2, 3, 4, 5, 'B', 'S'];
+    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
     for (const key of order) {
       const spec = MONSTER_SPECS[key];
       if (!spec) continue;

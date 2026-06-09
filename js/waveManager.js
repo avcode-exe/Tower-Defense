@@ -46,7 +46,7 @@ class WaveManager {
     const cycle = Math.floor(this.currentWave / this.waves.length);
     const scaling = this._getScaling(cycle);
     const hpMult = scaling.hpMult;
-    const order = [1, 2, 3, 4, 5, 'B', 'S'];
+    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
     let t = CONFIG.WAVE_START_DELAY;
     for (const level of order) {
       const count = counts[level] || 0;

@@ -65,7 +65,7 @@ class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = null;
-    this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0};
+    this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
   }
 
   _getPopup(text, x, y, t, color) {
@@ -1366,7 +1366,7 @@ class Game {
   }
 
   _defaultDevCounts() {
-    const counts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0};
+    const counts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
     const preview = this.wave.getNextWavePreview();
     if (preview) {
       for (const [level, count] of preview) {

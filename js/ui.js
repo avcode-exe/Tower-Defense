@@ -1225,7 +1225,7 @@ const UI = {
     c.textAlign = 'left'; c.textBaseline = 'middle';
     c.fillText('Spawn Monsters', pX + 12, pY + 18);
 
-    const levels = [1, 2, 3, 4, 5, 'B', 'S'];
+    const levels = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
     const rowH = 28;
     const btnW = 22;
     this._devRightButtons = [];

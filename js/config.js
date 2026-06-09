@@ -123,6 +123,7 @@ const MONSTER_SPECS = {
   5: { name: 'Champion', hp: 667,  speed: 0.9, reward: 36, leak: 3, color: '#a86ad9', size: 16, damage: 32, attackSpeed: 1.0, attackRange: 1 },
   B: { name: 'Boss',     hp: 1668, speed: 0.6, reward: 200, leak: 5, color: '#e74c3c', size: 22, damage: 45, attackSpeed: 1.0, attackRange: 1, healPerSecond: 15 },
   S: { name: 'Shielded', hp: 173,  speed: 0.8, reward: 15, leak: 1, color: '#5dade2', size: 14, damage: 16, attackSpeed: 1.0, attackRange: 1, shield: 69 },
+  X: { name: 'Spear',    hp: 50,   speed: 2.0, reward: 5,  leak: 1, color: '#a3a3a3', size: 9,  damage: 3,  attackSpeed: 0,   attackRange: 1, attackMode: 'pass' },
 };
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).
@@ -151,10 +152,10 @@ const WAVES = [
     [[1, 12]],                                         // Wave 2: 12 Grunts (408 HP)
     [[1, 6], [2, 6]],                                  // Wave 3: 6 Grunts + 6 Runners (366 HP)
     [[3, 3], [2, 6]],                                  // Wave 4: 3 Brutes + 6 Runners (561 HP)
-    [[3, 8], [1, 4]],                                  // Wave 5: 8 Brutes + 4 Grunts (1200 HP)
-    [[4, 6], [3, 4]],                                  // Wave 6: 6 Elite + 4 Brutes (2002 HP)
-    [[4, 10], [2, 6]],                                 // Wave 7: 10 Elite + 6 Runners (2612 HP)
-    [[4, 8], ['S', 2], [2, 4]],                        // Wave 8: 8 Elite + 2 Shielded + 4 Runners
+    [[3, 8], [1, 4], ['X', 4]],                        // Wave 5: 8 Brutes + 4 Grunts + 4 Spears
+    [[4, 6], [3, 4], ['X', 6]],                        // Wave 6: 6 Elite + 4 Brutes + 6 Spears
+    [[4, 10], [2, 6], ['X', 8]],                       // Wave 7: 10 Elite + 6 Runners + 8 Spears
+    [[4, 8], ['S', 2], [2, 4], ['X', 6]],              // Wave 8: 8 Elite + 2 Shielded + 4 Runners + 6 Spears
     [[4, 10], [5, 4], [3, 2]],                         // Wave 9: 10 Elite + 4 Champion + 2 Brute
     [[5, 6], ['S', 4], ['B', 1]],                      // Wave 10: 6 Champion + 4 Shielded + 1 Boss
 ];

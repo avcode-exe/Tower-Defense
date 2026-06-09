@@ -9,7 +9,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 ## Features
 
 - **10 troop types** — melee, ranged, splash, chain lightning, siege, and **Ice Wizard** (splash + slow + shatter)
-- **7 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss
+- **8 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss, **Spear** (fast pass-through)
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
 - **Monster melee attacks** — monsters stop and attack adjacent troops, dealing damage
 - **Troop HP** — troops have health pools and can be destroyed by monsters
@@ -57,6 +57,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 | 5 | Champion | 667 | 0.9 | 32 | 36g | 3 | Very tanky |
 | B | Boss | 1668 | 0.6 | 45 | 200g | 5 | 2x HP, appears wave 10/20/30, heals 15 HP/s |
 | S | Shielded | 173 | 0.8 | 16 | 15g | 1 | Regenerating shield (69 HP, overheals to 104) |
+| X | Spear | 50 | 2.0 | 3 | 5g | 1 | Fast, pass-through damage (doesn't stop to attack) |
 
 Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 

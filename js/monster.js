@@ -52,6 +52,9 @@ class Monster {
     this._tileGx = 0;
     this._tileGy = 0;
 
+    // Pass-mode: track last tile hit to prevent per-frame multi-hit.
+    this._lastPassTile = -1;
+
     this._updatePosition();
   }
 
@@ -246,8 +249,36 @@ class Monster {
 
       this._updatePosition();
 
-      // Check for nearby troops to attack.
-      if (troopTileIndex) {
+      // Pass-mode: deal damage once per tile to troops within 1 tile.
+      // Troops sit on buildable tiles adjacent to the path, so we check
+      // the 3×3 area around the monster (same as findTarget).
+      if (this.spec.attackMode === 'pass' && troopTileIndex) {
+        const gx = this._tileGx;
+        const gy = this._tileGy;
+        const gs = CONFIG.GRID_SIZE;
+        const tileIdx = gy * gs + gx;
+        if (tileIdx !== this._lastPassTile) {
+          this._lastPassTile = tileIdx;
+          for (let dy = -1; dy <= 1; dy++) {
+            for (let dx = -1; dx <= 1; dx++) {
+              const tx = gx + dx;
+              const ty = gy + dy;
+              if (tx < 0 || tx >= gs || ty < 0 || ty >= gs) continue;
+              const tileTroops = troopTileIndex[ty * gs + tx];
+              if (!tileTroops) continue;
+              for (let i = 0; i < tileTroops.length; i++) {
+                if (tileTroops[i].alive) {
+                  this._pendingAttack = tileTroops[i];
+                  break;
+                }
+              }
+              if (this._pendingAttack) break;
+            }
+            if (this._pendingAttack) break;
+          }
+        }
+      } else if (troopTileIndex) {
+        // Standard melee: check for nearby troops to attack.
         const target = this.findTarget(troopTileIndex);
         if (target) {
           this.state = 'ATTACKING';
