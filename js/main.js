@@ -288,6 +288,8 @@ function showPopup(key) {
     // Auto-fade after duration (default 4s)
     setTimeout(() => removeToast(toast), duration || 4000);
   }
+  // Expose toast globally for game.js
+  window.showToast = showToast;
 
   function removeToast(toast) {
     if (!toast || !toast.parentNode) return;
@@ -520,11 +522,102 @@ function showPopup(key) {
       stats.appendChild(_s('Dmg:' + spec.damage));
       stats.appendChild(_s('Leak:' + spec.leak));
       if (spec.shield) stats.appendChild(_s('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
+      const mode = spec.attackMode || 'stop';
+      if (mode === 'slow') {
+        stats.appendChild(_s('Slow: slows near troops, attacks closest'));
+      } else if (mode === 'pass') {
+        stats.appendChild(_s('Pass: penetration, hits each troop once'));
+      }
       row.appendChild(dot);
       row.appendChild(name);
       row.appendChild(stats);
       monsterInfoContent.appendChild(row);
     }
+  }
+
+  // ── populate DEV popup spawn content ─────────────────────────────────────
+  const devSpawnContent = document.getElementById('dev-spawn-content');
+  if (devSpawnContent && typeof MONSTER_SPECS !== 'undefined') {
+    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
+    const devRows = [];
+    for (const key of order) {
+      const spec = MONSTER_SPECS[key];
+      if (!spec) continue;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; align-items:center; gap:6px; padding:2px 0; font-size:10px;';
+      const dot = document.createElement('span');
+      dot.style.cssText = `width:8px; height:8px; border-radius:50%; background:${spec.color}; flex-shrink:0;`;
+      const label = document.createElement('span');
+      label.style.cssText = 'flex:1; color:rgba(255,255,255,0.78); min-width:60px;';
+      label.textContent = spec.name;
+      const countSpan = document.createElement('span');
+      countSpan.style.cssText = 'width:24px; text-align:center; color:rgba(255,255,255,0.6);';
+      countSpan.textContent = 'x0';
+      const btns = document.createElement('div');
+      btns.style.cssText = 'display:flex; gap:2px;';
+      for (const [tag, dx] of [['-10', -80], ['-1', -58], ['+1', -36], ['+10', -14]]) {
+        const btn = document.createElement('button');
+        btn.style.cssText = 'width:22px; height:18px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:3px; cursor:pointer; font-size:8px; font-family:inherit; padding:0;';
+        btn.textContent = tag;
+        btn.addEventListener('click', () => {
+          if (typeof game !== 'undefined') {
+            const delta = parseInt(tag);
+            game.devMonsterCounts[key] = Math.max(0, (game.devMonsterCounts[key] || 0) + delta);
+            countSpan.textContent = 'x' + (game.devMonsterCounts[key] || 0);
+          }
+        });
+        btns.appendChild(btn);
+      }
+      row.appendChild(dot);
+      row.appendChild(label);
+      row.appendChild(countSpan);
+      row.appendChild(btns);
+      devSpawnContent.appendChild(row);
+      devRows.push({ key, countSpan });
+    }
+    // Update counts display when dev mode changes
+    window._updateDevSpawnCounts = () => {
+      if (typeof game !== 'undefined') {
+        for (const r of devRows) {
+          r.countSpan.textContent = 'x' + (game.devMonsterCounts[r.key] || 0);
+        }
+      }
+    };
+  }
+
+  // DEV popup buttons
+  const devResetBtn = document.getElementById('dev-reset-btn');
+  if (devResetBtn) {
+    devResetBtn.addEventListener('click', () => {
+      if (typeof game !== 'undefined') {
+        game.resetDevMonsterCounts();
+        if (window._updateDevSpawnCounts) window._updateDevSpawnCounts();
+      }
+    });
+  }
+  const devStartBtn = document.getElementById('dev-start-btn');
+  if (devStartBtn) {
+    devStartBtn.addEventListener('click', () => {
+      if (typeof game !== 'undefined') {
+        game.wave.buildCustomFromCounts(game.devMonsterCounts);
+        if (game.wave.startNextWave()) {
+          game.wave.buildCustomFromCounts(game.devMonsterCounts);
+          game.state = 'WAVE_ACTIVE';
+          AUDIO.waveStart();
+        }
+      }
+    });
+  }
+
+  // DEV bar button
+  const devBarBtn = document.getElementById('bar-dev-btn');
+  if (devBarBtn) {
+    devBarBtn.addEventListener('click', () => {
+      if (typeof UI_LAYOUT !== 'undefined' && typeof game !== 'undefined') {
+        UI_LAYOUT.collapsed.dev = !UI_LAYOUT.collapsed.dev;
+        game.togglePopupEl('dev-popup', UI_LAYOUT.collapsed.dev, 'bar-dev-btn');
+      }
+    });
   }
 
 });

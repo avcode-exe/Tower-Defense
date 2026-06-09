@@ -1,6 +1,6 @@
 {
   "name": "tower-defense",
-  "version": "1.4.0-beta.1",
+  "version": "1.4.0-beta.2",
   "description": "Tower Defense Game",
   "main": "electron-main.js",
   "scripts": {
@@ -12,7 +12,9 @@
     "appId": "com.towerdefense.app",
     "productName": "Tower Defense",
     "win": {
-      "target": ["nsis"],
+      "target": [
+        "nsis"
+      ],
       "icon": "icon.png"
     },
     "nsis": {
@@ -25,14 +27,14 @@
       "owner": "avcode-exe",
       "repo": "Tower-Defense"
     },
-"files": [
-    "electron-main.js",
-    "preload.js",
-    "index.html",
-    "css/**/*",
-    "js/**/*",
-    "icon.png"
-  ],
+    "files": [
+      "electron-main.js",
+      "preload.js",
+      "index.html",
+      "css/**/*",
+      "js/**/*",
+      "icon.png"
+    ],
     "directories": {
       "output": "dist"
     }

@@ -54,6 +54,8 @@ class Monster {
 
     // Pass-mode: track last tile hit to prevent per-frame multi-hit.
     this._lastPassTile = -1;
+    // Pass-mode penetration: track troops already hit so each troop is attacked at most once.
+    this._hitTroops = new Set();
 
     this._updatePosition();
   }
@@ -214,7 +216,9 @@ class Monster {
       return;
     }
 
-    // ATTACKING state.
+    const attackMode = this.spec.attackMode || 'stop';
+
+    // ATTACKING state (used by 'stop' mode).
     if (this.state === 'ATTACKING') {
       if (!this.attackTarget || !this.attackTarget.alive) {
         this.attackTarget = null;
@@ -237,6 +241,21 @@ class Monster {
 
     // MOVING state.
     if (this.state === 'MOVING') {
+      // Slow mode: reduce speed when a troop is in range, attack while moving.
+      if (attackMode === 'slow' && troopTileIndex) {
+        const nearTarget = this.findTarget(troopTileIndex);
+        if (nearTarget) {
+          this.speed = this.baseSpeed * 0.5;
+          this.attackTimer -= dt;
+          if (this.attackTimer <= 0) {
+            this.attackTimer = this.spec.attackSpeed;
+            this._pendingAttack = nearTarget;
+          }
+        } else {
+          this.speed = this.baseSpeed;
+        }
+      }
+
       this.distance += this.speed * CONFIG.TILE_SIZE * dt;
 
       // Clamp to path end.
@@ -249,10 +268,8 @@ class Monster {
 
       this._updatePosition();
 
-      // Pass-mode: deal damage once per tile to troops within 1 tile.
-      // Troops sit on buildable tiles adjacent to the path, so we check
-      // the 3×3 area around the monster (same as findTarget).
-      if (this.spec.attackMode === 'pass' && troopTileIndex) {
+      // Pass-mode penetration: deal damage to each troop at most once while moving.
+      if (attackMode === 'pass' && troopTileIndex) {
         const gx = this._tileGx;
         const gy = this._tileGy;
         const gs = CONFIG.GRID_SIZE;
@@ -267,8 +284,10 @@ class Monster {
               const tileTroops = troopTileIndex[ty * gs + tx];
               if (!tileTroops) continue;
               for (let i = 0; i < tileTroops.length; i++) {
-                if (tileTroops[i].alive) {
-                  this._pendingAttack = tileTroops[i];
+                const t = tileTroops[i];
+                if (t.alive && !this._hitTroops.has(t)) {
+                  this._pendingAttack = t;
+                  this._hitTroops.add(t);
                   break;
                 }
               }
@@ -277,8 +296,8 @@ class Monster {
             if (this._pendingAttack) break;
           }
         }
-      } else if (troopTileIndex) {
-        // Standard melee: check for nearby troops to attack.
+      } else if (attackMode === 'stop' && troopTileIndex) {
+        // Stop mode: check for nearby troops to attack.
         const target = this.findTarget(troopTileIndex);
         if (target) {
           this.state = 'ATTACKING';

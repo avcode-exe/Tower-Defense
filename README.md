@@ -9,12 +9,13 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 ## Features
 
 - **10 troop types** — melee, ranged, splash, chain lightning, siege, and **Ice Wizard** (splash + slow + shatter)
-- **8 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss, **Spear** (fast pass-through)
+- **8 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss, **Spear** (slow-attack hybrid)
+- **Modernized icon** — redesigned tower icon with glowing beacon and vibrant gradients
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
-- **Monster melee attacks** — monsters stop and attack adjacent troops, dealing damage
+- **Three monster attack modes** — **stop** (default, pauses to attack), **slow** (slows near troops, attacks while moving), **pass** (penetration, hits each troop once)
 - **Troop HP** — troops have health pools and can be destroyed by monsters
 - **Upgradeable troops** — 4 independently upgradeable stats per troop (DMG / RNG / SPD / CHN), up to level 5 each; Ice Wizard adds **SLW** (slow power/duration/shatter)
-- **Dev mode** (F2) — unlimited gold + custom wave composition editor
+- **Dev mode** (F2) — infinite gold & lives, custom wave composition via dedicated DEV popup. Start Wave button is greyed out in dev mode (use DEV popup to launch custom waves)
 - **Adjustable game speed** — 1x / 2x / 4x / 8x / 16x / 32x / 64x / 128x
 - **Web Worker heartbeat** — 16ms tick keeps the main-thread sim running when the window is backgrounded
 - **Auto-update** — built-in update checker via GitHub Releases with channel selection (stable / pre-release)
@@ -51,17 +52,23 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 | Level | Name | HP | Speed | Damage | Reward | Leak DMG | Special |
 |-------|------|----|-------|--------|--------|----------|---------|
 | 1 | Grunt | 34 | 1.0 | 4 | 4g | 1 | — |
-| 2 | Runner | 27 | 1.8 | 3 | 6g | 1 | Fast |
+| 2 | Runner | 27 | 3.0 | 6 | 6g | 1 | Fast, penetration (hits each troop once then moves on) |
 | 3 | Brute | 133 | 0.7 | 14 | 11g | 1 | Tanky |
 | 4 | Elite | 245 | 1.0 | 18 | 17g | 2 | Splits into 2 Brutes on death |
 | 5 | Champion | 667 | 0.9 | 32 | 36g | 3 | Very tanky |
 | B | Boss | 1668 | 0.6 | 45 | 200g | 5 | 2x HP, appears wave 10/20/30, heals 15 HP/s |
 | S | Shielded | 173 | 0.8 | 16 | 15g | 1 | Regenerating shield (69 HP, overheals to 104) |
-| X | Spear | 50 | 2.0 | 3 | 5g | 1 | Fast, pass-through damage (doesn't stop to attack) |
+| X | Spear | 50 | 2.0 | 3 | 5g | 1 | Slows to half speed near troops, attacks closest in 2.5 tile radius |
 
 Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 
-Monsters can attack adjacent troops, dealing their damage stat per hit. Troops have HP and can be destroyed — plan your defenses carefully!
+Monsters have three attack modes:
+
+- **stop** (default): Stops moving when a troop is in range, attacks, then resumes. Used by Grunt, Brute, Elite, Champion, Boss, Shielded.
+- **slow**: Moves at normal speed when no troop is nearby. Slows to half speed when a defense troop is in range and attacks the closest one. Used by Spear.
+- **pass**: Always moves at full speed. Deals damage to troops while passing — each troop is hit at most once (penetration). Used by Runner.
+
+Troops have HP and can be destroyed — plan your defenses carefully!
 
 **Melee troops take 70% less damage from monster attacks** — they are your front line. Ranged troops take full damage and must be protected.
 
@@ -85,6 +92,7 @@ Monsters can attack adjacent troops, dealing their damage stat per hit. Troops h
 | Enter | Start wave |
 | R | Restart (on win/lose) |
 | F2 | Toggle Dev mode |
+| D | Toggle DEV popup (dev mode only) |
 | Speed buttons | Adjust game speed (1x-128x) in HUD |
 
 ## UI Panels
@@ -95,6 +103,7 @@ The bottom bar contains buttons for all in-game panels:
 |--------|-------|-------------|
 | **Monsters** | Monster info | HP, speed, damage, reward, and special abilities for all monster types |
 | **Controls** | Controls reference | Keyboard shortcuts and mouse controls |
+| **DEV** | Dev tools | Custom wave spawner with per-monster count controls (dev mode only) |
 | **Settings** | Settings | Update channel, auto-download, check interval, Save/Cancel |
 | **🔔** | Notifications | Update status, download progress, action buttons (Update/Skip/Restart) |
 | **ⓘ** | About | Game name, version with release type, author, GitHub repo link |

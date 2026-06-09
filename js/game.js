@@ -224,7 +224,8 @@ class Game {
       this._getPopup('+' + r.reward, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
       PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
       // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
-      if (m.level !== 'B' && m.level !== 'S' && m.level > 1) {
+      const noSplit = (m.spec.attackMode || 'stop') === 'pass';
+      if (!noSplit && m.level !== 'B' && m.level !== 'S' && m.level > 1) {
         const childLvl = m.level - 1;
         for (let i = 0; i < CONFIG.MONSTER_SPLIT_COUNT; i++) {
           const child = new Monster(childLvl, this.waypoints, this.pathSegments, m.hpMult);
@@ -324,16 +325,18 @@ class Game {
       m.update(dt, this._troopTileIndex);
       if (m.reachedEnd) {
         m.alive = false;
-        this.lives -= m.leak;
-        this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
-        AUDIO.monsterLeak();          if (this.lives <= 0) {
-          this.lives = 0;
-          this.state = 'DEFEAT';
-          AUDIO.defeat();
-          if (this._simWorker) this._simWorker.postMessage('stop');
-          this._startPauseRender();
-          if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
-          break;
+        if (!this.devMode) {
+          this.lives -= m.leak;
+          this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
+          AUDIO.monsterLeak();          if (this.lives <= 0) {
+            this.lives = 0;
+            this.state = 'DEFEAT';
+            AUDIO.defeat();
+            if (this._simWorker) this._simWorker.postMessage('stop');
+            this._startPauseRender();
+            if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
+            break;
+          }
         }
       }
     }
@@ -948,7 +951,7 @@ class Game {
     UI.drawWaveTransition(this);
     UI.drawOverlay(this);
     UI.drawDevConfirmDialog(this);
-    if (this.devMode) UI.drawDevRightPanel(this);
+    // Dev right panel removed — spawn controls moved to bottom bar DEV popup
   }
 
   // ===== Input =====
@@ -995,45 +998,7 @@ class Game {
       return; // all clicks consumed while dialog is shown
     }
 
-    // Right-panel clicks in dev mode (non-modal — clicks outside pass through).
-    if (this.devMode && this.state === 'PRE_WAVE' && UI._devRightPanelRect) {
-      if (px >= UI._devRightPanelRect.x && px <= UI._devRightPanelRect.x + UI._devRightPanelRect.w
-          && py >= UI._devRightPanelRect.y && py <= UI._devRightPanelRect.y + UI._devRightPanelRect.h) {
-        // Inside the panel — check buttons.
-        const rows = UI._devRightButtons;
-        if (rows) {
-          for (let i = 0; i < rows.length; i++) {
-            const row = rows[i];
-            const tags = ['m10','m1','p1','p10'];
-            for (let j = 0; j < tags.length; j++) {
-              const b = row[tags[j]];
-              if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
-                const delta = tags[j] === 'm10' ? -10 : tags[j] === 'm1' ? -1 : tags[j] === 'p1' ? 1 : 10;
-                this.devMonsterCounts[row.level] = Math.max(0, (this.devMonsterCounts[row.level] || 0) + delta);
-                return;
-              }
-            }
-        }
-        }
-
-        if (UI._devRightStartBtn && px >= UI._devRightStartBtn.x && px <= UI._devRightStartBtn.x + UI._devRightStartBtn.w
-            && py >= UI._devRightStartBtn.y && py <= UI._devRightStartBtn.y + UI._devRightStartBtn.h) {
-          if (this.wave.startNextWave()) {
-            this.wave.buildCustomFromCounts(this.devMonsterCounts);
-            this.state = 'WAVE_ACTIVE';
-            AUDIO.waveStart();
-          }
-          return;
-        }
-        if (UI._devRightResetBtn && px >= UI._devRightResetBtn.x && px <= UI._devRightResetBtn.x + UI._devRightResetBtn.w
-            && py >= UI._devRightResetBtn.y && py <= UI._devRightResetBtn.y + UI._devRightResetBtn.h) {
-          this.resetDevMonsterCounts();
-          return;
-        }
-        // Clicks inside panel but not on a button are consumed.
-        return;
-      }
-    }
+    // Dev right panel click handling removed — moved to bottom bar DEV popup
 
     // Triple-click on gold display to toggle dev mode.
     if (px >= LAYOUT.HUD.GOLD_AREA.x && px <= LAYOUT.HUD.GOLD_AREA.x + LAYOUT.HUD.GOLD_AREA.w && py >= LAYOUT.HUD.GOLD_AREA.y && py <= LAYOUT.HUD.GOLD_AREA.y + LAYOUT.HUD.GOLD_AREA.h) {
@@ -1071,8 +1036,12 @@ class Game {
       const btn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
       if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
         if (this.state === 'PRE_WAVE') {
+          if (this.devMode) {
+            // Dev mode: show toast to use DEV popup instead
+            if (window.showToast) window.showToast('Use the DEV window to start a custom wave', 'warning');
+            return;
+          }
           if (this.wave.startNextWave()) {
-            if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
             this.state = 'WAVE_ACTIVE';
             AUDIO.waveStart();
           }
@@ -1336,6 +1305,10 @@ class Game {
       UI_LAYOUT.collapsed.settings = !UI_LAYOUT.collapsed.settings;
       this.togglePopupEl('settings-popup', UI_LAYOUT.collapsed.settings, 'bar-settings-btn');
       e.preventDefault();
+    } else if (e.key === 'd' || e.key === 'D') {
+      UI_LAYOUT.collapsed.dev = !UI_LAYOUT.collapsed.dev;
+      this.togglePopupEl('dev-popup', UI_LAYOUT.collapsed.dev, 'bar-dev-btn');
+      e.preventDefault();
     }
   }
 }
@@ -1349,8 +1322,8 @@ class Game {
     if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
     this.state = 'PRE_WAVE';
     this.speed = 1;
-    this.gold = this.devMode ? CONFIG.DEV_STARTING_GOLD : CONFIG.STARTING_GOLD;
-    this.lives = CONFIG.STARTING_LIVES;
+    this.gold = this.devMode ? Infinity : CONFIG.STARTING_GOLD;
+    this.lives = this.devMode ? Infinity : CONFIG.STARTING_LIVES;
     this.selectedSpec = null;
     this.selectedTroopIndex = -1;
     this.sellCooldownTimer = 0;
@@ -1385,24 +1358,25 @@ class Game {
 
   toggleDevMode() {
     this.devMode = !this.devMode;
+    const devBtn = document.getElementById('bar-dev-btn');
+    if (devBtn) devBtn.style.display = this.devMode ? '' : 'none';
     this.restart();
   }
 
   resetGame() {
+    const wasDevMode = this.devMode;
     this.devMode = false;
     this.devConfirmPending = false;
     this.restart();
+    if (wasDevMode) {
+      this.devMode = true;
+      const devBtn = document.getElementById('bar-dev-btn');
+      if (devBtn) devBtn.style.display = '';
+    }
   }
 
   _defaultDevCounts() {
-    const counts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
-    const preview = this.wave.getNextWavePreview();
-    if (preview) {
-      for (const [level, count] of preview) {
-        counts[level] = count;
-      }
-    }
-    return counts;
+    return {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
   }
 
   resetDevMonsterCounts() {

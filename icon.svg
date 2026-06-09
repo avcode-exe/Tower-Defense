@@ -1,62 +1,134 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#0e1418"/>
-      <stop offset="100%" style="stop-color:#070b0f"/>
+    <!-- Background gradient - deep navy to charcoal -->
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#141e30"/>
+      <stop offset="100%" stop-color="#0b1120"/>
     </linearGradient>
-    <linearGradient id="towerBody" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#4a90d9"/>
-      <stop offset="100%" style="stop-color:#2563eb"/>
+
+    <!-- Tower gradient - vibrant blue -->
+    <linearGradient id="towerGrad" x1="220" y1="120" x2="290" y2="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#5ac8fa"/>
+      <stop offset="40%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#1e40af"/>
     </linearGradient>
-    <linearGradient id="spire" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" style="stop-color:#f1c40f"/>
-      <stop offset="100%" style="stop-color:#e67e22"/>
+
+    <!-- Tower highlight -->
+    <linearGradient id="towerHi" x1="210" y1="0" x2="310" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.12"/>
+      <stop offset="50%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
     </linearGradient>
-    <filter id="glow">
-      <feGaussianBlur stdDeviation="4" result="blur"/>
-      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+
+    <!-- Beacon gradient - warm gold -->
+    <linearGradient id="beaconGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fde68a"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+
+    <!-- Beacon glow - radial -->
+    <radialGradient id="beaconGlow" cx="256" cy="130" r="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0.45"/>
+      <stop offset="60%" stop-color="#f59e0b" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Ambient glow behind tower -->
+    <radialGradient id="ambientGlow" cx="256" cy="260" r="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Soft glow filter for beacon -->
+    <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
   <!-- Background rounded square -->
-  <rect x="0" y="0" width="512" height="512" rx="96" fill="url(#bg)" stroke="rgba(255,255,255,0.06)" stroke-width="2"/>
+  <rect width="512" height="512" rx="108" fill="url(#bg)"/>
 
-  <!-- Tower shadow -->
-  <ellipse cx="256" cy="420" rx="100" ry="16" fill="rgba(0,0,0,0.35)"/>
+  <!-- Subtle border -->
+  <rect x="1" y="1" width="510" height="510" rx="107" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1.5"/>
 
-  <!-- Tower base -->
-  <rect x="190" y="340" width="132" height="70" rx="6" fill="url(#towerBody)" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+  <!-- Ambient glow behind tower -->
+  <ellipse cx="256" cy="300" rx="140" ry="160" fill="url(#ambientGlow)"/>
 
-  <!-- Tower body -->
-  <rect x="210" y="220" width="92" height="130" rx="6" fill="url(#towerBody)" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+  <!-- Beacon glow (large, behind tower) -->
+  <circle cx="256" cy="130" r="100" fill="url(#beaconGlow)"/>
+
+  <!-- Tower shadow on ground -->
+  <ellipse cx="256" cy="408" rx="88" ry="10" fill="rgba(0,0,0,0.35)"/>
+
+  <!-- ====== TOWER STRUCTURE ====== -->
+
+  <!-- Tower base (wider) -->
+  <rect x="188" y="332" width="136" height="62" rx="5" fill="url(#towerGrad)"/>
+  <rect x="188" y="332" width="136" height="62" rx="5" fill="url(#towerHi)"/>
+  <!-- Base top edge highlight -->
+  <rect x="188" y="329" width="136" height="5" rx="2.5" fill="#4da6ff" opacity="0.5"/>
+
+  <!-- Tower body (mid) -->
+  <rect x="212" y="210" width="88" height="128" rx="5" fill="url(#towerGrad)"/>
+  <rect x="212" y="210" width="88" height="128" rx="5" fill="url(#towerHi)"/>
+  <!-- Body top edge -->
+  <rect x="212" y="207" width="88" height="5" rx="2.5" fill="#4da6ff" opacity="0.45"/>
 
   <!-- Tower top section -->
-  <rect x="224" y="160" width="64" height="64" rx="4" fill="url(#towerBody)" stroke="rgba(255,255,255,0.12)" stroke-width="1.5"/>
+  <rect x="228" y="152" width="56" height="62" rx="4" fill="url(#towerGrad)"/>
+  <rect x="228" y="152" width="56" height="62" rx="4" fill="url(#towerHi)"/>
 
-  <!-- Spire -->
-  <polygon points="256,60 232,120 280,120" fill="url(#spire)" filter="url(#glow)"/>
+  <!-- Battlements (3 crenellations) -->
+  <rect x="224" y="140" width="16" height="18" rx="3" fill="#2563eb"/>
+  <rect x="248" y="140" width="16" height="18" rx="3" fill="#2563eb"/>
+  <rect x="272" y="140" width="16" height="18" rx="3" fill="#2563eb"/>
+  <!-- Battlement highlights -->
+  <rect x="224" y="140" width="16" height="3" rx="1.5" fill="rgba(255,255,255,0.15)"/>
+  <rect x="248" y="140" width="16" height="3" rx="1.5" fill="rgba(255,255,255,0.15)"/>
+  <rect x="272" y="140" width="16" height="3" rx="1.5" fill="rgba(255,255,255,0.15)"/>
 
-  <!-- Spire tip glow -->
-  <circle cx="256" cy="64" r="6" fill="#f1c40f" opacity="0.6"/>
+  <!-- ====== WINDOWS ====== -->
 
-  <!-- Windows / slits -->
-  <rect x="234" y="180" width="10" height="24" rx="2" fill="rgba(0,0,0,0.3)"/>
-  <rect x="262" y="180" width="10" height="24" rx="2" fill="rgba(0,0,0,0.3)"/>
+  <!-- Top section - twin slit windows -->
+  <rect x="240" y="168" width="7" height="18" rx="2" fill="rgba(0,0,0,0.4)"/>
+  <rect x="265" y="168" width="7" height="18" rx="2" fill="rgba(0,0,0,0.4)"/>
+  <!-- Window glow (subtle warm light from inside) -->
+  <rect x="240" y="168" width="7" height="18" rx="2" fill="#fbbf24" opacity="0.08"/>
+  <rect x="265" y="168" width="7" height="18" rx="2" fill="#fbbf24" opacity="0.08"/>
 
-  <rect x="234" y="240" width="44" height="10" rx="2" fill="rgba(0,0,0,0.25)"/>
+  <!-- Body section - cross window -->
+  <rect x="244" y="242" width="24" height="6" rx="1.5" fill="rgba(0,0,0,0.3)"/>
+  <rect x="253" y="234" width="6" height="22" rx="1.5" fill="rgba(0,0,0,0.3)"/>
+  <!-- Subtle cross glow -->
+  <rect x="244" y="242" width="24" height="6" rx="1.5" fill="#fbbf24" opacity="0.06"/>
+  <rect x="253" y="234" width="6" height="22" rx="1.5" fill="#fbbf24" opacity="0.06"/>
 
-  <!-- Watchman / embrasures -->
-  <rect x="224" y="150" width="14" height="10" rx="2" fill="rgba(0,0,0,0.2)"/>
-  <rect x="242" y="150" width="12" height="10" rx="2" fill="rgba(0,0,0,0.2)"/>
-  <rect x="258" y="150" width="12" height="10" rx="2" fill="rgba(0,0,0,0.2)"/>
-  <rect x="274" y="150" width="14" height="10" rx="2" fill="rgba(0,0,0,0.2)"/>
+  <!-- Base section - arched doorway -->
+  <path d="M240 394 L240 362 Q256 350 272 362 L272 394 Z" fill="rgba(0,0,0,0.35)"/>
+  <!-- Door arch highlight -->
+  <path d="M240 362 Q256 350 272 362" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
 
-  <!-- Base windows -->
-  <rect x="204" y="360" width="20" height="28" rx="3" fill="rgba(0,0,0,0.25)"/>
-  <rect x="234" y="360" width="44" height="28" rx="3" fill="rgba(0,0,0,0.25)"/>
-  <rect x="288" y="360" width="20" height="28" rx="3" fill="rgba(0,0,0,0.25)"/>
+  <!-- ====== BEACON ====== -->
 
-  <!-- Decorative line -->
-  <rect x="190" y="338" width="132" height="3" rx="1" fill="rgba(255,255,255,0.08)"/>
-  <rect x="210" y="218" width="92" height="3" rx="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- Beacon light (glowing orb) -->
+  <g filter="url(#softGlow)">
+    <circle cx="256" cy="132" r="8" fill="url(#beaconGrad)"/>
+    <circle cx="256" cy="132" r="4" fill="#ffffff" opacity="0.9"/>
+  </g>
+
+  <!-- Light rays from beacon -->
+  <g opacity="0.2" stroke="#fde68a" stroke-width="2" stroke-linecap="round">
+    <line x1="256" y1="108" x2="256" y2="90"/>
+    <line x1="278" y1="115" x2="292" y2="102"/>
+    <line x1="234" y1="115" x2="220" y2="102"/>
+    <line x1="286" y1="132" x2="302" y2="132"/>
+    <line x1="226" y1="132" x2="210" y2="132"/>
+  </g>
+
+  <!-- ====== GROUND LINE ====== -->
+  <line x1="140" y1="394" x2="372" y2="394" stroke="rgba(255,255,255,0.06)" stroke-width="1.5" stroke-linecap="round"/>
 </svg>

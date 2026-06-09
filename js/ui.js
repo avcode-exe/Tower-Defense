@@ -17,6 +17,7 @@ const UI_LAYOUT = {
     help: false,
     monsterInfo: false,
     shieldShop: false,
+    dev: false,
   },
 
   // Effective dimensions accounting for collapsed state.
@@ -244,7 +245,7 @@ const UI = {
     c.fillText('\u2764', livesX, 28);
     c.fillStyle = UI_COLORS.textBright;
     c.font = '15px system-ui, sans-serif';
-    c.fillText(String(game.lives), livesX + 18, 28);
+    c.fillText(game.devMode ? '\u221E' : String(game.lives), livesX + 18, 28);
 
     // Wave.
     const waveX = 200;
@@ -252,10 +253,30 @@ const UI = {
     c.font = 'bold 15px system-ui, sans-serif';
     c.textAlign = 'left';
     c.fillText('Wave ' + (game.wave.currentWave + 1), waveX, 28);
+    // Dev mode indicator — green badge at center of HUD
+    if (game.devMode) {
+      c.font = 'bold 10px system-ui, sans-serif';
+      const devText = 'DEV Mode';
+      const devW = c.measureText(devText).width + 16;
+      const devH = 18;
+      const devX = (w - devW) / 2;
+      const devY = (UI_LAYOUT.HUD_HEIGHT - devH) / 2;
+      c.fillStyle = 'rgba(46,160,67,0.2)';
+      UIRoundRect(c, devX, devY, devW, devH, 5);
+      c.fill();
+      c.strokeStyle = 'rgba(46,160,67,0.5)';
+      c.lineWidth = 1;
+      UIRoundRect(c, devX, devY, devW, devH, 5);
+      c.stroke();
+      c.fillStyle = '#2ea043';
+      c.textAlign = 'center'; c.textBaseline = 'middle';
+      c.fillText(devText, w / 2, devY + devH / 2);
+      c.textBaseline = 'middle';
+    }
 
 
     // Reset button.
-    const rstX = 310, rstW = 36;
+    const rstX = 310, rstW = 50;
     c.fillStyle = 'rgba(255,255,255,0.04)';
     UIRoundRect(c, rstX, 14, rstW, 28, 6);
     c.fill();
@@ -266,7 +287,7 @@ const UI = {
     c.fillStyle = UI_COLORS.textDim;
     c.font = 'bold 10px system-ui, sans-serif';
     c.textAlign = 'center';
-    c.fillText('RST', rstX + rstW / 2, 28);
+    c.fillText('Reset', rstX + rstW / 2, 28);
 
     // Speed.
     let sx = w - LAYOUT.HUD.SPEED_OFFSET;
@@ -294,23 +315,43 @@ const UI = {
 
     // Start / pause / resume.
     const ctrlBtn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
-    const label = game.state === 'PRE_WAVE' ? 'Start Wave'
+    let label = game.state === 'PRE_WAVE' ? 'Start Wave'
       : game.state === 'WAVE_ACTIVE' ? 'Pause'
       : game.state === 'PAUSED' ? 'Resume'
       : '';
+    // Disable Start Wave in dev mode — greyed out with sub-label
+    const isDevDisabled = label === 'Start Wave' && game.devMode;
     if (label) {
       const isStart = game.state === 'PRE_WAVE' || game.state === 'PAUSED';
-      c.fillStyle = isStart ? 'rgba(46,160,67,0.15)' : 'rgba(218,54,51,0.15)';
-      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
-      c.fill();
-      c.strokeStyle = isStart ? 'rgba(46,160,67,0.3)' : 'rgba(218,54,51,0.3)';
-      c.lineWidth = 1;
-      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
-      c.stroke();
-      c.fillStyle = isStart ? UI_COLORS.green : UI_COLORS.red;
-      c.font = 'bold 11px system-ui, sans-serif';
-      c.textAlign = 'center';
-      c.fillText(label, ctrlBtn.x + ctrlBtn.w / 2, ctrlBtn.y + ctrlBtn.h / 2 + 1);
+      if (isDevDisabled) {
+        // Greyed-out disabled state
+        c.fillStyle = 'rgba(255,255,255,0.04)';
+        UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
+        c.fill();
+        c.strokeStyle = 'rgba(255,255,255,0.06)';
+        c.lineWidth = 1;
+        UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
+        c.stroke();
+        c.fillStyle = UI_COLORS.textDim;
+        c.font = 'bold 11px system-ui, sans-serif';
+        c.textAlign = 'center';
+        c.fillText(label, ctrlBtn.x + ctrlBtn.w / 2, ctrlBtn.y + ctrlBtn.h / 2 - 4);
+        c.fillStyle = UI_COLORS.textDim;
+        c.font = '7px system-ui, sans-serif';
+        c.fillText('(Button disabled)', ctrlBtn.x + ctrlBtn.w / 2, ctrlBtn.y + ctrlBtn.h / 2 + 9);
+      } else {
+        c.fillStyle = isStart ? 'rgba(46,160,67,0.15)' : 'rgba(218,54,51,0.15)';
+        UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
+        c.fill();
+        c.strokeStyle = isStart ? 'rgba(46,160,67,0.3)' : 'rgba(218,54,51,0.3)';
+        c.lineWidth = 1;
+        UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
+        c.stroke();
+        c.fillStyle = isStart ? UI_COLORS.green : UI_COLORS.red;
+        c.font = 'bold 11px system-ui, sans-serif';
+        c.textAlign = 'center';
+        c.fillText(label, ctrlBtn.x + ctrlBtn.w / 2, ctrlBtn.y + ctrlBtn.h / 2 + 1);
+      }
     }
 
     // Monsters left count.
@@ -774,17 +815,12 @@ const UI = {
     const _tEarly = _selIdxEarly >= 0 ? game.troops[_selIdxEarly] : null;
     const _hasSelEarly = !!(_tEarly && _tEarly.alive);
 
-    // Shield icon (small, subtle).
+    // Shield icon — emoji.
     const iconX = cardX + 14;
     const iconY = cardY + 14;
-    c.fillStyle = _hasSelEarly ? 'rgba(93,173,226,0.3)' : 'rgba(255,255,255,0.06)';
-    c.beginPath();
-    c.moveTo(iconX, iconY - 5);
-    c.quadraticCurveTo(iconX + 5, iconY - 4, iconX + 5, iconY + 1);
-    c.quadraticCurveTo(iconX + 5, iconY + 5, iconX, iconY + 6);
-    c.quadraticCurveTo(iconX - 5, iconY + 5, iconX - 5, iconY + 1);
-    c.quadraticCurveTo(iconX - 5, iconY - 4, iconX, iconY - 5);
-    c.fill();
+    c.font = '12px system-ui, sans-serif';
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.fillText('🛡️', iconX, iconY);
 
     // Shield label next to icon.
     c.fillStyle = _hasSelEarly ? '#5dade2' : UI_COLORS.textDim;

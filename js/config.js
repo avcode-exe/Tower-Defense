@@ -116,14 +116,14 @@ const LAYOUT = {
 
 // Monster specs. Index = level (1-5). boss is level 'B' keyed separately.
 const MONSTER_SPECS = {
-  1: { name: 'Grunt',    hp: 34,   speed: 1.0, reward: 4,  leak: 1, color: '#7ec07e', size: 11, damage: 4,  attackSpeed: 1.0, attackRange: 1 },
-  2: { name: 'Runner',   hp: 27,   speed: 1.8, reward: 6,  leak: 1, color: '#9be37a', size: 10, damage: 3,  attackSpeed: 1.0, attackRange: 1 },
-  3: { name: 'Brute',    hp: 133,  speed: 0.7, reward: 11, leak: 1, color: '#c0a060', size: 14, damage: 14, attackSpeed: 1.0, attackRange: 1 },
-  4: { name: 'Elite',    hp: 245,  speed: 1.0, reward: 17, leak: 2, color: '#d96a6a', size: 13, damage: 18, attackSpeed: 1.0, attackRange: 1 },
-  5: { name: 'Champion', hp: 667,  speed: 0.9, reward: 36, leak: 3, color: '#a86ad9', size: 16, damage: 32, attackSpeed: 1.0, attackRange: 1 },
-  B: { name: 'Boss',     hp: 1668, speed: 0.6, reward: 200, leak: 5, color: '#e74c3c', size: 22, damage: 45, attackSpeed: 1.0, attackRange: 1, healPerSecond: 15 },
-  S: { name: 'Shielded', hp: 173,  speed: 0.8, reward: 15, leak: 1, color: '#5dade2', size: 14, damage: 16, attackSpeed: 1.0, attackRange: 1, shield: 69 },
-  X: { name: 'Spear',    hp: 50,   speed: 2.0, reward: 5,  leak: 1, color: '#a3a3a3', size: 9,  damage: 3,  attackSpeed: 0,   attackRange: 1, attackMode: 'pass' },
+  1: { name: 'Grunt',    hp: 34,   speed: 1.0, reward: 4,  leak: 1, color: '#7ec07e', size: 11, damage: 4,  attackSpeed: 1.0, attackRange: 1,   attackMode: 'stop' },
+  2: { name: 'Runner',   hp: 27,   speed: 3.0, reward: 6,  leak: 1, color: '#9be37a', size: 10, damage: 6,  attackSpeed: 1.0, attackRange: 1,   attackMode: 'pass' },
+  3: { name: 'Brute',    hp: 133,  speed: 0.7, reward: 11, leak: 1, color: '#c0a060', size: 14, damage: 14, attackSpeed: 1.0, attackRange: 1,   attackMode: 'stop' },
+  4: { name: 'Elite',    hp: 245,  speed: 1.0, reward: 17, leak: 2, color: '#d96a6a', size: 13, damage: 18, attackSpeed: 1.0, attackRange: 1,   attackMode: 'stop' },
+  5: { name: 'Champion', hp: 667,  speed: 0.9, reward: 36, leak: 3, color: '#a86ad9', size: 16, damage: 32, attackSpeed: 1.0, attackRange: 1,   attackMode: 'stop' },
+  B: { name: 'Boss',     hp: 1668, speed: 0.6, reward: 200, leak: 5, color: '#e74c3c', size: 22, damage: 45, attackSpeed: 1.0, attackRange: 1,   attackMode: 'stop', healPerSecond: 15 },
+  S: { name: 'Shielded', hp: 173,  speed: 0.8, reward: 15, leak: 1, color: '#5dade2', size: 14, damage: 16, attackSpeed: 1.0, attackRange: 1,   attackMode: 'stop', shield: 69 },
+  X: { name: 'Spear',    hp: 50,   speed: 2.0, reward: 5,  leak: 1, color: '#a3a3a3', size: 9,  damage: 3,  attackSpeed: 0.8, attackRange: 2.5, attackMode: 'slow' },
 };
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).

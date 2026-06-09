@@ -1,31 +1,55 @@
-v1.4.0-beta.1 — Spear monster (pass-through attack mode)
+v1.4.0-beta.2 — Monster attack mode rework, dev mode improvements, icon refresh
 
-New monster:
-- Spear (X): fast pike-wielder (50 HP, 2.0 speed, 3 damage, 5g reward)
-- Uses new "pass" attack mode — scans 3x3 tile area each frame while
-  moving, dealing damage to adjacent troops without stopping
-- _lastPassTile cooldown ensures exactly one hit per tile traversal (~6 DPS)
-- Small sprite (size 9), grey color (#a3a3a3)
+Monster attack system reworked with three distinct modes:
 
-Wave changes:
-- Wave 5: +4 Spears (was: 8 Brutes + 4 Grunts)
-- Wave 6: +6 Spears (was: 6 Elite + 4 Brutes)
-- Wave 7: +8 Spears (was: 10 Elite + 6 Runners)
-- Wave 8: +6 Spears (was: 8 Elite + 2 Shielded + 4 Runners)
+- **stop** (default): Monster stops moving when a troop is in range,
+  attacks with attackSpeed cooldown, then resumes. Used by Grunt,
+  Brute, Elite, Champion, Boss, Shielded.
+
+- **slow**: Monster moves at normal speed when no troop is nearby.
+  Slows to half speed when a defense troop is in range and attacks
+  the closest troop within 2.5 tile radius with attackSpeed cooldown.
+  Used by Spear (changed from pass mode).
+
+- **pass**: Monster always moves at full speed. Deals damage to troops
+  while passing — each troop is hit at most once (penetration mechanic).
+  Used by Runner (changed to pass mode, damage doubled).
+
+Balance changes:
+- Runner: speed 1.8→3.0, damage 3→6, attackMode changed to 'pass'
+- Spear: attackMode changed from 'pass'→'slow', attackSpeed 0→0.8,
+  attackRange 1→2.5 (now slows near troops and attacks closest)
+
+Dev mode improvements:
+- Dev mode now grants infinite gold and infinite lives
+- Moved spawn controls from right-panel to dedicated DEV popup in
+  bottom bar (accessible via DEV button or D key)
+- Start Wave button is greyed out in dev mode with "(Button disabled)"
+  sub-text — players must use DEV popup to start custom waves
+- Monster leak damage is ignored in dev mode
+- Pass-mode monsters (Runner) no longer split on death
+- Added DEV bar button with keyboard shortcut (D key)
+
+UI/UX:
+- Modernized app icon with glowing beacon, vibrant blue gradients,
+  battlements, arched doorway, and ambient glow effects
+- DEV Mode badge displayed at center of HUD when dev mode is active
+- Reset button widened and relabeled from "RST" to "Reset"
+- Monster info panel shows attack mode for slow/pass monsters
+- Shield shop icon changed from hand-drawn shape to emoji
 
 Implementation:
-- New `attackMode: 'pass'` field on monster specs
-- Monster.js pass-mode: 3x3 scan with per-tile cooldown
-- Dev mode (F2) custom wave composer updated with Spear row
-- Monster info panel updated with Spear stats
-- README updated with 8 monster types
-
-Bug fixes:
-- Fix pause/resume: canvas now stays interactive when paused via
-  lightweight rAF render loop (previously all buttons froze)
-
-Balance notes:
-- Spears are fast but fragile (50 HP vs Grunt's 34)
-- ~6 DPS to ranged troops, ~1.8 DPS to melee troops
-- Natural counter: Ice Wizard slow + shatter, or melee wall
-- Scales normally in infinite waves via countMult/hpMult
+- config.js: Added attackMode field to all monster specs
+- monster.js: Rewrote update() to handle stop/slow/pass modes
+- monster.js: Added _hitTroops Set for pass-mode penetration tracking
+- monster.js: Slow mode reduces speed and attacks while moving
+- game.js: Dev right panel removed, spawn controls moved to bottom bar
+- game.js: Dev mode sets gold/lives to Infinity on restart
+- game.js: Pass-mode monsters skip splitting on death
+- ui.js: Start Wave button greyed out in dev mode with sub-text
+- ui.js: Fixed stop-color attributes for SVG compliance (no rgba)
+- main.js: DEV popup event handlers for monster spawning
+- index.html: Added DEV popup markup and bottom bar button
+- icon.svg: Complete redesign with modern tower + beacon design
+- icon.png: Regenerated from updated SVG (512x512)
+- README.md: Updated monster table, attack modes, dev mode docs
