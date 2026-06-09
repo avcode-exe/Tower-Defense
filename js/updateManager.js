@@ -11,7 +11,15 @@ const DEFAULT_SETTINGS = {
     availableVersion: null,
     releaseType: null,
   },
-  collapsed: { hud: false, shop: false, preview: false, shieldShop: false, help: true, monsterInfo: true, settings: true },
+  collapsed: {
+    hud: false,
+    shop: false,
+    preview: false,
+    shieldShop: false,
+    help: true,
+    monsterInfo: true,
+    settings: true,
+  },
 };
 
 const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
@@ -52,11 +60,19 @@ class UpdateManager {
 
   _onStatus(data) {
     switch (data.phase) {
-      case 'progress': this._handleProgress(data); break;
-      case 'downloaded': this._handleDownloaded(data); break;
-      case 'not-available': break;
-      case 'error': console.error('[update]', data.message); break;
-      default: break;
+      case 'progress':
+        this._handleProgress(data);
+        break;
+      case 'downloaded':
+        this._handleDownloaded(data);
+        break;
+      case 'not-available':
+        break;
+      case 'error':
+        console.error('[update]', data.message);
+        break;
+      default:
+        break;
     }
   }
 
@@ -119,7 +135,8 @@ class UpdateManager {
       const btn = document.createElement('button');
       btn.className = 'update-restart-btn';
       btn.textContent = 'Restart & Install';
-      btn.style.cssText = 'margin-top:8px; background:#238636; color:#fff; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;';
+      btn.style.cssText =
+        'margin-top:8px; background:#238636; color:#fff; border:none; padding:5px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;';
       btn.addEventListener('click', () => this.restart());
       this.els.progressWrap.appendChild(btn);
     }
@@ -129,12 +146,29 @@ class UpdateManager {
     if (window.electron?.saveSettings) window.electron.saveSettings(JSON.parse(JSON.stringify(this.settings)));
   }
 
-  setChannel(ch) { this.settings.update.channel = ch; this._persist(); this.check(); }
-  setAutoDownload(v) { this.settings.update.autoDownload = v; this._persist(); }
-  setCheckInterval(m) { this.settings.update.checkIntervalMinutes = m; this._persist(); }
-  getCollapsed() { return this.settings.collapsed; }
-  setCollapsed(key, val) { this.settings.collapsed[key] = val; this._persist(); }
-  getAnnouncedVersion() { return this.settings.update.availableVersion; }
+  setChannel(ch) {
+    this.settings.update.channel = ch;
+    this._persist();
+    this.check();
+  }
+  setAutoDownload(v) {
+    this.settings.update.autoDownload = v;
+    this._persist();
+  }
+  setCheckInterval(m) {
+    this.settings.update.checkIntervalMinutes = m;
+    this._persist();
+  }
+  getCollapsed() {
+    return this.settings.collapsed;
+  }
+  setCollapsed(key, val) {
+    this.settings.collapsed[key] = val;
+    this._persist();
+  }
+  getAnnouncedVersion() {
+    return this.settings.update.availableVersion;
+  }
 }
 
 window.UpdateManager = UpdateManager;

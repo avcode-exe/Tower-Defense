@@ -62,16 +62,30 @@ window.addEventListener('DOMContentLoaded', async () => {
     try {
       const settings = await window.electron.getSettings();
       if (settings && settings.collapsed) persistedCollapsed = settings.collapsed;
-    } catch (err) { /* non-Electron or first launch */ }
+    } catch (err) {
+      /* non-Electron or first launch */
+    }
   }
   if (typeof UI_LAYOUT !== 'undefined') {
     Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
   }
 
-  const barBtnFor = { help: 'bar-controls-btn', monsterInfo: 'bar-monster-btn', settings: 'bar-settings-btn', about: 'bar-about-btn', dev: 'bar-dev-btn' };
-  const popupFor = { help: 'controls-popup', monsterInfo: 'monster-popup', settings: 'settings-popup', about: 'about-popup', dev: 'dev-popup' };
+  const barBtnFor = {
+    help: 'bar-controls-btn',
+    monsterInfo: 'bar-monster-btn',
+    settings: 'bar-settings-btn',
+    about: 'bar-about-btn',
+    dev: 'bar-dev-btn',
+  };
+  const popupFor = {
+    help: 'controls-popup',
+    monsterInfo: 'monster-popup',
+    settings: 'settings-popup',
+    about: 'about-popup',
+    dev: 'dev-popup',
+  };
 
-// Close animation duration (must match CSS .bar-popup transition)
+  // Close animation duration (must match CSS .bar-popup transition)
   const POPUP_ANIM_MS = 300;
 
   function showPopup(key) {
@@ -79,9 +93,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     const btn = document.getElementById(barBtnFor[key]);
     if (!popup) return;
     // Find any currently-open popup (not this one) and close it first.
-    const openKey = Object.keys(popupFor).find((k) =>
-      k !== key && !UI_LAYOUT.collapsed[k]
-    );
+    const openKey = Object.keys(popupFor).find((k) => k !== key && !UI_LAYOUT.collapsed[k]);
     if (openKey) {
       hidePopup(openKey);
       // After the close animation finishes, open the target.
@@ -104,27 +116,30 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
   }
   function hidePopup(key) {
-      const popup = document.getElementById(popupFor[key]);
-      const btn = document.getElementById(barBtnFor[key]);
-      if (popup) popup.classList.add('bar-popup--closed');
-      if (btn) btn.classList.remove('active');
-      UI_LAYOUT.collapsed[key] = true;
+    const popup = document.getElementById(popupFor[key]);
+    const btn = document.getElementById(barBtnFor[key]);
+    if (popup) popup.classList.add('bar-popup--closed');
+    if (btn) btn.classList.remove('active');
+    UI_LAYOUT.collapsed[key] = true;
   }
 
   async function persistCollapsed() {
     if (window.electron && window.electron.saveSettings) {
       try {
-        const settings = await window.electron.getSettings() || {};
+        const settings = (await window.electron.getSettings()) || {};
         if (!settings.collapsed) settings.collapsed = {};
         Object.assign(settings.collapsed, UI_LAYOUT.collapsed);
         window.electron.saveSettings(settings);
-      } catch (err) { /* ignore */ }
+      } catch (err) {
+        /* ignore */
+      }
     }
   }
 
   function togglePopup(key) {
     UI_LAYOUT.collapsed[key] = !UI_LAYOUT.collapsed[key];
-    if (UI_LAYOUT.collapsed[key]) hidePopup(key); else showPopup(key);
+    if (UI_LAYOUT.collapsed[key]) hidePopup(key);
+    else showPopup(key);
     persistCollapsed();
   }
 
@@ -141,14 +156,18 @@ window.addEventListener('DOMContentLoaded', async () => {
   // ── settings helpers ─────────────────────────────────────────────────────
   async function loadSettings() {
     if (!window.electron || !window.electron.getSettings) return null;
-    try { return await window.electron.getSettings(); } catch { return null; }
+    try {
+      return await window.electron.getSettings();
+    } catch {
+      return null;
+    }
   }
 
   // ── settings form (draft-based, saves only on Save click) ──────────────
   let settingsDraft = {};
 
   async function loadSettingsToForm() {
-    const saved = await loadSettings() || {};
+    const saved = (await loadSettings()) || {};
     settingsDraft = JSON.parse(JSON.stringify(saved));
     if (!settingsDraft.update) settingsDraft.update = {};
     // Apply defaults to draft
@@ -157,7 +176,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     settingsDraft.update.checkIntervalMinutes = settingsDraft.update.checkIntervalMinutes || 60;
     // Update form elements
     document.querySelectorAll('input[name="settings-channel"]').forEach((radio) => {
-      radio.checked = (settingsDraft.update.channel === radio.value);
+      radio.checked = settingsDraft.update.channel === radio.value;
     });
     const autoDl = document.getElementById('settings-auto-download');
     if (autoDl) autoDl.checked = settingsDraft.update.autoDownload;
@@ -206,11 +225,15 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Visual feedback: flash "✓ Saved" text
       if (saveStatus) {
         saveStatus.style.opacity = '1';
-        setTimeout(() => { saveStatus.style.opacity = '0'; }, 1500);
+        setTimeout(() => {
+          saveStatus.style.opacity = '0';
+        }, 1500);
       }
       // Brief button flash
       saveBtn.style.background = '#3fb950';
-      setTimeout(() => { saveBtn.style.background = '#238636'; }, 400);
+      setTimeout(() => {
+        saveBtn.style.background = '#238636';
+      }, 400);
     });
   }
 
@@ -265,10 +288,12 @@ window.addEventListener('DOMContentLoaded', async () => {
   // ── UpdateManager ──────────────────────────────────────────────────────────
   let appVersion = '1.3.0'; // fallback
   if (window.electron && window.electron.getVersion) {
-    try { appVersion = await window.electron.getVersion(); } catch (_) {}
+    try {
+      appVersion = await window.electron.getVersion();
+    } catch (_) {}
   }
   if (typeof UpdateManager === 'function') {
-    const settings = await loadSettings() || {};
+    const settings = (await loadSettings()) || {};
     // Always use the real app version, never the saved one
     settings.version = appVersion;
     window.updateManager = new UpdateManager(settings);
@@ -280,7 +305,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   if (aboutVersionEl) {
     const ver = appVersion;
     const typeMatch = ver.match(/-(beta|alpha|rc)\./i);
-    const releaseType = typeMatch ? (typeMatch[1].toUpperCase() === 'RC' ? 'RC' : typeMatch[1].charAt(0).toUpperCase() + typeMatch[1].slice(1)) : 'Public release';
+    const releaseType = typeMatch
+      ? typeMatch[1].toUpperCase() === 'RC'
+        ? 'RC'
+        : typeMatch[1].charAt(0).toUpperCase() + typeMatch[1].slice(1)
+      : 'Public release';
     aboutVersionEl.textContent = 'v' + ver + ' (' + releaseType + ')';
   }
 
@@ -302,7 +331,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (!toastContainer) return;
     const toast = document.createElement('div');
     toast.className = 'toast';
-    const dotClass = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
+    const dotClass =
+      type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
     const dot = document.createElement('span');
     dot.className = 'toast-dot ' + dotClass;
     toast.appendChild(dot);
@@ -320,7 +350,9 @@ window.addEventListener('DOMContentLoaded', async () => {
   function removeToast(toast) {
     if (!toast || !toast.parentNode) return;
     toast.classList.add('toast-out');
-    setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 400);
+    setTimeout(() => {
+      if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 400);
   }
 
   // ── Notification list management ────────────────────────────────────────
@@ -328,7 +360,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   function addNotification(text, type, group, opts) {
     opts = opts || {};
     const matchKey = group || text;
-    const existing = notifications.find(n => (n.group || n.text) === matchKey);
+    const existing = notifications.find((n) => (n.group || n.text) === matchKey);
     if (existing) {
       existing.text = text;
       existing.type = type;
@@ -337,7 +369,16 @@ window.addEventListener('DOMContentLoaded', async () => {
       if (opts.actions) existing.actions = opts.actions;
       if (opts.version) existing.version = opts.version;
     } else {
-      const n = { id: Date.now(), text, type: type || 'info', time: timeAgo(), read: false, group: group || null, actions: opts.actions || null, version: opts.version || null };
+      const n = {
+        id: Date.now(),
+        text,
+        type: type || 'info',
+        time: timeAgo(),
+        read: false,
+        group: group || null,
+        actions: opts.actions || null,
+        version: opts.version || null,
+      };
       notifications.unshift(n);
       // Cap at 50 entries to prevent unbounded growth.
       while (notifications.length > 50) {
@@ -362,7 +403,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     for (const n of notifications) {
       const div = document.createElement('div');
       div.className = 'notify-item' + (n.read ? '' : ' unread');
-      const dotClass = n.type === 'success' ? 'success' : n.type === 'error' ? 'error' : n.type === 'warning' ? 'warning' : '';
+      const dotClass =
+        n.type === 'success' ? 'success' : n.type === 'error' ? 'error' : n.type === 'warning' ? 'warning' : '';
 
       // Build inner HTML: dot + text block + time
       const textDiv = document.createElement('div');
@@ -444,9 +486,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   function positionNotifyPanel() {
     if (!notifyPanel || !notifyBtn) return;
     const bar = document.getElementById('panel-bar');
-    const barRect = bar ? bar.getBoundingClientRect() : { left: 0, right: window.innerWidth, top: window.innerHeight - 44 };
+    const barRect = bar
+      ? bar.getBoundingClientRect()
+      : { left: 0, right: window.innerWidth, top: window.innerHeight - 44 };
     notifyPanel.style.position = 'fixed';
-    notifyPanel.style.bottom = (window.innerHeight - barRect.top + 6) + 'px';
+    notifyPanel.style.bottom = window.innerHeight - barRect.top + 6 + 'px';
     notifyPanel.style.left = '50%';
     notifyPanel.style.transform = 'translateX(-50%)';
     notifyPanel.style.right = 'auto';
@@ -457,7 +501,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     notifyBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       // Close other popups
-      Object.keys(popupFor).forEach(k => hidePopup(k));
+      Object.keys(popupFor).forEach((k) => hidePopup(k));
       if (notifyPanel) {
         const visible = notifyPanel.style.display === 'block';
         if (!visible) positionNotifyPanel();
@@ -468,8 +512,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   // Close notification panel on outside click
   document.addEventListener('click', (e) => {
-    if (notifyPanel && notifyPanel.style.display === 'block'
-        && !notifyPanel.contains(e.target) && e.target !== notifyBtn && !notifyBtn.contains(e.target)) {
+    if (
+      notifyPanel &&
+      notifyPanel.style.display === 'block' &&
+      !notifyPanel.contains(e.target) &&
+      e.target !== notifyBtn &&
+      !notifyBtn.contains(e.target)
+    ) {
       notifyPanel.style.display = 'none';
     }
   });
@@ -497,22 +546,31 @@ window.addEventListener('DOMContentLoaded', async () => {
           break;
         }
         case 'not-available':
-          addNotification('You\'re up to date.', 'success');
+          addNotification("You're up to date.", 'success');
           break;
         case 'progress': {
           const ver = (window.updateManager && window.updateManager.getAnnouncedVersion()) || '';
-          addNotification('Downloading' + (ver ? ' v' + ver : '') + ' — ' + Math.round(data.percent || 0) + '%', 'info', 'update-progress');
+          addNotification(
+            'Downloading' + (ver ? ' v' + ver : '') + ' — ' + Math.round(data.percent || 0) + '%',
+            'info',
+            'update-progress'
+          );
           break;
         }
         case 'downloaded': {
           // Remove the progress notification
-          const idx = notifications.findIndex(n => n.group === 'update-progress');
+          const idx = notifications.findIndex((n) => n.group === 'update-progress');
           if (idx >= 0) notifications.splice(idx, 1);
           // Add ready notification with Restart action
           addNotification('v' + data.version + ' ready to install.', 'success', 'update-ready', {
             version: data.version,
             actions: [
-              { label: 'Restart & Install', handler: () => { if (window.updateManager) window.updateManager.restart(); } },
+              {
+                label: 'Restart & Install',
+                handler: () => {
+                  if (window.updateManager) window.updateManager.restart();
+                },
+              },
             ],
           });
           break;
@@ -541,7 +599,11 @@ window.addEventListener('DOMContentLoaded', async () => {
       name.textContent = spec.name;
       const stats = document.createElement('span');
       stats.className = 'monster-stats';
-      const _s = (t) => { const e = document.createElement('span'); e.textContent = t; return e; };
+      const _s = (t) => {
+        const e = document.createElement('span');
+        e.textContent = t;
+        return e;
+      };
       stats.appendChild(_s('HP:' + spec.hp));
       stats.appendChild(_s('Spd:' + spec.speed));
       stats.appendChild(_s('+' + spec.reward + 'g'));
@@ -581,9 +643,15 @@ window.addEventListener('DOMContentLoaded', async () => {
       countSpan.textContent = 'x0';
       const btns = document.createElement('div');
       btns.style.cssText = 'display:flex; gap:2px;';
-      for (const [tag, dx] of [['-10', -80], ['-1', -58], ['+1', -36], ['+10', -14]]) {
+      for (const [tag, dx] of [
+        ['-10', -80],
+        ['-1', -58],
+        ['+1', -36],
+        ['+10', -14],
+      ]) {
         const btn = document.createElement('button');
-        btn.style.cssText = 'width:22px; height:18px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:3px; cursor:pointer; font-size:8px; font-family:inherit; padding:0;';
+        btn.style.cssText =
+          'width:22px; height:18px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:3px; cursor:pointer; font-size:8px; font-family:inherit; padding:0;';
         btn.textContent = tag;
         btn.addEventListener('click', () => {
           if (typeof game !== 'undefined') {
@@ -633,5 +701,4 @@ window.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
-
 });

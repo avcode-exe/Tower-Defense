@@ -24,7 +24,15 @@ const DEFAULT_SETTINGS = {
     availableVersion: null,
     releaseType: null,
   },
-  collapsed: { hud: false, shop: false, preview: false, shieldShop: false, help: true, monsterInfo: true, settings: true },
+  collapsed: {
+    hud: false,
+    shop: false,
+    preview: false,
+    shieldShop: false,
+    help: true,
+    monsterInfo: true,
+    settings: true,
+  },
 };
 
 let mainWindow = null;
@@ -105,7 +113,7 @@ function applyAutoUpdaterSettings() {
   autoUpdater.autoDownload = update.autoDownload !== false;
   autoUpdater.autoInstallOnAppQuit = update.autoDownload !== false;
   // Enable pre-release detection when channel is set to pre-release
-  autoUpdater.allowPrerelease = (update.channel === 'pre-release');
+  autoUpdater.allowPrerelease = update.channel === 'pre-release';
 }
 
 function sendStatus(phase, extra = {}) {
@@ -154,7 +162,7 @@ autoUpdater.on('update-downloaded', (info) => {
 });
 
 autoUpdater.on('error', (err) => {
-  const errMsg = err ? (err.message || err.toString()) : 'Unknown error';
+  const errMsg = err ? err.message || err.toString() : 'Unknown error';
   sendStatus('error', { message: errMsg });
 });
 
@@ -202,7 +210,7 @@ ipcMain.on('set-auto-download', (_event, enabled) => {
 });
 
 ipcMain.on('set-update-channel', (_event, channel) => {
-  autoUpdater.allowPrerelease = (channel === 'pre-release');
+  autoUpdater.allowPrerelease = channel === 'pre-release';
 });
 
 ipcMain.on('cancel-update', () => {
@@ -271,7 +279,7 @@ function createWindow() {
 
 function checkForUpdates() {
   autoUpdater.checkForUpdates().catch((err) => {
-    const errMsg = err ? (err.message || String(err)) : 'Unknown error';
+    const errMsg = err ? err.message || String(err) : 'Unknown error';
     sendStatus('error', { message: errMsg });
   });
   if (!updateCheckInterval) {
@@ -290,7 +298,10 @@ app.whenReady().then(createWindow);
 app.on('window-all-closed', () => app.quit());
 
 app.on('before-quit', () => {
-  if (updateCheckInterval) { clearInterval(updateCheckInterval); updateCheckInterval = null; }
+  if (updateCheckInterval) {
+    clearInterval(updateCheckInterval);
+    updateCheckInterval = null;
+  }
 });
 
 app.on('activate', () => {

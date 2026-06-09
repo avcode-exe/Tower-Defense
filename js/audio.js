@@ -9,7 +9,9 @@ class AudioManager {
     this._enabled = true;
   }
 
-  get muted() { return this._volume === 0; }
+  get muted() {
+    return this._volume === 0;
+  }
 
   toggleMute() {
     if (this._volume > 0) {
@@ -24,7 +26,9 @@ class AudioManager {
     if (!this._ctx) {
       try {
         this._ctx = new (window.AudioContext || window.webkitAudioContext)();
-      } catch (e) { this._enabled = false; }
+      } catch (e) {
+        this._enabled = false;
+      }
     }
     if (this._ctx && this._ctx.state === 'suspended') {
       this._ctx.resume();

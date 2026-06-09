@@ -11,12 +11,14 @@ const RENDERER = {
   mapPixelSize: 0,
 
   // Cached offscreen canvases for static layers (grid, path)
-  _bgCache: null,     // ground + grid lines
-  _pathCache: null,   // path tiles only
-  _cacheDirty: true,  // set to true when grid changes
-  _dpr: 1,            // cached devicePixelRatio
+  _bgCache: null, // ground + grid lines
+  _pathCache: null, // path tiles only
+  _cacheDirty: true, // set to true when grid changes
+  _dpr: 1, // cached devicePixelRatio
 
-  markCacheDirty() { this._cacheDirty = true; },
+  markCacheDirty() {
+    this._cacheDirty = true;
+  },
 
   init(canvas) {
     const ctx = canvas.getContext('2d');
@@ -173,5 +175,4 @@ const RENDERER = {
     c.drawImage(this._pathCache, 0, 0, ms, ms);
     c.restore();
   },
-
 };

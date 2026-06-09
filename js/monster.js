@@ -33,7 +33,7 @@ class Monster {
     this.shieldRegenDelay = CONFIG.SHIELD_REGEN_DELAY;
 
     // Passive healing (Boss).
-    this.healPerSecond = this.spec ? (this.spec.healPerSecond || 0) : 0;
+    this.healPerSecond = this.spec ? this.spec.healPerSecond || 0 : 0;
 
     // Slow / shatter mechanics (v1.3.0)
     this.slowTimer = 0;
@@ -82,8 +82,7 @@ class Monster {
     }
     // Advance segIdx while distance has passed the end of the current segment.
     const segs = this.segments;
-    while (this.segIdx < segs.length - 1
-           && this.distance >= segs[this.segIdx].cumStart + segs[this.segIdx].len) {
+    while (this.segIdx < segs.length - 1 && this.distance >= segs[this.segIdx].cumStart + segs[this.segIdx].len) {
       this.segIdx++;
     }
     const seg = segs[this.segIdx];
@@ -152,7 +151,9 @@ class Monster {
     return true;
   }
 
-  isSlowed() { return this.slowTimer > 0; }
+  isSlowed() {
+    return this.slowTimer > 0;
+  }
 
   findTarget(troopTileIndex) {
     const gx = this._tileGx;

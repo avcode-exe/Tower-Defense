@@ -164,7 +164,10 @@ class GameRuntimeController {
 
   // Full loop stop: terminates worker, clears RAF, removes resize.
   stopLoop() {
-    if (this._simWorker) { this._simWorker.terminate(); this._simWorker = null; }
+    if (this._simWorker) {
+      this._simWorker.terminate();
+      this._simWorker = null;
+    }
     this.stopPauseRender();
     this.removeResize();
     this._running = false;

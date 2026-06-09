@@ -5,7 +5,7 @@
 const SaveSerializer = {
   fromGame(game) {
     return {
-      version: '1.4.0-beta.4',
+      version: '1.4.0',
       gold: game.gold,
       lives: game.lives,
       seed: game.seed,
@@ -13,16 +13,25 @@ const SaveSerializer = {
       devMode: game.devMode,
       devMonsterCounts: { ...game.devMonsterCounts },
       wave: { currentWave: game.wave.currentWave },
-      troops: game.troops.filter(t => t.alive).map(t => ({
-        specId: t.spec.id,
-        gx: t.gx, gy: t.gy,
-        hp: t.hp, maxHp: t.maxHp,
-        dmgLevel: t.dmgLevel, rangeLevel: t.rangeLevel,
-        speedLevel: t.speedLevel, chainLevel: t.chainLevel,
-        hpLevel: t.hpLevel, slowLevel: t.slowLevel,
-        shield: t.shield, maxShield: t.maxShield,
-        healCount: t.healCount, healGoldSpent: t.healGoldSpent || 0,
-      })),
+      troops: game.troops
+        .filter((t) => t.alive)
+        .map((t) => ({
+          specId: t.spec.id,
+          gx: t.gx,
+          gy: t.gy,
+          hp: t.hp,
+          maxHp: t.maxHp,
+          dmgLevel: t.dmgLevel,
+          rangeLevel: t.rangeLevel,
+          speedLevel: t.speedLevel,
+          chainLevel: t.chainLevel,
+          hpLevel: t.hpLevel,
+          slowLevel: t.slowLevel,
+          shield: t.shield,
+          maxShield: t.maxShield,
+          healCount: t.healCount,
+          healGoldSpent: t.healGoldSpent || 0,
+        })),
     };
   },
 };
@@ -39,8 +48,10 @@ const GameWorldFactory = {
     for (let i = 1; i < waypoints.length; i++) {
       const [ax, ay] = waypoints[i - 1];
       const [bx, by] = waypoints[i];
-      const axp = ax * T + T / 2, ayp = ay * T + T / 2;
-      const bxp = bx * T + T / 2, byp = by * T + T / 2;
+      const axp = ax * T + T / 2,
+        ayp = ay * T + T / 2;
+      const bxp = bx * T + T / 2,
+        byp = by * T + T / 2;
       const len = dist(axp, ayp, bxp, byp);
       total += len;
       segments.push({ ax: axp, ay: ayp, bx: bxp, by: byp, len, cumStart: total - len });
@@ -89,7 +100,7 @@ const GameSnapshotRestorer = {
     // Rebuild troops from save data.
     game.troops = [];
     for (const tData of data.troops) {
-      const spec = TROOP_SPECS.find(s => s.id === tData.specId);
+      const spec = TROOP_SPECS.find((s) => s.id === tData.specId);
       if (!spec) continue;
       const t = new Troop(spec, tData.gx, tData.gy);
       t.hpLevel = tData.hpLevel || 1;

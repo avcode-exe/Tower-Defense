@@ -4,19 +4,27 @@
 
 class Particle {
   constructor() {
-    this.x = 0; this.y = 0;
-    this.vx = 0; this.vy = 0;
-    this.life = 0; this.maxLife = 1;
-    this.color = '#fff'; this.size = 2;
+    this.x = 0;
+    this.y = 0;
+    this.vx = 0;
+    this.vy = 0;
+    this.life = 0;
+    this.maxLife = 1;
+    this.color = '#fff';
+    this.size = 2;
     this.gravity = false;
     this.alive = false;
   }
 
   reset(x, y, vx, vy, life, color, size, gravity) {
-    this.x = x; this.y = y;
-    this.vx = vx; this.vy = vy;
-    this.life = life; this.maxLife = life;
-    this.color = color; this.size = size;
+    this.x = x;
+    this.y = y;
+    this.vx = vx;
+    this.vy = vy;
+    this.life = life;
+    this.maxLife = life;
+    this.color = color;
+    this.size = size;
     this.gravity = gravity;
     this.alive = true;
   }
@@ -70,9 +78,16 @@ const PARTICLES = {
       // seeding / advancing a PRNG for purely cosmetic variation.
       const angle = Math.random() * Math.PI * 2;
       const speed = minSpeed + Math.random() * (maxSpeed - minSpeed);
-      p.reset(x, y, Math.cos(angle) * speed, Math.sin(angle) * speed,
+      p.reset(
+        x,
+        y,
+        Math.cos(angle) * speed,
+        Math.sin(angle) * speed,
         minLife + Math.random() * (maxLife - minLife),
-        color, minSize + Math.random() * (maxSize - minSize), useGravity);
+        color,
+        minSize + Math.random() * (maxSize - minSize),
+        useGravity
+      );
     }
   },
 
@@ -80,8 +95,7 @@ const PARTICLES = {
   spawnTrail(x, y, color) {
     const p = this._getParticle();
     if (!p) return;
-    p.reset(x, y, 0, 0, 0.1 + Math.random() * 0.15,
-      color, 1 + Math.random() * 1.5, false);
+    p.reset(x, y, 0, 0, 0.1 + Math.random() * 0.15, color, 1 + Math.random() * 1.5, false);
   },
 
   update(dt) {
@@ -150,37 +164,107 @@ const PARTICLES = {
   },
 
   // Predefined effect configs (returned by copy so mutations don't cross-contaminate).
-  _hitSparkCfg: { count: 4, color: '#fff', minSize: 1, maxSize: 2.5, minSpeed: 40, maxSpeed: 90, minLife: 0.15, maxLife: 0.3, gravity: false },
+  _hitSparkCfg: {
+    count: 4,
+    color: '#fff',
+    minSize: 1,
+    maxSize: 2.5,
+    minSpeed: 40,
+    maxSpeed: 90,
+    minLife: 0.15,
+    maxLife: 0.3,
+    gravity: false,
+  },
   hitSpark(color) {
     return { ...this._hitSparkCfg, color: color || '#fff' };
   },
 
-  _deathBurstCfg: { count: 10, color: '#fff', minSize: 1.5, maxSize: 3.5, minSpeed: 50, maxSpeed: 130, minLife: 0.25, maxLife: 0.55, gravity: false },
+  _deathBurstCfg: {
+    count: 10,
+    color: '#fff',
+    minSize: 1.5,
+    maxSize: 3.5,
+    minSpeed: 50,
+    maxSpeed: 130,
+    minLife: 0.25,
+    maxLife: 0.55,
+    gravity: false,
+  },
   deathBurst(color) {
     return { ...this._deathBurstCfg, color: color || '#fff' };
   },
 
-  _troopDeathCfg: { count: 15, color: '#fff', minSize: 2, maxSize: 5, minSpeed: 50, maxSpeed: 100, minLife: 0.3, maxLife: 0.7, gravity: false },
+  _troopDeathCfg: {
+    count: 15,
+    color: '#fff',
+    minSize: 2,
+    maxSize: 5,
+    minSpeed: 50,
+    maxSpeed: 100,
+    minLife: 0.3,
+    maxLife: 0.7,
+    gravity: false,
+  },
   troopDeath(color) {
     return { ...this._troopDeathCfg, color: color || '#fff' };
   },
 
-  _splashImpactCfg: { count: 12, color: '#9b59b6', minSize: 1.5, maxSize: 3, minSpeed: 60, maxSpeed: 140, minLife: 0.2, maxLife: 0.45, gravity: false },
+  _splashImpactCfg: {
+    count: 12,
+    color: '#9b59b6',
+    minSize: 1.5,
+    maxSize: 3,
+    minSpeed: 60,
+    maxSpeed: 140,
+    minLife: 0.2,
+    maxLife: 0.45,
+    gravity: false,
+  },
   splashImpact(color) {
     return { ...this._splashImpactCfg, color: color || '#9b59b6' };
   },
 
-  _chainSparkCfg: { count: 3, color: '#f1c40f', minSize: 1, maxSize: 2, minSpeed: 30, maxSpeed: 70, minLife: 0.1, maxLife: 0.2, gravity: false },
+  _chainSparkCfg: {
+    count: 3,
+    color: '#f1c40f',
+    minSize: 1,
+    maxSize: 2,
+    minSpeed: 30,
+    maxSpeed: 70,
+    minLife: 0.1,
+    maxLife: 0.2,
+    gravity: false,
+  },
   chainSpark() {
     return { ...this._chainSparkCfg };
   },
 
-  _shieldActivateCfg: { count: 12, color: '#5dade2', minSize: 1.5, maxSize: 3.5, minSpeed: 40, maxSpeed: 100, minLife: 0.3, maxLife: 0.6, gravity: false },
+  _shieldActivateCfg: {
+    count: 12,
+    color: '#5dade2',
+    minSize: 1.5,
+    maxSize: 3.5,
+    minSpeed: 40,
+    maxSpeed: 100,
+    minLife: 0.3,
+    maxLife: 0.6,
+    gravity: false,
+  },
   troopShieldActivate(color) {
     return { ...this._shieldActivateCfg, color: color || '#5dade2' };
   },
 
-  _slowApplyCfg: { count: 8, color: '#7fdbff', minSize: 2, maxSize: 4, minSpeed: 20, maxSpeed: 60, minLife: 0.4, maxLife: 0.8, gravity: false },
+  _slowApplyCfg: {
+    count: 8,
+    color: '#7fdbff',
+    minSize: 2,
+    maxSize: 4,
+    minSpeed: 20,
+    maxSpeed: 60,
+    minLife: 0.4,
+    maxLife: 0.8,
+    gravity: false,
+  },
   slowApply(color) {
     return { ...this._slowApplyCfg, color: color || '#7fdbff' };
   },

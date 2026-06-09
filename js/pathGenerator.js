@@ -10,10 +10,10 @@
 
 function generatePath(seed) {
   const NEIGHBORS = [
-    [ 0, -1],
-    [ 1,  0],
-    [ 0,  1],
-    [-1,  0],
+    [0, -1],
+    [1, 0],
+    [0, 1],
+    [-1, 0],
   ];
   const rng = makeRNG(seed);
   const N = CONFIG.GRID_SIZE;
@@ -45,13 +45,13 @@ function generatePath(seed) {
         // Candidate cell must not be 4-adjacent to any overtaken cell except
         // current (where we stand) and previous (the step before that).
         let ok = true;
-        neighborCheck:
-        for (const [ax, ay] of NEIGHBORS) {
-          const tx = nx + ax, ty = ny + ay;
+        neighborCheck: for (const [ax, ay] of NEIGHBORS) {
+          const tx = nx + ax,
+            ty = ny + ay;
           if (tx < 0 || tx >= N || ty < 0 || ty >= N) continue;
           if (!occupied[ty * N + tx]) continue;
-          const isCurrent = (tx === current[0] && ty === current[1]);
-          const isPrev = (previous && tx === previous[0] && ty === previous[1]);
+          const isCurrent = tx === current[0] && ty === current[1];
+          const isPrev = previous && tx === previous[0] && ty === previous[1];
           if (isCurrent || isPrev) continue;
           ok = false;
           break neighborCheck;
@@ -65,13 +65,16 @@ function generatePath(seed) {
         moved = true;
         break;
       }
-      if (!moved) { failed = true; break; }
+      if (!moved) {
+        failed = true;
+        break;
+      }
     }
 
     if (!failed && current[0] === N - 1 && path.length >= CONFIG.MIN_PATH_LENGTH) {
       // Reject edge-hugging runs: only start/end may lie on a side edge.
       const body = path.slice(1, path.length - 1);
-      const edgeBody = body.filter(([x,y]) => y === 0 || y === N - 1 || x === 0 || x === N - 1).length;
+      const edgeBody = body.filter(([x, y]) => y === 0 || y === N - 1 || x === 0 || x === N - 1).length;
       if (edgeBody / Math.max(1, body.length) < CONFIG.PATH_EDGE_REJECTION) {
         return path;
       }

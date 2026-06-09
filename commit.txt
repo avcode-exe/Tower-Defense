@@ -1,66 +1,68 @@
-Code quality overhaul: security fix, dead code removal, performance improvements, and linting setup
+v1.4.0 — Spear monster, Game class refactor, code quality overhaul, and code formatting
 
-Security:
-- Fixed XSS vulnerability in toast notifications (main.js) — replaced innerHTML
-  with safe appendChild + createTextNode to prevent HTML injection from update
-  version strings
+This release consolidates all v1.4.0-beta.1 through beta.4 features, code quality
+improvements, and applies consistent code formatting across the entire codebase.
+
+Version bump:
+- package.json, package-lock.json, gamePersistence.js save version
+  bumped from 1.4.0-beta.4 to 1.4.0
+
+Code formatting (Prettier):
+- Applied Prettier formatting to all JS and CSS files for consistent style
+- 2-space indentation, single quotes, trailing commas, 120 char line width
+
+New features (since v1.3.0):
+- Spear monster (level X) — new monster type that slows troops to half speed
+  while attacking from a 2.5-tile radius, attacks while moving
+- Game class decomposition — extracted GameRuntimeController (Web Worker
+  lifecycle, pause/resume, resize) and persistence layer (SaveSerializer,
+  GameWorldFactory, GameSnapshotRestorer)
+- Animated tray windows — smooth roll-up/down transitions for bottom bar popups,
+  only one popup open at a time
+- Smart cursor — standard arrow by default, hand pointer on clickable elements
+- Monster info panel — bottom bar popup showing all monster stats
+- Dev mode improvements — dedicated DEV popup with per-monster count controls
+- Mute/unmute button — toggle audio with volume save/restore
+- Monster attack mode rework — three distinct modes: stop, pass (penetration),
+  slow (slows near troops)
+
+Monster attack modes:
+- stop: Stops moving when a troop is in range, attacks, then resumes (default)
+- pass: Always moves at full speed, deals damage while passing (Runner, Spear)
+- slow: Slows to half speed near troops, attacks closest (Spear)
+
+Code quality improvements:
+- Fixed XSS vulnerability in toast notifications (innerHTML → createTextNode)
+- Removed dead code (~100 lines): drawDevRightPanel, _buildPathSegments,
+  unused DEV_STARTING_GOLD constant
+- Added error boundary for sim tick to render crash screen on exceptions
+- Extracted magic numbers into CONFIG constants (MELEE_DAMAGE_REDUCTION,
+  TROOP_HEAL_HP_RATIO, TROOP_HEAL_COST_RATIO)
+- Replaced O(n) canPlace() scan with O(1) tile-index lookup
+- Eliminated per-frame gradient allocations in UI shop cards
+- Added ESLint and Prettier tooling with npm scripts
 
 Bug fixes:
-- Fixed formatting bug in game.js step() — two statements on one line with
-  inconsistent whitespace (AUDIO.monsterLeak() and if block on same line)
-- Fixed inconsistent indentation in Game.onKeyDown() — Alt+key popup toggle
-  block was dedented outside the method scope
-
-Dead code removal:
-- Removed unused _buildPathSegments() method from Game (duplicated logic in
-  GameWorldFactory.createFresh)
-- Removed unused drawDevRightPanel() from UI (~80 lines, DEV panel moved to
-  bottom-bar popups in main.js)
-- Removed unused DEV_STARTING_GOLD constant from config (code uses Infinity)
-
-Performance:
-- Replaced O(n) linear troop scan in canPlace() with O(1) tile-index lookup
-  using the existing _troopTileIndex spatial index
-- Eliminated createLinearGradient() calls per card per frame in UI shop and
-  shield shop — replaced with solid fills (gradient over 58px is imperceptible),
-  removing 10+ gradient allocations per frame
-
-Config centralization:
-- Added CONFIG.MELEE_DAMAGE_REDUCTION (0.3) — replaces hardcoded 30% in
-  Game.damageTroop()
-- Added CONFIG.TROOP_HEAL_HP_RATIO (0.1) — heal amount percentage
-- Added CONFIG.TROOP_HEAL_COST_RATIO (0.1) — heal cost percentage
-- Updated Troop.getHealCost(), Troop.heal(), and UI heal display to use
-  new CONFIG constants
-
-Error handling:
-- Added try/catch error boundary around Game._runSimTick() to render a crash
-  screen instead of white-screening on unhandled exceptions
-
-Tooling:
-- Added ESLint with .eslintrc.json configured for script-tag architecture
-  (all globals declared, browser+worker+node envs, file overrides)
-- Added Prettier with .prettierrc.json (single quotes, trailing commas,
-  2-space indent, 120 char width)
-- Added npm run lint, npm run lint:fix, npm run format, npm run test scripts
-- Added eslint and prettier as devDependencies
-- ESLint passes clean: 0 errors, 0 warnings
-
-Docs:
-- Updated README.md: added ESLint and Prettier to Tech Stack, added
-  lint/format commands to Building section
+- Fixed reset button hitbox (w:36 → w:50 to match visual label)
+- Fixed formatting bug in step() method
+- Fixed inconsistent indentation in onKeyDown
 
 Files changed:
-- .eslintrc.json: New — ESLint configuration
-- .prettierrc.json: New — Prettier configuration
-- README.md: Updated tech stack and build commands
-- js/config.js: Added MELEE_DAMAGE_REDUCTION, TROOP_HEAL_HP_RATIO,
-  TROOP_HEAL_COST_RATIO; removed unused DEV_STARTING_GOLD
-- js/game.js: XSS fix (toast), formatting fix, removed _buildPathSegments,
-  canPlace optimization, magic number extraction, error boundary, indentation
-- js/main.js: XSS fix — safe DOM construction for toast notifications
-- js/troop.js: Updated heal cost/amount to use CONFIG constants
-- js/ui.js: Removed drawDevRightPanel, removed gradient allocations, used
-  CONFIG.TROOP_HEAL_HP_RATIO for heal display
-- package.json: Added lint/format/test scripts, added eslint + prettier deps
-- package-lock.json: Updated dependencies
+- package.json, package-lock.json: Version 1.4.0, added eslint + prettier
+- gamePersistence.js: Save version bumped to 1.4.0
+- game.js: Refactored lifecycle, error boundary, canPlace optimization,
+  dead code removal, formatting bug fix, indentation fix
+- ui.js: Animated tray windows, dev panel, monster info, dead code removal,
+  gradient cache optimization
+- main.js: Bottom bar popups, monster info, DEV panel, XSS fix
+- config.js: Added new layout constants, removed unused DEV_STARTING_GOLD,
+  added MELEE_DAMAGE_REDUCTION and heal ratio constants
+- monster.js: Spear monster, attack mode rework (stop/pass/slow)
+- audio.js: Mute/unmute button support
+- renderer.js: Cache management improvements
+- input.js: No changes
+- css/style.css: Tray window animations, panel styling
+- index.html: Updated script tags, bottom bar button structure
+- icon.png, icon.svg: Redesigned tower icon with glowing beacon
+- .eslintrc.json, .prettierrc.json: New — code quality tooling
+- README.md: Updated tech stack, controls, troop/monster tables, build commands

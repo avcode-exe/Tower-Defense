@@ -5,7 +5,7 @@
 function makeRNG(seed) {
   let s = (seed == null ? Math.floor(Math.random() * 0xffffffff) : seed) >>> 0;
   return function rng() {
-    s = (s + 0x6D2B79F5) >>> 0;
+    s = (s + 0x6d2b79f5) >>> 0;
     let t = s;
     t = Math.imul(t ^ (t >>> 15), t | 1);
     t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
@@ -30,7 +30,8 @@ function lerp(a, b, t) {
 }
 
 function dist(ax, ay, bx, by) {
-  const dx = ax - bx, dy = ay - by;
+  const dx = ax - bx,
+    dy = ay - by;
   return Math.sqrt(dx * dx + dy * dy);
 }
 

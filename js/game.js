@@ -10,7 +10,7 @@ class Game {
     // centralised state transitions.
     this.runtime = new GameRuntimeController(this);
 
-    this.state = 'PRE_WAVE';   // PRE_WAVE | WAVE_ACTIVE | PAUSED | DEFEAT
+    this.state = 'PRE_WAVE'; // PRE_WAVE | WAVE_ACTIVE | PAUSED | DEFEAT
     this.speed = 1;
     this.gold = CONFIG.STARTING_GOLD;
     this.lives = CONFIG.STARTING_LIVES;
@@ -40,8 +40,8 @@ class Game {
     // Reusable buffer for chain lightning (avoids allocation per hit).
     this._chainBuf = [];
     // Reusable scratch objects for zero-alloc coordinate transforms.
-    this._tileScratch = {gx:0, gy:0};
-    this._centerScratch = {x:0, y:0};
+    this._tileScratch = { gx: 0, gy: 0 };
+    this._centerScratch = { x: 0, y: 0 };
     // Reusable projectile impact callback (avoids closure allocation per projectile per frame).
     this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     // Tile-based spatial monster index for fast targeting.
@@ -64,12 +64,16 @@ class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = null;
-    this.devMonsterCounts = {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
+    this.devMonsterCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 };
   }
 
   // Pause render loop — delegated to the runtime controller.
-  _startPauseRender() { this.runtime.startPauseRender(); }
-  _stopPauseRender() { this.runtime.stopPauseRender(); }
+  _startPauseRender() {
+    this.runtime.startPauseRender();
+  }
+  _stopPauseRender() {
+    this.runtime.stopPauseRender();
+  }
 
   _getPopup(text, x, y, t, color) {
     if (this._popupPool.length > 0) {
@@ -167,7 +171,7 @@ class Game {
   buyTroopShield(index) {
     const t = this.troops[index];
     if (!t || !t.alive) return false;
-    if (!t.canAddShield()) return false;        // already has shield (one-at-a-time)
+    if (!t.canAddShield()) return false; // already has shield (one-at-a-time)
     const cost = Math.ceil(t.spec.cost * CONFIG.SHIELD_COST_RATIO);
     if (!this.devMode && this.gold < cost) return false;
     if (!this.devMode) this.gold -= cost;
@@ -250,13 +254,7 @@ class Game {
     // Melee troops take reduced damage from monsters (they can block).
     if (troop.spec.type === 'melee') dmg = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
     const killed = troop.takeDamage(dmg);
-    this._getPopup(
-      '-' + dmg,
-      troop.x + (Math.random() - 0.5) * 8,
-      troop.y - 14,
-      0.8,
-      '#ff6644'
-    );
+    this._getPopup('-' + dmg, troop.x + (Math.random() - 0.5) * 8, troop.y - 14, 0.8, '#ff6644');
     PARTICLES.spawn(troop.x, troop.y, PARTICLES.hitSpark('#ff8844'));
     if (killed) {
       this.killTroop(troop);
@@ -271,7 +269,8 @@ class Game {
     this.wave.update(dt);
 
     // Spawn due monsters.
-    while (true) { // eslint-disable-line no-constant-condition
+    while (true) {
+      // eslint-disable-line no-constant-condition
       const monData = this.wave.popDueMonster();
       if (monData == null) break;
       this.spawnMonster(monData.level, monData.hpMult);
@@ -372,8 +371,7 @@ class Game {
     }
 
     // Wave completion.
-    if (this.state === 'WAVE_ACTIVE' && this.wave.spawnIndex >= this.wave.queue.length
-        && this.monsters.length === 0) {
+    if (this.state === 'WAVE_ACTIVE' && this.wave.spawnIndex >= this.wave.queue.length && this.monsters.length === 0) {
       const waveNum = this.wave.currentWave + 1;
       this.waveCompleteAnim = { active: true, waveNum: waveNum, startMs: performance.now() };
       AUDIO.waveComplete();
@@ -383,7 +381,13 @@ class Game {
         this._centerScratch.x = RENDERER.width / 2;
         this._centerScratch.y = RENDERER.height / 2 - 40;
         RENDERER.toWorldInto(this._centerScratch.x, this._centerScratch.y, this._centerScratch);
-        this._getPopup('+' + bonus + ' Boss Bonus!', this._centerScratch.x, this._centerScratch.y, 2.0, CONFIG.COLORS.gold);
+        this._getPopup(
+          '+' + bonus + ' Boss Bonus!',
+          this._centerScratch.x,
+          this._centerScratch.y,
+          2.0,
+          CONFIG.COLORS.gold
+        );
       }
       this.wave.onAllSpawnedAndCleared();
       // Expire troop shields after every 10th wave (boss wave).
@@ -459,7 +463,9 @@ class Game {
           c.font = '12px system-ui, sans-serif';
           c.fillText(err.message || String(err), RENDERER.width / 2, RENDERER.height / 2 + 16);
         }
-      } catch (_) { /* render fallback failed, nothing more to do */ }
+      } catch (_) {
+        /* render fallback failed, nothing more to do */
+      }
     }
   }
 
@@ -512,20 +518,23 @@ class Game {
         this.chainHitAt(proj.lastTargetX, proj.lastTargetY, troop);
       } else if (troop.spec.splash > 0) {
         const hit = this.splashAt(proj.lastTargetX, proj.lastTargetY, dmg, troop.spec.splash, troop);
-        if (hasSlow) hit.forEach(m => {
-          if (m.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
-            PARTICLES.spawn(m.x, m.y, PARTICLES.slowApply(troop.spec.color));
-          }
-        });
+        if (hasSlow)
+          hit.forEach((m) => {
+            if (m.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
+              PARTICLES.spawn(m.x, m.y, PARTICLES.slowApply(troop.spec.color));
+            }
+          });
       } else {
         // Direct hit: find closest alive monster to impact point using tile index.
-        let closest = null, closestDist = Infinity;
+        let closest = null,
+          closestDist = Infinity;
         const gx0 = (proj.lastTargetX / CONFIG.TILE_SIZE) | 0;
         const gy0 = (proj.lastTargetY / CONFIG.TILE_SIZE) | 0;
         const G = CONFIG.GRID_SIZE;
         for (let dgy = -1; dgy <= 1; dgy++) {
           for (let dgx = -1; dgx <= 1; dgx++) {
-            const gx = gx0 + dgx, gy = gy0 + dgy;
+            const gx = gx0 + dgx,
+              gy = gy0 + dgy;
             if (gx < 0 || gx >= G || gy < 0 || gy >= G) continue;
             const arr = this._monsterTileIndex[gy * G + gx];
             if (!arr) continue;
@@ -533,7 +542,10 @@ class Game {
               const m = arr[i];
               if (!m.alive) continue;
               const d = dist(proj.lastTargetX, proj.lastTargetY, m.x, m.y);
-              if (d < closestDist) { closestDist = d; closest = m; }
+              if (d < closestDist) {
+                closestDist = d;
+                closest = m;
+              }
             }
           }
         }
@@ -557,11 +569,12 @@ class Game {
       }
     } else if (troop.spec.splash > 0) {
       const hit = this.splashAt(proj.target.x, proj.target.y, dmg, troop.spec.splash, troop);
-      if (hasSlow) hit.forEach(m => {
-        if (m.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
-          PARTICLES.spawn(m.x, m.y, PARTICLES.slowApply(troop.spec.color));
-        }
-      });
+      if (hasSlow)
+        hit.forEach((m) => {
+          if (m.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
+            PARTICLES.spawn(m.x, m.y, PARTICLES.slowApply(troop.spec.color));
+          }
+        });
     } else {
       this.damageMonster(proj.target, dmg);
       if (hasSlow) {
@@ -608,22 +621,28 @@ class Game {
     let closest = null;
     for (let dgy = -1; dgy <= 1; dgy++) {
       for (let dgx = -1; dgx <= 1; dgx++) {
-        const gx = cgx + dgx, gy = cgy + dgy;
+        const gx = cgx + dgx,
+          gy = cgy + dgy;
         if (gx < 0 || gx >= G || gy < 0 || gy >= G) continue;
         const arr = this._monsterTileIndex[gy * G + gx];
         if (!arr) continue;
         for (let i = 0; i < arr.length; i++) {
           const m = arr[i];
           if (!m.alive) continue;
-          const dx = m.x - x, dy = m.y - y;
+          const dx = m.x - x,
+            dy = m.y - y;
           const dSq = dx * dx + dy * dy;
-          if (dSq < closestDist) { closestDist = dSq; closest = m; }
+          if (dSq < closestDist) {
+            closestDist = dSq;
+            closest = m;
+          }
         }
       }
     }
     if (!closest) return;
 
-    let lastX = closest.x, lastY = closest.y;
+    let lastX = closest.x,
+      lastY = closest.y;
     applyHit(closest, x, y);
 
     // Chain: find up to chainCount monsters behind the primary,
@@ -646,15 +665,28 @@ class Game {
       for (let j = 0; j < buf.length; j++) {
         const m = buf[j];
         if (!m.alive || m.progress >= primaryProgress) continue;
-        const dx = m.x - lastX, dy = m.y - lastY;
+        const dx = m.x - lastX,
+          dy = m.y - lastY;
         const dSq = dx * dx + dy * dy;
-        if (dSq < bestDist) { bestDist = dSq; best = m; bestIdx = j; }
+        if (dSq < bestDist) {
+          bestDist = dSq;
+          best = m;
+          bestIdx = j;
+        }
       }
       if (!best || bestDist > maxChainDist * maxChainDist) break; // too far, stop chaining
-      lastX = best.x; lastY = best.y;
+      lastX = best.x;
+      lastY = best.y;
       applyHit(best, best.x, best.y);
       // Remove hit monster from buffer to prevent re-hitting the same target.
-      if (bestIdx >= 0) { const last = buf.length - 1; if (bestIdx !== last) { buf[bestIdx] = buf[last]; } buf.length = last; i--; }
+      if (bestIdx >= 0) {
+        const last = buf.length - 1;
+        if (bestIdx !== last) {
+          buf[bestIdx] = buf[last];
+        }
+        buf.length = last;
+        i--;
+      }
       chained++;
     }
   }
@@ -671,14 +703,16 @@ class Game {
     hitMonsters.length = 0;
     for (let dgy = -ceilR; dgy <= ceilR; dgy++) {
       for (let dgx = -ceilR; dgx <= ceilR; dgx++) {
-        const gx = cgx + dgx, gy = cgy + dgy;
+        const gx = cgx + dgx,
+          gy = cgy + dgy;
         if (gx < 0 || gx >= G || gy < 0 || gy >= G) continue;
         const arr = this._monsterTileIndex[gy * G + gx];
         if (!arr) continue;
         for (let i = 0; i < arr.length; i++) {
           const m = arr[i];
           if (!m.alive) continue;
-          const dx = x - m.x, dy = y - m.y;
+          const dx = x - m.x,
+            dy = y - m.y;
           const dSq = dx * dx + dy * dy;
           if (dSq <= rSq) {
             const falloff = 1 - 0.5 * (Math.sqrt(dSq) * rInv);
@@ -710,7 +744,8 @@ class Game {
 
     // Troops (index loop) — cached Path2D, no per-troop path construction.
     if (!Game._troopPath) {
-      const s = T - 12, rr = 4;
+      const s = T - 12,
+        rr = 4;
       const path = new Path2D();
       path.moveTo(rr, 0);
       path.lineTo(s - rr, 0);
@@ -730,10 +765,10 @@ class Game {
       // Shield square outline — replaces the old circular arc. Troop body shrinks
       // to 80% so the overall footprint (body + outline) matches an unshielded troop.
       if (t.shield > 0 && t.alive && t.maxShield > 0) {
-        const sqSize = T - 12;  // 48px, same as normal troop body
+        const sqSize = T - 12; // 48px, same as normal troop body
         const sqX = t.gx * T + 6;
         const sqY = t.gy * T + 6;
-        ctx.strokeStyle = CONFIG.COLORS.shieldBarFill;  // #5dade2
+        ctx.strokeStyle = CONFIG.COLORS.shieldBarFill; // #5dade2
         // Subtle sine-wave pulse between ~0.45 and ~0.75, period ~1.5s.
         const pulse = 0.6 + 0.15 * Math.sin(now * 0.004);
         ctx.globalAlpha = pulse;
@@ -741,7 +776,8 @@ class Game {
         ctx.strokeRect(sqX, sqY, sqSize, sqSize);
         ctx.globalAlpha = 1;
       }
-      const x = t.gx * T + 6, y = t.gy * T + 6;
+      const x = t.gx * T + 6,
+        y = t.gy * T + 6;
       ctx.save();
       ctx.translate(x, y);
       if (t.shield > 0 && t.maxShield > 0) {
@@ -777,8 +813,8 @@ class Game {
         const barW = T * 0.7;
         const barH = 2;
         const barX = t.x - barW / 2;
-        const barY = t.y - T * 0.45 - 4;  // 4px above HP bar
-        ctx.fillStyle = CONFIG.COLORS.shieldBarBg;  // #223
+        const barY = t.y - T * 0.45 - 4; // 4px above HP bar
+        ctx.fillStyle = CONFIG.COLORS.shieldBarBg; // #223
         ctx.fillRect(barX, barY, barW, barH);
         ctx.fillStyle = CONFIG.COLORS.shieldBarFill; // #5dade2
         ctx.fillRect(barX, barY, barW * t.getShieldRatio(), barH);
@@ -858,7 +894,8 @@ class Game {
         const tdx = p.lastTargetX - p.x;
         const tdy = p.lastTargetY - p.y;
         const d = Math.sqrt(tdx * tdx + tdy * tdy) || 1;
-        const nx = tdx / d, ny = tdy / d;
+        const nx = tdx / d,
+          ny = tdy / d;
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 2;
         ctx.beginPath();
@@ -910,7 +947,10 @@ class Game {
   // Update canvas cursor based on what the mouse is hovering.
   _updateCursor() {
     const canvas = RENDERER.canvas;
-    if (!canvas || RENDERER.hoverPx == null) { canvas.style.cursor = 'default'; return; }
+    if (!canvas || RENDERER.hoverPx == null) {
+      canvas.style.cursor = 'default';
+      return;
+    }
     const px = RENDERER.hoverPx;
     const py = RENDERER.hoverPy;
     const cursor = this._hitTestCursor(px, py);
@@ -920,27 +960,58 @@ class Game {
   _hitTestCursor(px, py) {
     // Confirmation dialogs take priority.
     if (this.devConfirmPending || this.resetConfirmPending || this.sellConfirmPending) {
-      if (UI._devConfirmYes && px >= UI._devConfirmYes.x && px <= UI._devConfirmYes.x + UI._devConfirmYes.w && py >= UI._devConfirmYes.y && py <= UI._devConfirmYes.y + UI._devConfirmYes.h) return 'pointer';
-      if (UI._devConfirmNo && px >= UI._devConfirmNo.x && px <= UI._devConfirmNo.x + UI._devConfirmNo.w && py >= UI._devConfirmNo.y && py <= UI._devConfirmNo.y + UI._devConfirmNo.h) return 'pointer';
+      if (
+        UI._devConfirmYes &&
+        px >= UI._devConfirmYes.x &&
+        px <= UI._devConfirmYes.x + UI._devConfirmYes.w &&
+        py >= UI._devConfirmYes.y &&
+        py <= UI._devConfirmYes.y + UI._devConfirmYes.h
+      )
+        return 'pointer';
+      if (
+        UI._devConfirmNo &&
+        px >= UI._devConfirmNo.x &&
+        px <= UI._devConfirmNo.x + UI._devConfirmNo.w &&
+        py >= UI._devConfirmNo.y &&
+        py <= UI._devConfirmNo.y + UI._devConfirmNo.h
+      )
+        return 'pointer';
       return 'default';
     }
     // Panel toggle buttons (shop/hud/preview/shield toggles).
     if (UI.hitToggleButtons(px, py)) return 'pointer';
     // Gold area (triple-click dev mode).
-    if (px >= LAYOUT.HUD.GOLD_AREA.x && px <= LAYOUT.HUD.GOLD_AREA.x + LAYOUT.HUD.GOLD_AREA.w && py >= LAYOUT.HUD.GOLD_AREA.y && py <= LAYOUT.HUD.GOLD_AREA.y + LAYOUT.HUD.GOLD_AREA.h) return 'pointer';
+    if (
+      px >= LAYOUT.HUD.GOLD_AREA.x &&
+      px <= LAYOUT.HUD.GOLD_AREA.x + LAYOUT.HUD.GOLD_AREA.w &&
+      py >= LAYOUT.HUD.GOLD_AREA.y &&
+      py <= LAYOUT.HUD.GOLD_AREA.y + LAYOUT.HUD.GOLD_AREA.h
+    )
+      return 'pointer';
     // HUD buttons when expanded.
     if (!UI_LAYOUT.collapsed.hud) {
       const rstBtn = LAYOUT.HUD.RESET_BTN;
       if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) return 'pointer';
       // Mute button.
       const muteBtn = LAYOUT.HUD.MUTE_BTN;
-      if (px >= muteBtn.x && px <= muteBtn.x + muteBtn.w && py >= muteBtn.y && py <= muteBtn.y + muteBtn.h) return 'pointer';
+      if (px >= muteBtn.x && px <= muteBtn.x + muteBtn.w && py >= muteBtn.y && py <= muteBtn.y + muteBtn.h)
+        return 'pointer';
       const w = RENDERER.width;
       for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
-        const r = { x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28, y: 14, w: LAYOUT.HUD.SPEED_BTN_W, h: LAYOUT.HUD.SPEED_BTN_H };
+        const r = {
+          x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28,
+          y: 14,
+          w: LAYOUT.HUD.SPEED_BTN_W,
+          h: LAYOUT.HUD.SPEED_BTN_H,
+        };
         if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return 'pointer';
       }
-      const btn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
+      const btn = {
+        x: w - LAYOUT.HUD.CTRL_RIGHT,
+        y: LAYOUT.HUD.CTRL_BTN.y,
+        w: LAYOUT.HUD.CTRL_BTN.w,
+        h: LAYOUT.HUD.CTRL_BTN.h,
+      };
       if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) return 'pointer';
     }
     // Shop cards.
@@ -956,14 +1027,29 @@ class Game {
       if (t && t.alive) {
         const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
         const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
-        if (px >= LAYOUT.SHOP.BTN_PAD && px <= LAYOUT.SHOP.BTN_PAD + healBtnW && py >= healBtnY && py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H) return 'pointer';
+        if (
+          px >= LAYOUT.SHOP.BTN_PAD &&
+          px <= LAYOUT.SHOP.BTN_PAD + healBtnW &&
+          py >= healBtnY &&
+          py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H
+        )
+          return 'pointer';
         // Sell button (below heal).
         const sellBtnY = healBtnY - LAYOUT.SHOP.HEAL_BTN_H - 4;
-        if (px >= LAYOUT.SHOP.BTN_PAD && px <= LAYOUT.SHOP.BTN_PAD + healBtnW && py >= sellBtnY && py <= sellBtnY + LAYOUT.SHOP.HEAL_BTN_H) return 'pointer';
+        if (
+          px >= LAYOUT.SHOP.BTN_PAD &&
+          px <= LAYOUT.SHOP.BTN_PAD + healBtnW &&
+          py >= sellBtnY &&
+          py <= sellBtnY + LAYOUT.SHOP.HEAL_BTN_H
+        )
+          return 'pointer';
       }
     }
     // Troop on grid (clickable to select).
-    if (px > UI_LAYOUT.shopWidth && px < RENDERER.width - (UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth)) {
+    if (
+      px > UI_LAYOUT.shopWidth &&
+      px < RENDERER.width - (UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth)
+    ) {
       const w = RENDERER.toWorldInto(px, py, UI._ghostPos);
       if (inBounds(Math.floor(w.x / CONFIG.TILE_SIZE), Math.floor(w.y / CONFIG.TILE_SIZE))) {
         const tileKey = Math.floor(w.y / CONFIG.TILE_SIZE) * CONFIG.GRID_SIZE + Math.floor(w.x / CONFIG.TILE_SIZE);
@@ -971,7 +1057,8 @@ class Game {
         if (tileTroops) {
           for (let i = 0; i < tileTroops.length; i++) {
             const t = tileTroops[i];
-            if (t.alive && Math.abs(px - t.x) < CONFIG.TILE_SIZE / 2 && Math.abs(py - t.y) < CONFIG.TILE_SIZE / 2) return 'pointer';
+            if (t.alive && Math.abs(px - t.x) < CONFIG.TILE_SIZE / 2 && Math.abs(py - t.y) < CONFIG.TILE_SIZE / 2)
+              return 'pointer';
           }
         }
       }
@@ -981,7 +1068,13 @@ class Game {
       const w = RENDERER.toWorldInto(RENDERER.hoverPx, RENDERER.hoverPy, UI._ghostPos);
       const tgx = Math.floor(w.x / CONFIG.TILE_SIZE);
       const tgy = Math.floor(w.y / CONFIG.TILE_SIZE);
-      if (inBounds(tgx, tgy) && px > UI_LAYOUT.shopWidth && px < RENDERER.width && py > UI_LAYOUT.hudHeight && py < RENDERER.height - UI_LAYOUT.previewHeight) {
+      if (
+        inBounds(tgx, tgy) &&
+        px > UI_LAYOUT.shopWidth &&
+        px < RENDERER.width &&
+        py > UI_LAYOUT.hudHeight &&
+        py < RENDERER.height - UI_LAYOUT.previewHeight
+      ) {
         return this.canPlace(tgx, tgy, this.selectedSpec) ? 'pointer' : 'default';
       }
     }
@@ -1004,7 +1097,13 @@ class Game {
 
     // Confirmation dialog clicks (intercepts everything while shown).
     if (this.devConfirmPending || this.resetConfirmPending || this.sellConfirmPending) {
-      if (UI._devConfirmYes && px >= UI._devConfirmYes.x && px <= UI._devConfirmYes.x + UI._devConfirmYes.w && py >= UI._devConfirmYes.y && py <= UI._devConfirmYes.y + UI._devConfirmYes.h) {
+      if (
+        UI._devConfirmYes &&
+        px >= UI._devConfirmYes.x &&
+        px <= UI._devConfirmYes.x + UI._devConfirmYes.w &&
+        py >= UI._devConfirmYes.y &&
+        py <= UI._devConfirmYes.y + UI._devConfirmYes.h
+      ) {
         if (this.sellConfirmPending) {
           this.sellConfirmPending = false;
           const ref = this.sellConfirmTroopIndex;
@@ -1022,7 +1121,13 @@ class Game {
         }
         return;
       }
-      if (UI._devConfirmNo && px >= UI._devConfirmNo.x && px <= UI._devConfirmNo.x + UI._devConfirmNo.w && py >= UI._devConfirmNo.y && py <= UI._devConfirmNo.y + UI._devConfirmNo.h) {
+      if (
+        UI._devConfirmNo &&
+        px >= UI._devConfirmNo.x &&
+        px <= UI._devConfirmNo.x + UI._devConfirmNo.w &&
+        py >= UI._devConfirmNo.y &&
+        py <= UI._devConfirmNo.y + UI._devConfirmNo.h
+      ) {
         this.devConfirmPending = false;
         this.resetConfirmPending = false;
         this.sellConfirmPending = false;
@@ -1035,7 +1140,12 @@ class Game {
     // Dev right panel click handling removed — moved to bottom bar DEV popup
 
     // Triple-click on gold display to toggle dev mode.
-    if (px >= LAYOUT.HUD.GOLD_AREA.x && px <= LAYOUT.HUD.GOLD_AREA.x + LAYOUT.HUD.GOLD_AREA.w && py >= LAYOUT.HUD.GOLD_AREA.y && py <= LAYOUT.HUD.GOLD_AREA.y + LAYOUT.HUD.GOLD_AREA.h) {
+    if (
+      px >= LAYOUT.HUD.GOLD_AREA.x &&
+      px <= LAYOUT.HUD.GOLD_AREA.x + LAYOUT.HUD.GOLD_AREA.w &&
+      py >= LAYOUT.HUD.GOLD_AREA.y &&
+      py <= LAYOUT.HUD.GOLD_AREA.y + LAYOUT.HUD.GOLD_AREA.h
+    ) {
       const now = performance.now();
       if (now - this._goldClickTimer > 800) this._goldClicks = 0;
       this._goldClickTimer = now;
@@ -1066,7 +1176,12 @@ class Game {
       // Speed buttons.
       const w = RENDERER.width;
       for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
-        const r = { x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28, y: 14, w: LAYOUT.HUD.SPEED_BTN_W, h: LAYOUT.HUD.SPEED_BTN_H };
+        const r = {
+          x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28,
+          y: 14,
+          w: LAYOUT.HUD.SPEED_BTN_W,
+          h: LAYOUT.HUD.SPEED_BTN_H,
+        };
         if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) {
           this.speed = CONFIG.GAME_SPEEDS[i];
           return;
@@ -1074,7 +1189,12 @@ class Game {
       }
 
       // Start wave / pause button.
-      const btn = { x: w - LAYOUT.HUD.CTRL_RIGHT, y: LAYOUT.HUD.CTRL_BTN.y, w: LAYOUT.HUD.CTRL_BTN.w, h: LAYOUT.HUD.CTRL_BTN.h };
+      const btn = {
+        x: w - LAYOUT.HUD.CTRL_RIGHT,
+        y: LAYOUT.HUD.CTRL_BTN.y,
+        w: LAYOUT.HUD.CTRL_BTN.w,
+        h: LAYOUT.HUD.CTRL_BTN.h,
+      };
       if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
         if (this.state === 'PRE_WAVE') {
           this.runtime.startWave();
@@ -1089,7 +1209,7 @@ class Game {
     const shopIdx = UI.hitShop(px, py);
     if (shopIdx >= 0) {
       const spec = TROOP_SPECS[shopIdx];
-      this.selectedSpec = (this.selectedSpec === spec) ? null : spec;
+      this.selectedSpec = this.selectedSpec === spec ? null : spec;
       this.selectedTroopIndex = -1;
       return;
     }
@@ -1109,7 +1229,12 @@ class Game {
       if (t && t.alive && t.canHeal()) {
         const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
         const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
-        if (px >= LAYOUT.SHOP.BTN_PAD && px <= LAYOUT.SHOP.BTN_PAD + healBtnW && py >= healBtnY && py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H) {
+        if (
+          px >= LAYOUT.SHOP.BTN_PAD &&
+          px <= LAYOUT.SHOP.BTN_PAD + healBtnW &&
+          py >= healBtnY &&
+          py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H
+        ) {
           this.healTroop(this.selectedTroopIndex);
           return;
         }
@@ -1118,9 +1243,13 @@ class Game {
 
     // Sell button — show confirmation dialog.
     if (this.selectedTroopIndex >= 0 && !UI_LAYOUT.collapsed.shop) {
-      const sellBtn = { x: LAYOUT.SHOP.BTN_PAD, y: RENDERER.height - LAYOUT.SHOP.SELL_BTN_Y_OFFSET, w: UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW, h: LAYOUT.SHOP.SELL_BTN_H };
-      if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w
-          && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
+      const sellBtn = {
+        x: LAYOUT.SHOP.BTN_PAD,
+        y: RENDERER.height - LAYOUT.SHOP.SELL_BTN_Y_OFFSET,
+        w: UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW,
+        h: LAYOUT.SHOP.SELL_BTN_H,
+      };
+      if (px >= sellBtn.x && px <= sellBtn.x + sellBtn.w && py >= sellBtn.y && py <= sellBtn.y + sellBtn.h) {
         if (this.devMode) {
           this.sellTroop(this.selectedTroopIndex);
         } else {
@@ -1144,12 +1273,20 @@ class Game {
           if (!t.canUpgrade(stat)) continue;
           visibleCount++;
         }
-        const statBtnW = visibleCount > 0 ? Math.floor((UI_LAYOUT.SHOP_WIDTH - btnPad * 2 - btnGap * (visibleCount - 1)) / visibleCount) : 49;
+        const statBtnW =
+          visibleCount > 0
+            ? Math.floor((UI_LAYOUT.SHOP_WIDTH - btnPad * 2 - btnGap * (visibleCount - 1)) / visibleCount)
+            : 49;
         let visibleBtnIdx = 0;
         for (let i = 0; i < stats.length; i++) {
           const stat = stats[i];
           if (!t.canUpgrade(stat)) continue;
-          const btn = { x: btnPad + visibleBtnIdx * (statBtnW + btnGap), y: RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET, w: statBtnW, h: LAYOUT.SHOP.UPGRADE_BTN_H };
+          const btn = {
+            x: btnPad + visibleBtnIdx * (statBtnW + btnGap),
+            y: RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET,
+            w: statBtnW,
+            h: LAYOUT.SHOP.UPGRADE_BTN_H,
+          };
           visibleBtnIdx++;
           if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) {
             this.upgradeTroopStat(this.selectedTroopIndex, stat);
@@ -1160,9 +1297,12 @@ class Game {
     }
 
     // Map clicks.
-    if (px >= UI_LAYOUT.shopWidth && py >= UI_LAYOUT.hudHeight
-        && py <= RENDERER.height - UI_LAYOUT.previewHeight
-        && px <= RENDERER.width - UI_LAYOUT.shieldShopWidth) {
+    if (
+      px >= UI_LAYOUT.shopWidth &&
+      py >= UI_LAYOUT.hudHeight &&
+      py <= RENDERER.height - UI_LAYOUT.previewHeight &&
+      px <= RENDERER.width - UI_LAYOUT.shieldShopWidth
+    ) {
       RENDERER.toWorldInto(px, py, this._centerScratch);
       const world = this._centerScratch;
       pixelToTile(world.x, world.y, this._tileScratch);
@@ -1230,8 +1370,7 @@ class Game {
 
   onKeyDown(e) {
     // Restart.
-    if ((e.key === 'r' || e.key === 'R')
-        && this.state === 'DEFEAT') {
+    if ((e.key === 'r' || e.key === 'R') && this.state === 'DEFEAT') {
       e.preventDefault();
       this.restart();
       return;
@@ -1258,7 +1397,7 @@ class Game {
         { key: 'u', popupId: 'settings-popup', collapsedKey: 'settings', btnId: 'bar-settings-btn' },
         { key: 'd', popupId: 'dev-popup', collapsedKey: 'dev', btnId: 'bar-dev-btn' },
       ];
-      const match = popupKeys.find(p => e.key.toLowerCase() === p.key);
+      const match = popupKeys.find((p) => e.key.toLowerCase() === p.key);
       if (match) {
         e.preventDefault();
         // If already open, close it.
@@ -1266,7 +1405,7 @@ class Game {
           this.togglePopupEl(match.popupId, true, match.btnId);
         } else {
           // Find any currently open popup and close it, wait for animation, then open target.
-          const openKey = popupKeys.find(p => !UI_LAYOUT.collapsed[p.collapsedKey]);
+          const openKey = popupKeys.find((p) => !UI_LAYOUT.collapsed[p.collapsedKey]);
           if (openKey) {
             this.togglePopupEl(openKey.popupId, true, openKey.btnId);
             const el = document.getElementById(openKey.popupId);
@@ -1275,7 +1414,10 @@ class Game {
               this.togglePopupEl(match.popupId, false, match.btnId);
             };
             if (el) {
-              const onDone = () => { el.removeEventListener('transitionend', onDone); openFn(); };
+              const onDone = () => {
+                el.removeEventListener('transitionend', onDone);
+                openFn();
+              };
               el.addEventListener('transitionend', onDone);
               setTimeout(openFn, 350);
             } else {
@@ -1331,7 +1473,7 @@ class Game {
   }
 
   _defaultDevCounts() {
-    return {1:0, 2:0, 3:0, 4:0, 5:0, B:0, S:0, X:0};
+    return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 };
   }
 
   resetDevMonsterCounts() {

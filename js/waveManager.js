@@ -7,15 +7,15 @@ class WaveManager {
   }
 
   reset() {
-    this.currentWave = 0;       // 0-based index; 0 means wave 1 not yet started
+    this.currentWave = 0; // 0-based index; 0 means wave 1 not yet started
     this.waves = WAVES;
-    this.queue = [];            // [{level, spawnAt, hpMult}, ...]
+    this.queue = []; // [{level, spawnAt, hpMult}, ...]
     this.elapsed = 0;
     this.spawnIndex = 0;
     this.waveActive = false;
     this.waveComplete = false;
     this.currentPreview = this._previewForWave(this.currentWave);
-    this.buildQueue();           // pre-build queue for wave 1
+    this.buildQueue(); // pre-build queue for wave 1
   }
 
   // Build the spawn queue for a given 1-based wave number.
@@ -31,7 +31,7 @@ class WaveManager {
     let t = CONFIG.WAVE_START_DELAY;
     for (const [level, count] of spec) {
       for (let i = 0; i < count; i++) {
-        const interval = (level === 2) ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
+        const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
         this.queue.push({ level, spawnAt: t, hpMult });
         t += interval;
       }
@@ -51,7 +51,7 @@ class WaveManager {
     for (const level of order) {
       const count = counts[level] || 0;
       for (let i = 0; i < count; i++) {
-        const interval = (level === 2) ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
+        const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
         this.queue.push({ level, spawnAt: t, hpMult });
         t += interval;
       }
@@ -111,7 +111,7 @@ class WaveManager {
     if (cycle <= 0) return { countMult: 1, hpMult: 1 };
     return {
       countMult: 1 + cycle * CONFIG.WAVE_SCALE_COUNT,
-      hpMult: 1 + cycle * CONFIG.WAVE_SCALE_HP
+      hpMult: 1 + cycle * CONFIG.WAVE_SCALE_HP,
     };
   }
 

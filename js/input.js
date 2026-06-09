@@ -37,8 +37,12 @@ class Input {
       const r = this.canvas.getBoundingClientRect();
       const px = e.clientX - r.left;
       const py = e.clientY - r.top;
-      if (!UI_LAYOUT.collapsed.shieldShop && px > RENDERER.width - UI_LAYOUT.shieldShopWidth && py > UI_LAYOUT.hudHeight) {
-        return;  // consume; no scrollable content in shield panel v1
+      if (
+        !UI_LAYOUT.collapsed.shieldShop &&
+        px > RENDERER.width - UI_LAYOUT.shieldShopWidth &&
+        py > UI_LAYOUT.hudHeight
+      ) {
+        return; // consume; no scrollable content in shield panel v1
       }
       if (!UI_LAYOUT.collapsed.shop && px < UI_LAYOUT.shopWidth && py > UI_LAYOUT.hudHeight) {
         UI.shopScrollY += e.deltaY * 0.5;
@@ -57,7 +61,9 @@ class Input {
     window.addEventListener('keydown', this._onKeyDown);
 
     // Recalc cached rect on window resize.
-    this._resizeListener = () => { this._rect = this.canvas.getBoundingClientRect(); };
+    this._resizeListener = () => {
+      this._rect = this.canvas.getBoundingClientRect();
+    };
     window.addEventListener('resize', this._resizeListener);
   }
 
