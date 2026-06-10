@@ -68,6 +68,7 @@ export class Game {
     this._popupPool = [];
     this._tileIndexPool = [];
     this._projectilePool = [];
+    this._troopIndexByRef = new Map();
 
     this.wave = new WaveManager();
 
@@ -441,6 +442,7 @@ export class Game {
     }
     this.troops.length = tw;
     this.selectedTroopIndex = selRef && selRef.alive ? newSelIdx : -1;
+    this._buildTroopTileIndex();
   }
 
   _stepWaveCompletion() {
@@ -562,12 +564,16 @@ export class Game {
   }
 
   _buildTroopTileIndex() {
+    this._troopIndexByRef.clear();
     for (let i = 0; i < this._troopTileIndex.length; i++) this._troopTileIndex[i].length = 0;
     for (let i = 0; i < this.troops.length; i++) {
       const t = this.troops[i];
       if (!t.alive) continue;
       const idx = t.gy * CONFIG.GRID_SIZE + t.gx;
-      if (idx >= 0 && idx < this._troopTileIndex.length) this._troopTileIndex[idx].push(t);
+      if (idx >= 0 && idx < this._troopTileIndex.length) {
+        this._troopTileIndex[idx].push(t);
+        this._troopIndexByRef.set(t, i);
+      }
     }
   }
 
@@ -915,11 +921,14 @@ export class Game {
   }
 
   _handleMapClick(px, py) {
+    const shieldShopRight = UI_LAYOUT.collapsed.shieldShop
+      ? RENDERER.width
+      : RENDERER.width - UI_LAYOUT.shieldShopWidth;
     if (
       px < UI_LAYOUT.shopWidth ||
       py < UI_LAYOUT.hudHeight ||
       py > RENDERER.height - UI_LAYOUT.previewHeight ||
-      px > RENDERER.width - UI_LAYOUT.shieldShopWidth
+      px > shieldShopRight
     ) {
       return;
     }
@@ -947,9 +956,13 @@ export class Game {
   }
 
   findTroopAtTile(gx, gy) {
-    for (let i = 0; i < this.troops.length; i++) {
-      const t = this.troops[i];
-      if (t.alive && t.gx === gx && t.gy === gy) return i;
+    if (gx < 0 || gy < 0 || gx >= CONFIG.GRID_SIZE || gy >= CONFIG.GRID_SIZE) return -1;
+    const idx = gy * CONFIG.GRID_SIZE + gx;
+    const tileTroops = this._troopTileIndex[idx];
+    if (!tileTroops) return -1;
+    for (let i = 0; i < tileTroops.length; i++) {
+      const troop = tileTroops[i];
+      if (troop.alive) return this._troopIndexByRef.get(troop) ?? -1;
     }
     return -1;
   }

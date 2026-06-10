@@ -7,9 +7,10 @@
     "start": "electron .",
     "build": "electron-builder --win --x64",
     "release": "electron-builder --win --x64 --publish always",
-    "lint": "eslint src/ electron-main.js preload.js",
-    "lint:fix": "eslint --fix src/ electron-main.js preload.js",
+    "lint": "eslint src/ tests/ electron-main.js preload.js",
+    "lint:fix": "eslint --fix src/ tests/ electron-main.js preload.js",
     "format": "prettier --write \"src/**/*.js\" \"*.js\" \"css/**/*.css\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"css/**/*.css\"",
     "test": "vitest run",
     "test:watch": "vitest"
   },

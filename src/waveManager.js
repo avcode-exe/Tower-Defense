@@ -28,8 +28,7 @@ export class WaveManager {
     this.currentPreview = this._previewForWave(this.currentWave);
     const spec = this.currentPreview;
     const cycle = Math.floor(this.currentWave / this.waves.length);
-    const scaling = this._getScaling(cycle);
-    const hpMult = scaling.hpMult;
+    const hpMult = this._getScaling(cycle).hpMult;
     let t = CONFIG.WAVE_START_DELAY;
     for (const [level, count] of spec) {
       for (let i = 0; i < count; i++) {

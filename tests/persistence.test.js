@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { SaveSerializer, GameWorldFactory } from '../src/gamePersistence.js';
+import { SaveSerializer, GameWorldFactory, GameSnapshotRestorer } from '../src/gamePersistence.js';
 import { CONFIG } from '../src/config.js';
+import { RENDERER } from '../src/rendering/renderer.js';
 
 describe('SaveSerializer.isValid', () => {
   it('returns false for null', () => {
@@ -62,10 +63,25 @@ describe('SaveSerializer.isValid', () => {
     const base = { seed: 42, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
     // Valid troop
     expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gx: 0, gy: 0, hp: 100 }] })).toBe(true);
+    // Non-finite HP
+    expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gx: 0, gy: 0, hp: Infinity }] })).toBe(false);
     // Missing specId
     expect(SaveSerializer.isValid({ ...base, troops: [{ gx: 0, gy: 0 }] })).toBe(false);
     // Missing gx
     expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gy: 0 }] })).toBe(false);
+  });
+
+  it('rejects invalid healer target levels', () => {
+    const base = { seed: 42, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
+    expect(
+      SaveSerializer.isValid({ ...base, troops: [{ specId: 'healer', gx: 0, gy: 0, hp: 40, healTargetLevel: 0 }] })
+    ).toBe(false);
+    expect(
+      SaveSerializer.isValid({ ...base, troops: [{ specId: 'healer', gx: 0, gy: 0, hp: 40, healTargetLevel: 1.5 }] })
+    ).toBe(false);
+    expect(
+      SaveSerializer.isValid({ ...base, troops: [{ specId: 'healer', gx: 0, gy: 0, hp: 40, healTargetLevel: 6 }] })
+    ).toBe(false);
   });
 });
 
@@ -80,8 +96,43 @@ describe('SaveSerializer.fromGame', () => {
       devMonsterCounts: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 },
       wave: { currentWave: 5 },
       troops: [
-        { alive: true, spec: { id: 'archer' }, gx: 3, gy: 5, hp: 80, maxHp: 100, dmgLevel: 1, rangeLevel: 1, speedLevel: 1, chainLevel: 1, hpLevel: 1, slowLevel: 1, shield: 0, maxShield: 0, healCount: 0, healGoldSpent: 0 },
-        { alive: false, spec: { id: 'knight' }, gx: 1, gy: 1, hp: 0, maxHp: 50, dmgLevel: 1, rangeLevel: 1, speedLevel: 1, chainLevel: 1, hpLevel: 1, slowLevel: 1, shield: 0, maxShield: 0, healCount: 0, healGoldSpent: 0 },
+        {
+          alive: true,
+          spec: { id: 'healer' },
+          gx: 3,
+          gy: 5,
+          hp: 80,
+          maxHp: 100,
+          dmgLevel: 1,
+          rangeLevel: 1,
+          speedLevel: 1,
+          chainLevel: 1,
+          hpLevel: 1,
+          slowLevel: 1,
+          healTargetLevel: 3,
+          shield: 0,
+          maxShield: 0,
+          healCount: 0,
+          healGoldSpent: 0,
+        },
+        {
+          alive: false,
+          spec: { id: 'knight' },
+          gx: 1,
+          gy: 1,
+          hp: 0,
+          maxHp: 50,
+          dmgLevel: 1,
+          rangeLevel: 1,
+          speedLevel: 1,
+          chainLevel: 1,
+          hpLevel: 1,
+          slowLevel: 1,
+          shield: 0,
+          maxShield: 0,
+          healCount: 0,
+          healGoldSpent: 0,
+        },
       ],
     };
     const data = SaveSerializer.fromGame(game);
@@ -93,8 +144,9 @@ describe('SaveSerializer.fromGame', () => {
     expect(data.speed).toBe(2);
     expect(data.wave.currentWave).toBe(5);
     expect(data.troops).toHaveLength(1);
-    expect(data.troops[0].specId).toBe('archer');
+    expect(data.troops[0].specId).toBe('healer');
     expect(data.troops[0].gx).toBe(3);
+    expect(data.troops[0].healTargetLevel).toBe(3);
   });
 
   it('converts Infinity gold to null', () => {
@@ -111,6 +163,50 @@ describe('SaveSerializer.fromGame', () => {
     const data = SaveSerializer.fromGame(game);
     expect(data.gold).toBeNull();
     expect(data.lives).toBeNull();
+  });
+});
+
+describe('GameSnapshotRestorer.apply', () => {
+  it('clamps restored healer target count', () => {
+    const originalMarkCacheDirty = RENDERER.markCacheDirty;
+    const originalRebuildCache = RENDERER._rebuildCache;
+    RENDERER.markCacheDirty = () => {};
+    RENDERER._rebuildCache = () => {};
+
+    try {
+      const game = {
+        _defaultDevCounts: () => ({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 }),
+        _buildTroopTileIndex: () => {},
+      };
+
+      GameSnapshotRestorer.apply(game, {
+        seed: 42,
+        gold: 1000,
+        lives: 25,
+        speed: 1,
+        devMode: false,
+        devMonsterCounts: {},
+        wave: { currentWave: 0 },
+        troops: [
+          {
+            specId: 'healer',
+            gx: 5,
+            gy: 5,
+            hp: 40,
+            healTargetLevel: 99,
+            shield: 0,
+            maxShield: 0,
+            healCount: 0,
+            healGoldSpent: 0,
+          },
+        ],
+      });
+
+      expect(game.troops[0].healTargetLevel).toBe(CONFIG.MAX_UPGRADE_LEVEL);
+    } finally {
+      RENDERER.markCacheDirty = originalMarkCacheDirty;
+      RENDERER._rebuildCache = originalRebuildCache;
+    }
   });
 });
 

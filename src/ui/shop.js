@@ -227,7 +227,12 @@ export function drawShop(game) {
     c.font = '7px system-ui, sans-serif';
     const typeW = c.measureText(typeLabel).width + 6;
     const badgeX = r.x + r.w - typeW - 6;
-    c.fillStyle = spec.type === 'melee' ? 'rgba(231,76,60,0.25)' : spec.type === 'support' ? 'rgba(46,204,113,0.25)' : 'rgba(39,174,96,0.25)';
+    c.fillStyle =
+      spec.type === 'melee'
+        ? 'rgba(231,76,60,0.25)'
+        : spec.type === 'support'
+          ? 'rgba(46,204,113,0.25)'
+          : 'rgba(39,174,96,0.25)';
     UIRoundRect(c, badgeX, r.y + 6, typeW, 13, 3);
     c.fill();
     c.fillStyle = spec.type === 'melee' ? '#e74c3c' : spec.type === 'support' ? '#2ecc71' : '#27ae60';
@@ -293,7 +298,9 @@ export function drawShop(game) {
         statLines.push(
           'HEAL ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
         );
-        statLines.push('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + '  TGT ' + t.getHealTargetCount() + ' Lv.' + t.healTargetLevel);
+        statLines.push(
+          'RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + '  TGT ' + t.getHealTargetCount() + ' Lv.' + t.healTargetLevel
+        );
       } else {
         statLines.push(
           'DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
@@ -370,7 +377,14 @@ export function drawShop(game) {
 
       // Upgrade buttons.
       const stats = ['dmg', 'range', 'speed', 'chain', 'slow', 'hp'];
-      const statLabels = { dmg: t.spec.type === 'support' ? 'HEAL' : 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN', slow: t.spec.type === 'support' ? 'TGT' : 'SLW', hp: 'HP' };
+      const statLabels = {
+        dmg: t.spec.type === 'support' ? 'HEAL' : 'DMG',
+        range: 'RNG',
+        speed: 'SPD',
+        chain: 'CHN',
+        slow: t.spec.type === 'support' ? 'TGT' : 'SLW',
+        hp: 'HP',
+      };
       const statColors = {
         dmg: t.spec.type === 'support' ? '#2ecc71' : '#e74c3c',
         range: '#2ea043',
@@ -433,8 +447,7 @@ export function drawShop(game) {
         }
       }
 
-      // Heal button — hidden for support troops (they auto-heal allies).
-      if (t.spec.type !== 'support') {
+      // Heal button — available for all troops, including support healers.
       const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
       const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
       const canHeal = t.canHeal();
@@ -489,7 +502,6 @@ export function drawShop(game) {
           LAYOUT.SHOP.BTN_PAD + healBtnW / 2,
           healBtnY + 22
         );
-      }
       }
 
       // Sell button with cooldown indicator.

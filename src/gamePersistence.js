@@ -8,6 +8,19 @@ import { RENDERER } from './rendering/renderer.js';
 import { PARTICLES } from './particles.js';
 import { UI } from './ui/index.js';
 
+const TRANSIENT_ARRAY_KEYS = ['_projectilePool', '_splashHitBuf', '_chainBuf', '_tileIndexPool'];
+
+function resetTransientBuffers(game) {
+  for (const key of TRANSIENT_ARRAY_KEYS) {
+    game[key] = [];
+  }
+}
+
+function normalizeHealTargetLevel(value) {
+  const level = Number.isInteger(value) ? value : 1;
+  return Math.max(1, Math.min(CONFIG.MAX_UPGRADE_LEVEL, level));
+}
+
 // Persistence helpers: serialise save data, rebuild world geometry from a
 // seed, and restore game state from a save.  Extracted from Game so that
 // adding new persistent fields requires only one touch-point per operation.
@@ -40,6 +53,7 @@ export const SaveSerializer = {
           shield: t.shield,
           maxShield: t.maxShield,
           healCount: t.healCount,
+          healTargetLevel: t.healTargetLevel,
           healGoldSpent: t.healGoldSpent || 0,
         })),
     };
@@ -59,7 +73,13 @@ export const SaveSerializer = {
         typeof t.specId === 'string' &&
         typeof t.gx === 'number' &&
         typeof t.gy === 'number' &&
-        typeof t.hp === 'number'
+        typeof t.hp === 'number' &&
+        Number.isFinite(t.hp) &&
+        t.hp >= 0 &&
+        (t.healTargetLevel == null ||
+          (Number.isInteger(t.healTargetLevel) &&
+            t.healTargetLevel >= 1 &&
+            t.healTargetLevel <= CONFIG.MAX_UPGRADE_LEVEL))
     );
   },
 };
@@ -114,11 +134,12 @@ export const GameSnapshotRestorer = {
     RENDERER.markCacheDirty();
     RENDERER._rebuildCache(game.grid);
 
-    // Reset entity collections.
+    // Reset entity collections and transient buffers.
     game.monsters = [];
     game.projectiles = [];
     game.popups = [];
     game._popupPool = [];
+    resetTransientBuffers(game);
 
     // Wave manager.
     game.wave = new WaveManager();
@@ -137,6 +158,7 @@ export const GameSnapshotRestorer = {
       t.speedLevel = tData.speedLevel || 1;
       t.chainLevel = tData.chainLevel || 1;
       t.slowLevel = tData.slowLevel || 1;
+      t.healTargetLevel = normalizeHealTargetLevel(tData.healTargetLevel);
       t._recomputeStats();
       t.maxHp = t._cachedMaxHp;
       t.hp = Math.min(tData.hp, t.maxHp);
@@ -173,13 +195,12 @@ export const GameSnapshotRestorer = {
     game.popups = [];
     game._popupPool = [];
     game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
-    game._splashHitBuf = [];
-    game._chainBuf = [];
-    game._tileIndexPool = [];
     game._troopTileIndex = [];
+    game._troopIndexByRef = new Map();
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) {
       game._troopTileIndex.push([]);
     }
+    resetTransientBuffers(game);
 
     // Wave manager.
     game.wave = new WaveManager();

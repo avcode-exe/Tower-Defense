@@ -1,26 +1,18 @@
-feat: allow pre-release channel users to detect and download newer stable releases
+Release 1.5.0 beta 1
 
-Pre-release channel players can now see and install stable releases that are
-newer than their current version, in addition to pre-release versions.
+Ship the 1.5.0 beta 1 release with the completed Healer support pass, save/update hardening, and GitHub release automation.
 
-Previously, the update filter only blocked prerelease versions for stable-channel
-users, but did not account for the reverse case: pre-release users should be
-able to upgrade to stable releases once they are newer than their installed
-version.
+Highlights:
+- Add Healer troop support with lock-on healing, multi-target upgrades, heal beams, and target-count persistence.
+- Allow players to heal Healer troops with gold like other troops.
+- Prevent Healer troops from healing other support/healer troops.
+- Harden save restore validation for Healer target count and invalid HP values.
+- Improve update filtering so pre-release users can upgrade to newer stable releases.
+- Add regression tests for update filtering, wave queue scaling, persistence, and Healer behavior.
+- Update README docs and package scripts for the expanded test suite.
 
-Changes:
-
-electron-main.js:
-- Added parseVersion() and isNewerThan() semver comparison helpers that handle
-  prerelease suffixes (e.g. "1.5.0-beta.1", "1.5.0", "1.6.0-rc.1").
-- Updated shouldAnnounceToUser() with channel-aware filtering:
-  * Release channel: only stable releases (unchanged).
-  * Pre-release channel: pre-release versions always pass; stable versions only
-    pass if isNewerThan(info.version, currentVersion).
-
-src/updateManager.js:
-- Added matching _parseVersion() and _isNewerThan() helpers (renderer-side).
-- Updated passesFilter() to mirror the same logic so the renderer-side filter
-  stays consistent with the main process.
-
-No UI changes. No new dependencies. All 118 tests pass, lint clean.
+Validation:
+- npm test: 131 passed
+- npm run lint: passed
+- npm run format:check: passed
+- git diff --check: passed

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TROOP_SPECS } from '../src/config.js';
+import { CONFIG, TROOP_SPECS } from '../src/config.js';
 import { Troop } from '../src/troop.js';
 
 describe('Healer Troop Behavior', () => {
@@ -56,6 +56,30 @@ describe('Healer Troop Behavior', () => {
     expect(target).toBe(ally);
   });
 
+  it('pickHealTarget skips other support troops', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const allyHealer = new Troop(healerSpec, 5, 6);
+    allyHealer.hp = 10;
+    const ally = new Troop(swordsmanSpec, 6, 5);
+    ally.hp = 30;
+
+    const target = healer.pickHealTarget([allyHealer, ally]);
+    expect(target).toBe(ally);
+  });
+
+  it('pickHealTarget evicts locked support heal targets', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const allyHealer = new Troop(healerSpec, 5, 6);
+    allyHealer.hp = 10;
+    const ally = new Troop(swordsmanSpec, 6, 5);
+    ally.hp = 30;
+    healer.healTargets.push(allyHealer);
+
+    const target = healer.pickHealTarget([allyHealer, ally]);
+    expect(target).toBe(ally);
+    expect(healer.healTargets).toEqual([ally]);
+  });
+
   it('pickHealTarget returns null for non-support type', () => {
     const swordsman = new Troop(swordsmanSpec, 5, 5);
     const ally = new Troop(swordsmanSpec, 6, 5);
@@ -84,6 +108,19 @@ describe('Healer Troop Behavior', () => {
 
     const target = healer.pickHealTarget([deadAlly, aliveAlly]);
     expect(target).toBe(aliveAlly);
+  });
+
+  it('healer can be manually healed', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const maxHp = healer.maxHp;
+    const cost = healer.getHealCost();
+    healer.hp = 10;
+
+    expect(healer.canHeal()).toBe(true);
+    expect(cost).toBe(Math.ceil(healerSpec.cost * CONFIG.TROOP_HEAL_COST_RATIO));
+    expect(healer.heal()).toBe(true);
+    expect(healer.hp).toBeGreaterThan(10);
+    expect(healer.hp).toBeLessThanOrEqual(maxHp);
   });
 
   it('healer can be upgraded for damage (heal amount)', () => {
@@ -118,5 +155,19 @@ describe('Healer Troop Behavior', () => {
     expect(healer.getHealTargetCount()).toBe(1);
     healer.upgradeStat('slow');
     expect(healer.getHealTargetCount()).toBe(2);
+  });
+
+  it('healer target upgrades use the same cost curve', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getUpgradeCost('slow')).toBe(Math.round(healerSpec.cost));
+    healer.upgradeStat('slow');
+    expect(healer.getUpgradeCost('slow')).toBe(Math.round(healerSpec.cost * 1.35));
+  });
+
+  it('includes healer target upgrades in total invested value', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const before = healer.getTotalInvested();
+    healer.upgradeStat('slow');
+    expect(healer.getTotalInvested()).toBe(before + healerSpec.cost);
   });
 });

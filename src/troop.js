@@ -97,7 +97,7 @@ export class Troop {
         : 0;
   }
 
-  // Cost for next upgrade of a stat: base cost * 2^(level-1).
+  // Cost for next upgrade of a stat: base cost * 1.35^(level-1).
   getUpgradeCost(stat) {
     const levelMap = {
       dmg: this.dmgLevel,
@@ -105,7 +105,7 @@ export class Troop {
       speed: this.speedLevel,
       chain: this.chainLevel,
       hp: this.hpLevel,
-      slow: this.slowLevel,
+      slow: this.spec.type === 'support' ? this.healTargetLevel : this.slowLevel,
     };
     const level = levelMap[stat];
     if (level === undefined) return Infinity;
@@ -231,7 +231,7 @@ export class Troop {
       speed: this.speedLevel,
       chain: this.chainLevel,
       hp: this.hpLevel,
-      slow: this.slowLevel,
+      slow: this.spec.type === 'support' ? this.healTargetLevel : this.slowLevel,
     };
     for (const stat of ['dmg', 'range', 'speed', 'chain', 'hp', 'slow']) {
       const level = levelMap[stat];
@@ -253,7 +253,7 @@ export class Troop {
     // 1. Evict targets that are dead, full HP, or out of range.
     for (let i = this.healTargets.length - 1; i >= 0; i--) {
       const t = this.healTargets[i];
-      if (!t.alive || t.hp >= t.maxHp) {
+      if (!t.alive || t.hp >= t.maxHp || t.spec.type === 'support') {
         this.healTargets.splice(i, 1);
         continue;
       }
@@ -264,12 +264,12 @@ export class Troop {
       }
     }
 
-    // 2. Fill empty slots with the closest damaged ally (first-damaged priority via distance tiebreak).
+    // 2. Fill empty slots with the closest damaged ally.
     if (this.healTargets.length < maxTargets) {
       const candidates = [];
       for (let i = 0; i < troops.length; i++) {
         const t = troops[i];
-        if (!t.alive || t === this || t.hp >= t.maxHp) continue;
+        if (!t.alive || t === this || t.hp >= t.maxHp || t.spec.type === 'support') continue;
         if (this.healTargets.includes(t)) continue;
         const dx = t.x - this.x;
         const dy = t.y - this.y;
