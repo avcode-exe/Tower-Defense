@@ -1,46 +1,40 @@
-Release 1.4.1-beta.1 — ES Module Refactor, Bug Fixes, and Production Hardening
+Release 1.4.1-beta.2 — Documented Bug Fixes, Lint Hardening, and Production Release Prep
 
 Summary
-- Converted the entire codebase from 18 inline script-tag files to a modern ES module architecture
-- Fixed runtime errors that caused blank screen and tooltip rendering failures
-- Disabled automatic DevTools auto-open on Electron startup
-- Bumped version from 1.4.0 to 1.4.1-beta.1 and updated Electron Builder configuration
+- Bumped the application version from 1.4.1-beta.1 to 1.4.1-beta.2.
+- Resolved all currently documented application issues before release.
+- Hardened linting, input lifecycle handling, projectile combat state, save/load validation, and defeat-state handling.
+- Prepared the project for a GitHub-published Windows Electron build using tag 1.4.1-beta.2.
 
-Codebase Modularization
-- Replaced 18 <script src="js/..."> tags in index.html with a single <script type="module" src="src/main.js">
-- Created 27 ES modules under src/ with explicit import/export dependency graph
-- Extracted Game.render() into standalone renderGame() and updateCursor() in src/rendering/gameRenderer.js
-- Split monolithic ui.js (1388 lines) into 9 focused sub-modules under src/ui/
-- Preserved backward compatibility by exposing window.game, window.showToast, and window.electron globals
-- Added src/**/* to Electron Builder files array so packaged app includes all modules
+Release Context
+- Release version: 1.4.1-beta.2
+- Git tag: 1.4.1-beta.2
+- Target platform: Windows x64 NSIS installer
+- Publisher: GitHub Releases under avcode-exe/Tower-Defense
+- Build command: npm run release
+- Expected uploaded artifacts: Tower Defense Windows executable and electron-builder latest.yml metadata
 
-Bug Fixes
-- Fixed ReferenceError: CONFIG is not defined in src/utils.js by adding missing import { CONFIG } from './config.js'
-- Fixed TypeError: this._drawShopTooltip is not a function by binding _drawShopTooltip and _wrapText onto the UI object in src/ui/index.js
-- Fixed stale game.render() call in src/gameRuntime.js pause-render loop; replaced with renderGame(game) and added updateCursor(game)
-- Removed debug openDevTools call from electron-main.js so DevTools no longer auto-open on game launch
+Core Application Fixes
+- Fixed ESLint ES module parsing by changing parserOptions.sourceType from script to module, allowing src/**/*.js modules to lint successfully.
+- Removed the remaining no-constant-condition lint warnings by replacing infinite while loops in both src/game.js and legacy js/game.js with explicit popDueMonster() loops.
+- Fixed input listener cleanup by storing reusable listener option objects and removing wheel listeners with the same { passive: false } options used when adding them.
+- Updated mouse hover coordinate calculation to read the current canvas bounding rect on every mousemove, avoiding stale hover coordinates after layout changes.
+- Cleared reusable projectile buffers during fresh game setup and snapshot restoration to prevent stale monster references after restart or load.
+- Prevented slow effects from being applied to monsters killed by splash damage.
+- Prevented slow effects from being skipped when a direct projectile's original target dies before impact by applying slow to the replacement closest alive monster when appropriate.
+- Hardened save data by serializing Infinity dev gold/lives as null and restoring them as Infinity for dev mode.
+- Added SaveSerializer.isValid() validation before loading saves, causing malformed or partial saves to be ignored instead of restoring invalid state.
+- Reset transient UI/runtime confirmation and cooldown state when restoring a save.
+- Stopped simulation progression immediately after defeat is applied.
+- Improved keyboard input handling by returning after Escape, Space, and Enter handling, preventing Enter from falling through into Alt shortcut handling.
 
-Module Structure
-- src/main.js — Application entry point, canvas initialization, save/load wiring
-- src/game.js — Core Game orchestrator, simulation tick loop, pause/render coordination
-- src/rendering/gameRenderer.js — All canvas rendering: map, troops, monsters, projectiles, particles, HUD, shop
-- src/ui/index.js — Barrel export assembling unified UI namespace from 9 sub-modules
-- src/ui/shop.js, hud.js, shieldShop.js, preview.js, placement.js, overlays.js, utils.js, constants.js
-- src/config.js — Centralized CONFIG, LAYOUT, monster/troop specs, waves, projectile styles
-- src/audio.js — AudioManager with mute and volume controls
-- src/updateManager.js, input.js, gamePersistence.js, gameRuntime.js, grid.js, pathGenerator.js, monster.js, troop.js, projectile.js, waveManager.js, particles.js, utils.js, simWorker.js
+Validation
+- npm run lint: passed with no errors or warnings.
+- npm test: passed; test script remains a placeholder and exits successfully.
+- git diff --check: passed with no whitespace errors.
+- No commit, production build, deployment, or remote push was performed before this release commit.
 
-Verification
-- All 28 module files pass Node.js syntax validation
-- Zero missing import paths confirmed via dependency verification
-- Game launches without console errors in Electron
-- Canvas renders correctly and game is playable end-to-end
-
-Breaking Changes
-- None. The bundled renderer and preserved window globals keep existing integrations working.
-
-Files Changed
-- Modified: index.html, package.json, electron-main.js
-- Added: src/ (27 module files)
-- Removed: js/ (18 legacy script files no longer referenced)
-- Note: Generated build artifacts exe and latest.yaml are not tracked in source control
+Build and Release Notes
+- This release is intended to be committed, tagged as 1.4.1-beta.2, pushed to GitHub, and published through electron-builder.
+- The release build should upload the generated Windows executable and latest.yml metadata to GitHub Releases.
+- Do not manually edit latest.yml; it is generated by electron-builder during npm run release.

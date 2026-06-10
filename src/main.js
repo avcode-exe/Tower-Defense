@@ -41,6 +41,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (window.electron && window.electron.loadGame) {
     try {
       saveData = await window.electron.loadGame();
+      if (saveData && !SaveSerializer.isValid(saveData)) {
+        console.warn('[main] Ignoring invalid save data');
+        saveData = null;
+      }
     } catch (err) {
       console.error('[main] loadGame failed:', err);
       saveData = null;
@@ -56,10 +60,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       loadYesBtn.onclick = () => startGame(true, saveData);
     }
     if (loadNoBtn) {
-      loadNoBtn.onclick = () => {
+      loadNoBtn.onclick = async () => {
         // Delete the save data when starting new
         if (window.electron && window.electron.deleteSave) {
-          window.electron.deleteSave();
+          await window.electron.deleteSave();
         }
         startGame(false, null);
       };

@@ -54,6 +54,7 @@ export class Game {
 
     // Reusable buffer for chain lightning (avoids allocation per hit).
     this._chainBuf = [];
+    this._splashHitBuf = [];
     // Reusable scratch objects for zero-alloc coordinate transforms.
     this._tileScratch = { gx: 0, gy: 0 };
     this._centerScratch = { x: 0, y: 0 };
@@ -66,7 +67,6 @@ export class Game {
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
     this._popupPool = [];
     this._tileIndexPool = [];
-    this._splashHitBuf = [];
 
     this.wave = new WaveManager();
 
@@ -284,11 +284,10 @@ export class Game {
     this.wave.update(dt);
 
     // Spawn due monsters.
-    while (true) {
-      // eslint-disable-line no-constant-condition
-      const monData = this.wave.popDueMonster();
-      if (monData == null) break;
+    let monData = this.wave.popDueMonster();
+    while (monData != null) {
       this.spawnMonster(monData.level, monData.hpMult);
+      monData = this.wave.popDueMonster();
     }
 
     // Troops (index loop for speed).
@@ -332,6 +331,7 @@ export class Game {
         }
       }
     }
+    if (this.state === 'DEFEAT') return;
 
     // Monster attacks on troops.
     // Snapshot before processing: split children added by damageMonster during
@@ -567,8 +567,8 @@ export class Game {
           }
         }
         if (closest) {
-          this.damageMonster(closest, dmg);
-          if (hasSlow) {
+          const killed = this.damageMonster(closest, dmg);
+          if (hasSlow && !killed) {
             if (closest.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
               PARTICLES.spawn(closest.x, closest.y, PARTICLES.slowApply(troop.spec.color));
             }
@@ -593,8 +593,8 @@ export class Game {
           }
         });
     } else {
-      this.damageMonster(proj.target, dmg);
-      if (hasSlow) {
+      const killed = this.damageMonster(proj.target, dmg);
+      if (hasSlow && !killed) {
         if (proj.target.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
           PARTICLES.spawn(proj.target.x, proj.target.y, PARTICLES.slowApply(troop.spec.color));
         }
@@ -735,7 +735,7 @@ export class Game {
             const falloff = 1 - 0.5 * (Math.sqrt(dSq) * rInv);
             const dmg = Math.max(1, Math.round(damage * falloff));
             this.damageMonster(m, dmg);
-            hitMonsters.push(m);
+            if (m.alive) hitMonsters.push(m);
           }
         }
       }
@@ -1024,6 +1024,12 @@ export class Game {
 
   restore(data) {
     GameSnapshotRestorer.apply(this, data);
+    this.sellCooldownTimer = 0;
+    this.devConfirmPending = false;
+    this.resetConfirmPending = false;
+    this.sellConfirmPending = false;
+    this.sellConfirmTroopIndex = null;
+    this.accumulator = 0;
   }
 
   _autoSave() {
@@ -1046,15 +1052,18 @@ export class Game {
       e.preventDefault();
       this.selectedSpec = null;
       this.selectedTroopIndex = -1;
+      return;
     }
     if (e.key === ' ') {
       e.preventDefault();
       this.runtime.togglePause();
+      return;
     }
     if (e.key === 'Enter' && this.state === 'PRE_WAVE') {
       e.preventDefault();
       if (this.devMode) this.wave.buildCustomFromCounts(this.devMonsterCounts);
       this.runtime.startWave();
+      return;
     }
     // Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings), Alt+D (Dev)
     if (e.altKey) {
@@ -1110,6 +1119,7 @@ export class Game {
     this.selectedTroopIndex = -1;
     this.sellCooldownTimer = 0;
     this.accumulator = 0;
+    this.waveCompleteAnim = { active: false, waveNum: 0 };
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;

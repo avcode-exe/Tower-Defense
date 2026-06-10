@@ -16,8 +16,8 @@ export const SaveSerializer = {
   fromGame(game) {
     return {
       version: '1.4.0',
-      gold: game.gold,
-      lives: game.lives,
+      gold: game.gold === Infinity ? null : game.gold,
+      lives: game.lives === Infinity ? null : game.lives,
       seed: game.seed,
       speed: game.speed,
       devMode: game.devMode,
@@ -43,6 +43,18 @@ export const SaveSerializer = {
           healGoldSpent: t.healGoldSpent || 0,
         })),
     };
+  },
+
+  isValid(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (typeof data.seed !== 'number') return false;
+    if (!Array.isArray(data.troops)) return false;
+    if (data.devMode && (data.gold !== null || data.lives !== null)) return false;
+    if (!data.devMode && (typeof data.gold !== 'number' || typeof data.lives !== 'number')) return false;
+    if (!data.wave || typeof data.wave.currentWave !== 'number') return false;
+    return data.troops.every(
+      (t) => t && typeof t.specId === 'string' && typeof t.gx === 'number' && typeof t.gy === 'number'
+    );
   },
 };
 
@@ -77,10 +89,10 @@ export const GameSnapshotRestorer = {
   apply(game, data) {
     const world = GameWorldFactory.createFresh(data.seed);
 
-    game.gold = data.gold;
-    game.lives = data.lives;
     game.speed = data.speed || 1;
     game.devMode = data.devMode || false;
+    game.gold = data.gold == null ? (game.devMode ? Infinity : CONFIG.STARTING_GOLD) : data.gold;
+    game.lives = data.lives == null ? (game.devMode ? Infinity : CONFIG.STARTING_LIVES) : data.lives;
     if (data.devMonsterCounts) {
       game.devMonsterCounts = { ...game._defaultDevCounts(), ...data.devMonsterCounts };
     }
@@ -155,6 +167,8 @@ export const GameSnapshotRestorer = {
     game.popups = [];
     game._popupPool = [];
     game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+    game._splashHitBuf = [];
+    game._chainBuf = [];
     game._tileIndexPool = [];
     game._troopTileIndex = [];
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) {

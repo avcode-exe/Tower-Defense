@@ -104,8 +104,7 @@ export function drawShieldShop(game) {
     _infoColor = '#5dade2';
   } else {
     const _cost = _tEarly.getShieldCost();
-    _infoText =
-      '+' + Math.round(_tEarly.spec.hp) + ' HP · ' + _cost + 'g · ' + CONFIG.SHIELD_EXPIRE_WAVES + ' waves';
+    _infoText = '+' + Math.round(_tEarly.spec.hp) + ' HP · ' + _cost + 'g · ' + CONFIG.SHIELD_EXPIRE_WAVES + ' waves';
   }
   c.fillStyle = _infoColor;
   c.font = '8px system-ui, sans-serif';

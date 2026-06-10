@@ -269,11 +269,10 @@ class Game {
     this.wave.update(dt);
 
     // Spawn due monsters.
-    while (true) {
-      // eslint-disable-line no-constant-condition
-      const monData = this.wave.popDueMonster();
-      if (monData == null) break;
+    let monData = this.wave.popDueMonster();
+    while (monData != null) {
       this.spawnMonster(monData.level, monData.hpMult);
+      monData = this.wave.popDueMonster();
     }
 
     // Troops (index loop for speed).

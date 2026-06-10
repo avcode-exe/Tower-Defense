@@ -9,11 +9,11 @@ export class Input {
     this.game = game;
     this.hoverPx = null;
     this.hoverPy = null;
-    this._rect = canvas.getBoundingClientRect();
+    this._listenerOptions = { passive: true };
+    this._wheelOptions = { passive: false };
 
     this._onMouseMove = (e) => {
-      // Only recalc layout on resize; mousemove should not force layout.
-      const r = this._rect;
+      const r = this.canvas.getBoundingClientRect();
       this.hoverPx = e.clientX - r.left;
       this.hoverPy = e.clientY - r.top;
       RENDERER.hoverPx = this.hoverPx;
@@ -55,28 +55,21 @@ export class Input {
       this.game.onKeyDown(e);
     };
 
-    canvas.addEventListener('mousemove', this._onMouseMove, { passive: true });
-    canvas.addEventListener('mouseleave', this._onMouseLeave, { passive: true });
-    canvas.addEventListener('mousedown', this._onMouseDown, { passive: true });
+    canvas.addEventListener('mousemove', this._onMouseMove, this._listenerOptions);
+    canvas.addEventListener('mouseleave', this._onMouseLeave, this._listenerOptions);
+    canvas.addEventListener('mousedown', this._onMouseDown, this._listenerOptions);
     canvas.addEventListener('contextmenu', this._onContextMenu);
-    canvas.addEventListener('wheel', this._onWheel, { passive: false });
+    canvas.addEventListener('wheel', this._onWheel, this._wheelOptions);
     window.addEventListener('keydown', this._onKeyDown);
-
-    // Recalc cached rect on window resize.
-    this._resizeListener = () => {
-      this._rect = this.canvas.getBoundingClientRect();
-    };
-    window.addEventListener('resize', this._resizeListener);
   }
 
   destroy() {
     const canvas = this.canvas;
-    canvas.removeEventListener('mousemove', this._onMouseMove, { passive: true });
-    canvas.removeEventListener('mouseleave', this._onMouseLeave, { passive: true });
-    canvas.removeEventListener('mousedown', this._onMouseDown, { passive: true });
+    canvas.removeEventListener('mousemove', this._onMouseMove, this._listenerOptions);
+    canvas.removeEventListener('mouseleave', this._onMouseLeave, this._listenerOptions);
+    canvas.removeEventListener('mousedown', this._onMouseDown, this._listenerOptions);
     canvas.removeEventListener('contextmenu', this._onContextMenu);
-    canvas.removeEventListener('wheel', this._onWheel);
+    canvas.removeEventListener('wheel', this._onWheel, this._wheelOptions);
     window.removeEventListener('keydown', this._onKeyDown);
-    window.removeEventListener('resize', this._resizeListener);
   }
 }
