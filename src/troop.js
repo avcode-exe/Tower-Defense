@@ -29,6 +29,9 @@ export class Troop {
     this.shield = 0;
     this.maxShield = 0;
     this.healCount = 0;
+    this.healBeam = null; // { troop, timer } — tracks active heal beam from a healer
+    this.healTargetLevel = 1;
+    this.healTargets = []; // locked heal targets (troop references)
     // Cached computed stats (recomputed on upgrade).
     this._cachedDamage = this.spec.damage;
     this._cachedRange = this.spec.range;
@@ -51,6 +54,12 @@ export class Troop {
   }
   getAttackSpeed() {
     return this._cachedAttackSpeed;
+  }
+  getHealAmount() {
+    return this._cachedDamage;
+  }
+  getHealTargetCount() {
+    return this.healTargetLevel;
   }
   getChain() {
     return this._cachedChain;
@@ -108,13 +117,18 @@ export class Troop {
   canUpgrade(stat) {
     if (stat === 'range' && this.spec.type === 'melee') return false;
     if (stat === 'chain' && !this.spec.chain) return false;
-    if (stat === 'slow' && !this.spec.slowFactor) return false;
+    if (stat === 'slow' && this.spec.type !== 'support' && !this.spec.slowFactor) return false;
     return true;
   }
 
   // Upgrade a specific stat. Returns false if already maxed or invalid for this troop type.
   upgradeStat(stat) {
     if (!this.canUpgrade(stat)) return false;
+    if (stat === 'slow' && this.spec.type === 'support') {
+      if (this.healTargetLevel >= this.maxUpgradeLevel) return false;
+      this.healTargetLevel++;
+      return true;
+    }
     const levelProp = {
       dmg: 'dmgLevel',
       range: 'rangeLevel',
@@ -138,8 +152,8 @@ export class Troop {
   }
 
   isMaxed(stat) {
-    // Hidden stats are reported as maxed so the UI button collapses cleanly.
     if (!this.canUpgrade(stat)) return true;
+    if (stat === 'slow' && this.spec.type === 'support') return this.healTargetLevel >= this.maxUpgradeLevel;
     const levelProp = {
       dmg: 'dmgLevel',
       range: 'rangeLevel',
@@ -227,6 +241,50 @@ export class Troop {
     }
     total += this.healGoldSpent;
     return total;
+  }
+
+  pickHealTarget(troops) {
+    if (this.spec.type !== 'support') return null;
+    const range = this._cachedRange;
+    const rangePx = (range + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE;
+    const rangePxSq = rangePx * rangePx;
+    const maxTargets = this.healTargetLevel;
+
+    // 1. Evict targets that are dead, full HP, or out of range.
+    for (let i = this.healTargets.length - 1; i >= 0; i--) {
+      const t = this.healTargets[i];
+      if (!t.alive || t.hp >= t.maxHp) {
+        this.healTargets.splice(i, 1);
+        continue;
+      }
+      const dx = t.x - this.x;
+      const dy = t.y - this.y;
+      if (dx * dx + dy * dy > rangePxSq) {
+        this.healTargets.splice(i, 1);
+      }
+    }
+
+    // 2. Fill empty slots with the closest damaged ally (first-damaged priority via distance tiebreak).
+    if (this.healTargets.length < maxTargets) {
+      const candidates = [];
+      for (let i = 0; i < troops.length; i++) {
+        const t = troops[i];
+        if (!t.alive || t === this || t.hp >= t.maxHp) continue;
+        if (this.healTargets.includes(t)) continue;
+        const dx = t.x - this.x;
+        const dy = t.y - this.y;
+        if (dx * dx + dy * dy <= rangePxSq) {
+          candidates.push({ troop: t, dist: dx * dx + dy * dy });
+        }
+      }
+      candidates.sort((a, b) => a.dist - b.dist);
+      const slots = maxTargets - this.healTargets.length;
+      for (let i = 0; i < Math.min(slots, candidates.length); i++) {
+        this.healTargets.push(candidates[i].troop);
+      }
+    }
+
+    return this.healTargets.length > 0 ? this.healTargets[0] : null;
   }
 
   pickTarget(monsters, tileIndex) {
@@ -348,6 +406,40 @@ export class Troop {
     if (!this.alive) return;
     this.cooldown = Math.max(0, this.cooldown - dt);
     this.targetRefresh -= dt;
+    if (this.healBeam) {
+      this.healBeam.timer -= dt;
+      if (this.healBeam.timer <= 0) this.healBeam = null;
+    }
+
+    // Support troops heal allies instead of attacking monsters.
+    if (this.spec.type === 'support') {
+      if (this.targetRefresh <= 0) {
+        this.pickHealTarget(game ? game.troops : []);
+        this.targetRefresh = CONFIG.TARGET_REFRESH_INTERVAL;
+      }
+      if (this.healTargets.length === 0) return;
+      if (this.cooldown > 0) return;
+      if (!game) return;
+      const healAmount = this._cachedDamage;
+      for (let i = this.healTargets.length - 1; i >= 0; i--) {
+        const t = this.healTargets[i];
+        if (!t.alive || t.hp >= t.maxHp) {
+          this.healTargets.splice(i, 1);
+          continue;
+        }
+        const prevHp = t.hp;
+        t.hp = Math.min(t.hp + healAmount, t.maxHp);
+        const actual = Math.ceil(t.hp - prevHp);
+        if (actual > 0) {
+          game._getPopup('+' + actual, t.x, t.y - 10, 0.8, '#44cc44');
+          t.healBeam = { troop: this, timer: 0.6 };
+        }
+      }
+      this.cooldown = this._cachedAttackSpeed;
+      return;
+    }
+
+    // Non-support: original targeting and combat logic below.
     if (this.targetRefresh <= 0) {
       this.target = this.pickTarget(monsters, game ? game._monsterTileIndex : null);
       this.targetRefresh = CONFIG.TARGET_REFRESH_INTERVAL;

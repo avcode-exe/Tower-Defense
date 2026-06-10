@@ -30,7 +30,10 @@ export function drawPlacementGhost(game) {
 
   tileCenterInto(tile.gx, tile.gy, this._ghostPos);
   const center = this._ghostPos;
-  c.strokeStyle = valid ? 'rgba(88,166,255,0.5)' : 'rgba(220,80,80,0.5)';
+  const rangeColor = game.selectedSpec.type === 'support'
+    ? (valid ? 'rgba(46,204,113,0.5)' : 'rgba(220,80,80,0.5)')
+    : (valid ? 'rgba(88,166,255,0.5)' : 'rgba(220,80,80,0.5)');
+  c.strokeStyle = rangeColor;
   c.lineWidth = 1.5;
   c.setLineDash([4, 4]);
   c.beginPath();

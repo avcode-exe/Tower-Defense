@@ -93,6 +93,30 @@ describe('TROOP_SPECS', () => {
     const ids = TROOP_SPECS.map((s) => s.id);
     expect(new Set(ids).size).toBe(ids.length);
   });
+
+  it('has a healer troop with support type', () => {
+    const healer = TROOP_SPECS.find((s) => s.id === 'healer');
+    expect(healer).toBeDefined();
+    expect(healer.type).toBe('support');
+    expect(healer.damage).toBeGreaterThan(0);
+    expect(healer.range).toBeGreaterThan(0);
+    expect(healer.attackSpeed).toBeGreaterThan(0);
+    expect(healer.hp).toBeGreaterThan(0);
+    expect(healer.cost).toBeGreaterThan(0);
+  });
+
+  it('healer has unique color', () => {
+    const healer = TROOP_SPECS.find((s) => s.id === 'healer');
+    const colors = TROOP_SPECS.map((s) => s.color);
+    expect(colors.filter((c) => c === healer.color).length).toBe(1);
+  });
+
+  it('healer has a stats string', () => {
+    const healer = TROOP_SPECS.find((s) => s.id === 'healer');
+    expect(healer._statsStr).toBeDefined();
+    expect(healer._statsStr).toContain('heal');
+    expect(healer._statsStr).toContain('Support');
+  });
 });
 
 describe('WAVES', () => {
@@ -103,6 +127,16 @@ describe('WAVES', () => {
 
   it('first wave has spawns', () => {
     expect(WAVES[0].length).toBeGreaterThan(0);
+  });
+
+  it('all wave entries reference valid monster keys', () => {
+    const validKeys = new Set(['1', '2', '3', '4', '5', 'B', 'S', 'X']);
+    for (const wave of WAVES) {
+      for (const [key, count] of wave) {
+        expect(validKeys.has(String(key))).toBe(true);
+        expect(count).toBeGreaterThan(0);
+      }
+    }
   });
 });
 

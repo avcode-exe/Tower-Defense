@@ -285,4 +285,19 @@ export const PARTICLES = {
   slowApply(color) {
     return this._applyCfg(this._slowApplyCfg, color || '#7fdbff');
   },
+
+  _healBurstCfg: {
+    count: 6,
+    color: '#44cc44',
+    minSize: 1.5,
+    maxSize: 3,
+    minSpeed: 20,
+    maxSpeed: 50,
+    minLife: 0.3,
+    maxLife: 0.6,
+    gravity: false,
+  },
+  healBurst(color) {
+    return this._applyCfg(this._healBurstCfg, color || '#44cc44');
+  },
 };

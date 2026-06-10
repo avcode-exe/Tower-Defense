@@ -223,14 +223,14 @@ export function drawShop(game) {
     c.fillText(spec.name, leftPad + 14, r.y + 13);
 
     // Type badge (right-aligned).
-    const typeLabel = spec.type === 'melee' ? 'MELEE' : 'RANGE';
+    const typeLabel = spec.type === 'melee' ? 'MELEE' : spec.type === 'support' ? 'SUPRT' : 'RANGE';
     c.font = '7px system-ui, sans-serif';
     const typeW = c.measureText(typeLabel).width + 6;
     const badgeX = r.x + r.w - typeW - 6;
-    c.fillStyle = spec.type === 'melee' ? 'rgba(231,76,60,0.25)' : 'rgba(39,174,96,0.25)';
+    c.fillStyle = spec.type === 'melee' ? 'rgba(231,76,60,0.25)' : spec.type === 'support' ? 'rgba(46,204,113,0.25)' : 'rgba(39,174,96,0.25)';
     UIRoundRect(c, badgeX, r.y + 6, typeW, 13, 3);
     c.fill();
-    c.fillStyle = spec.type === 'melee' ? '#e74c3c' : '#27ae60';
+    c.fillStyle = spec.type === 'melee' ? '#e74c3c' : spec.type === 'support' ? '#2ecc71' : '#27ae60';
     c.textAlign = 'center';
     c.fillText(typeLabel, badgeX + typeW / 2, r.y + 12);
 
@@ -288,31 +288,45 @@ export function drawShop(game) {
   if (game.selectedTroopIndex >= 0) {
     const t = game.troops[game.selectedTroopIndex];
     if (t && t.alive) {
-      // Build stat lines dynamically
       const statLines = [];
-      statLines.push(
-        'DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
-      );
-      statLines.push(
-        'RNG ' +
-          t.getRange() +
-          ' Lv.' +
-          t.rangeLevel +
-          (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : '')
-      );
-      if (t.spec.slowFactor) {
+      if (t.spec.type === 'support') {
         statLines.push(
-          'SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel
+          'HEAL ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
         );
+        statLines.push('RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + '  TGT ' + t.getHealTargetCount() + ' Lv.' + t.healTargetLevel);
+      } else {
+        statLines.push(
+          'DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
+        );
+        statLines.push(
+          'RNG ' +
+            t.getRange() +
+            ' Lv.' +
+            t.rangeLevel +
+            (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : '')
+        );
+        if (t.spec.slowFactor) {
+          statLines.push(
+            'SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel
+          );
+        }
       }
-      // HP + DPS lines
+      // HP + HPS/DPS lines
       const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
       statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
-      statLines.push({
-        text: 'DPS ' + (t.getDamage() / t.getAttackSpeed()).toFixed(1),
-        color: UI_COLORS.accent,
-        bold: true,
-      });
+      if (t.spec.type === 'support') {
+        statLines.push({
+          text: 'HPS ' + (t.getDamage() / t.getAttackSpeed()).toFixed(1),
+          color: '#2ecc71',
+          bold: true,
+        });
+      } else {
+        statLines.push({
+          text: 'DPS ' + (t.getDamage() / t.getAttackSpeed()).toFixed(1),
+          color: UI_COLORS.accent,
+          bold: true,
+        });
+      }
 
       const lineH = 14;
       const startY = 26;
@@ -356,13 +370,13 @@ export function drawShop(game) {
 
       // Upgrade buttons.
       const stats = ['dmg', 'range', 'speed', 'chain', 'slow', 'hp'];
-      const statLabels = { dmg: 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN', slow: 'SLW', hp: 'HP' };
+      const statLabels = { dmg: t.spec.type === 'support' ? 'HEAL' : 'DMG', range: 'RNG', speed: 'SPD', chain: 'CHN', slow: t.spec.type === 'support' ? 'TGT' : 'SLW', hp: 'HP' };
       const statColors = {
-        dmg: '#e74c3c',
+        dmg: t.spec.type === 'support' ? '#2ecc71' : '#e74c3c',
         range: '#2ea043',
         speed: '#58a6ff',
         chain: UI_COLORS.gold,
-        slow: '#7fdbff',
+        slow: t.spec.type === 'support' ? '#f39c12' : '#7fdbff',
         hp: '#44cc44',
       };
       const btnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
@@ -419,7 +433,8 @@ export function drawShop(game) {
         }
       }
 
-      // Heal button — always visible when a troop is selected.
+      // Heal button — hidden for support troops (they auto-heal allies).
+      if (t.spec.type !== 'support') {
       const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
       const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
       const canHeal = t.canHeal();
@@ -474,6 +489,7 @@ export function drawShop(game) {
           LAYOUT.SHOP.BTN_PAD + healBtnW / 2,
           healBtnY + 22
         );
+      }
       }
 
       // Sell button with cooldown indicator.

@@ -68,7 +68,7 @@ export function renderGame(game) {
     ctx.lineWidth = 1.5;
     ctx.stroke(_troopPath);
     ctx.restore();
-    const dotColor = t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7';
+    const dotColor = t.spec.type === 'melee' ? '#f1c40f' : t.spec.type === 'support' ? '#fff' : '#bdc3c7';
     ctx.fillStyle = dotColor;
     ctx.fillRect(t.x - 2.5, t.y - 5.5, 5, 5);
     // HP bar (only when damaged).
@@ -94,6 +94,23 @@ export function renderGame(game) {
       ctx.fillStyle = CONFIG.COLORS.shieldBarFill; // #5dade2
       ctx.fillRect(barX, barY, barW * t.getShieldRatio(), barH);
     }
+  }
+
+  // Heal beams — faint yellow lines from healers to recently-healed allies.
+  for (let i = 0; i < game.troops.length; i++) {
+    const t = game.troops[i];
+    if (!t.alive || !t.healBeam || !t.healBeam.troop.alive) continue;
+    const src = t.healBeam.troop;
+    const alpha = Math.min(1, t.healBeam.timer / 0.3) * 0.35;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#f1c40f';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(src.x, src.y);
+    ctx.lineTo(t.x, t.y);
+    ctx.stroke();
+    ctx.restore();
   }
 
   // PASS 1: Monster bodies — shadows, shield rings, body arcs, stun overlays.

@@ -367,25 +367,51 @@ export const TROOP_SPECS = [
     slowDuration: 2.5,
     shatterBonus: 0.5,
   },
+  {
+    id: 'healer',
+    name: 'Healer',
+    type: 'support',
+    cost: 150,
+    damage: 8,
+    range: 3,
+    attackSpeed: 1.5,
+    splash: 0,
+    color: '#2ecc71',
+    hp: 40,
+    desc: 'Support unit with 40 HP. Heals damaged allies instead of attacking. Upgrades increase healing and target count.',
+  },
 ];
 
 // Pre-compute stats strings per troop (avoids string concat every frame).
 for (let i = 0; i < TROOP_SPECS.length; i++) {
   const s = TROOP_SPECS[i];
-  const type = s.type.charAt(0).toUpperCase() + s.type.slice(1);
-  s._statsStr =
-    type +
-    ' \u00B7 ' +
-    s.damage +
-    'dmg \u00B7 ' +
-    s.range +
-    'rng \u00B7 ' +
-    s.attackSpeed +
-    's \u00B7 ' +
-    s.hp +
-    'hp' +
-    (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') +
-    (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+  if (s.type === 'support') {
+    s._statsStr =
+      'Support \u00B7 ' +
+      s.damage +
+      'heal \u00B7 ' +
+      s.range +
+      'rng \u00B7 ' +
+      s.attackSpeed +
+      's \u00B7 ' +
+      s.hp +
+      'hp';
+  } else {
+    const type = s.type.charAt(0).toUpperCase() + s.type.slice(1);
+    s._statsStr =
+      type +
+      ' \u00B7 ' +
+      s.damage +
+      'dmg \u00B7 ' +
+      s.range +
+      'rng \u00B7 ' +
+      s.attackSpeed +
+      's \u00B7 ' +
+      s.hp +
+      'hp' +
+      (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') +
+      (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+  }
 }
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.
