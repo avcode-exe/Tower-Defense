@@ -1,48 +1,26 @@
-feat: Milestone 2 — Healer Troop with lock-on healing, multi-target upgrade, and heal beam visual
+feat: allow pre-release channel users to detect and download newer stable releases
 
-Add the Healer as a new support-type troop that heals damaged allies instead of
-attacking monsters. This closes Milestone 2 from the project roadmap.
+Pre-release channel players can now see and install stable releases that are
+newer than their current version, in addition to pre-release versions.
 
-Core behavior (src/troop.js):
-- New Troop type 'support' with dedicated update branch that heals allies on
-  attack-speed cadence instead of attacking monsters.
-- pickHealTarget() locks onto the first damaged ally in range (by proximity),
-  evicts healed/dead/out-of-range targets, and fills empty slots from closest
-  candidates. Healing only stops or switches when the current target is fully
-  healed.
-- healTargets[] array tracks locked heal targets; healBeam property on healed
-  troops tracks the beam source and fade timer.
-- getHealAmount() returns cached damage stat as the per-tick heal value.
-- New healTargetLevel stat (default 1) controls max simultaneous heal targets.
-- Repurposed 'slow' upgrade slot for support troops as 'TGT' (target count).
+Previously, the update filter only blocked prerelease versions for stable-channel
+users, but did not account for the reverse case: pre-release users should be
+able to upgrade to stable releases once they are newer than their installed
+version.
 
-Config (src/config.js):
-- Healer spec: id='healer', type='support', cost=150, damage=8, range=3,
-  attackSpeed=1.5, color='#2ecc71', hp=40.
-- Stats string loop handles support type with 'heal' instead of 'dmg'.
-- Updated description to mention multi-target healing.
+Changes:
 
-Rendering (src/rendering/gameRenderer.js):
-- Heal beam: solid semi-transparent yellow line (#f1c40f) drawn from healer to
-  each recently-healed ally, fading out over 0.6s via healBeam.timer.
-- Support troop center dot rendered in white to distinguish from melee (gold)
-  and ranged (grey).
+electron-main.js:
+- Added parseVersion() and isNewerThan() semver comparison helpers that handle
+  prerelease suffixes (e.g. "1.5.0-beta.1", "1.5.0", "1.6.0-rc.1").
+- Updated shouldAnnounceToUser() with channel-aware filtering:
+  * Release channel: only stable releases (unchanged).
+  * Pre-release channel: pre-release versions always pass; stable versions only
+    pass if isNewerThan(info.version, currentVersion).
 
-Particles (src/particles.js):
-- healBurst green particle config for heal visual effects.
+src/updateManager.js:
+- Added matching _parseVersion() and _isNewerThan() helpers (renderer-side).
+- Updated passesFilter() to mirror the same logic so the renderer-side filter
+  stays consistent with the main process.
 
-Shop UI (src/ui/shop.js):
-- Type badge shows 'SUPRT' with green color for support troops.
-- Stat panel shows HEAL/SPD/RNG/TGT instead of DMG/SPD/RNG/SLW for support.
-- Upgrade buttons: HEAL (green), RNG, SPD, TGT (orange), HP for support.
-- Heal button hidden for support troops (they auto-heal allies).
-
-Placement (src/ui/placement.js):
-- Green range circle in placement ghost for support troops.
-
-Tests:
-- tests/healer.test.js: 12 tests validating healer spec properties.
-- tests/healerBehavior.test.js: 15 tests validating Troop class behavior
-  including lock-on targeting, multi-target upgrade, and heal beam mechanics.
-- tests/config.test.js: +4 tests for healer config and WAVES validation.
-- All 118 tests pass, lint clean, build succeeds.
+No UI changes. No new dependencies. All 118 tests pass, lint clean.

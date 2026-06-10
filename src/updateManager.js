@@ -24,6 +24,36 @@ const DEFAULT_SETTINGS = {
 
 const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
 
+// Parse semver for comparison (mirrors electron-main.js logic).
+function _parseVersion(v) {
+  if (!v) return { major: 0, minor: 0, patch: 0, prerelease: [] };
+  const match = v.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+  if (!match) return { major: 0, minor: 0, patch: 0, prerelease: [] };
+  const prerelease = match[4]
+    ? match[4].split('.').map((p) => (/^\d+$/.test(p) ? parseInt(p, 10) : p))
+    : [];
+  return { major: parseInt(match[1], 10), minor: parseInt(match[2], 10), patch: parseInt(match[3], 10), prerelease };
+}
+
+function _isNewerThan(version, current) {
+  const a = _parseVersion(version);
+  const b = _parseVersion(current);
+  if (a.major !== b.major) return a.major > b.major;
+  if (a.minor !== b.minor) return a.minor > b.minor;
+  if (a.patch !== b.patch) return a.patch > b.patch;
+  if (a.prerelease.length === 0 && b.prerelease.length > 0) return false;
+  if (a.prerelease.length > 0 && b.prerelease.length === 0) return true;
+  const len = Math.min(a.prerelease.length, b.prerelease.length);
+  for (let i = 0; i < len; i++) {
+    const ap = a.prerelease[i],
+      bp = b.prerelease[i];
+    if (ap === bp) continue;
+    if (typeof ap === 'number' && typeof bp === 'number') return ap > bp;
+    return String(ap) > String(bp);
+  }
+  return a.prerelease.length > b.prerelease.length;
+}
+
 export class UpdateManager {
   constructor(settings) {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, settings || {});
@@ -82,7 +112,12 @@ export class UpdateManager {
 
   passesFilter(info) {
     const channel = this.settings.update?.channel || 'release';
-    if (channel === 'release' && this._isPrerelease(info.version)) return false;
+    const currentVersion = this.settings.version || '0.0.0';
+    if (channel === 'release') {
+      if (this._isPrerelease(info.version)) return false;
+    } else if (channel === 'pre-release') {
+      if (!this._isPrerelease(info.version) && !_isNewerThan(info.version, currentVersion)) return false;
+    }
     return true;
   }
 

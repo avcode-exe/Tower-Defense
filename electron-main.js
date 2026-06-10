@@ -105,6 +105,40 @@ function isPrerelease(version) {
   return PRERELEASE_RE.test(version || '');
 }
 
+// Parse semver into { major, minor, patch, prerelease } for comparison.
+// Handles formats like "1.5.0", "1.5.0-beta.1", "1.5.0-rc.2".
+function parseVersion(v) {
+  if (!v) return { major: 0, minor: 0, patch: 0, prerelease: [] };
+  const match = v.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+  if (!match) return { major: 0, minor: 0, patch: 0, prerelease: [] };
+  const prerelease = match[4]
+    ? match[4].split('.').map((p) => (/^\d+$/.test(p) ? parseInt(p, 10) : p))
+    : [];
+  return { major: parseInt(match[1], 10), minor: parseInt(match[2], 10), patch: parseInt(match[3], 10), prerelease };
+}
+
+// Returns true if `version` is strictly newer than `current`.
+function isNewerThan(version, current) {
+  const a = parseVersion(version);
+  const b = parseVersion(current);
+  if (a.major !== b.major) return a.major > b.major;
+  if (a.minor !== b.minor) return a.minor > b.minor;
+  if (a.patch !== b.patch) return a.patch > b.patch;
+  // Same major.minor.patch: prerelease [] is OLDER than prerelease [x].
+  if (a.prerelease.length === 0 && b.prerelease.length > 0) return false;
+  if (a.prerelease.length > 0 && b.prerelease.length === 0) return true;
+  // Both prerelease: compare lexicographically.
+  const len = Math.min(a.prerelease.length, b.prerelease.length);
+  for (let i = 0; i < len; i++) {
+    const ap = a.prerelease[i],
+      bp = b.prerelease[i];
+    if (ap === bp) continue;
+    if (typeof ap === 'number' && typeof bp === 'number') return ap > bp;
+    return String(ap) > String(bp);
+  }
+  return a.prerelease.length > b.prerelease.length;
+}
+
 // Apply autoUpdater settings from persisted settings
 function applyAutoUpdaterSettings() {
   const settings = readSettings();
@@ -122,8 +156,16 @@ function sendStatus(phase, extra = {}) {
 
 function shouldAnnounceToUser(info, settings) {
   const update = settings.update || {};
-  if (update.channel === 'release' && isPrerelease(info.version)) return false;
   if ((update.skippedVersions || []).includes(info.version)) return false;
+  const channel = update.channel || 'release';
+  const currentVersion = settings.version || app.getVersion();
+  if (channel === 'release') {
+    // Stable channel: only allow stable releases.
+    if (isPrerelease(info.version)) return false;
+  } else if (channel === 'pre-release') {
+    // Pre-release channel: allow pre-release versions + stable versions newer than current.
+    if (!isPrerelease(info.version) && !isNewerThan(info.version, currentVersion)) return false;
+  }
   return true;
 }
 
