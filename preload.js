@@ -9,7 +9,9 @@ contextBridge.exposeInMainWorld('electron', {
   requestRestartToUpdate: () => ipcRenderer.send('restart-to-update'),
   skipUpdate: (v) => ipcRenderer.send('skip-update', v),
   onUpdateStatus: (cb) => {
-    ipcRenderer.on('update-status', (_event, data) => cb(data));
+    const handler = (_event, data) => cb(data);
+    ipcRenderer.on('update-status', handler);
+    return () => ipcRenderer.removeListener('update-status', handler);
   },
   setAutoDownload: (v) => ipcRenderer.send('set-auto-download', v),
   setUpdateChannel: (ch) => ipcRenderer.send('set-update-channel', ch),

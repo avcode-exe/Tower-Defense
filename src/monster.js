@@ -59,7 +59,7 @@ export class Monster {
     // Pass-mode: track last tile hit to prevent per-frame multi-hit.
     this._lastPassTile = -1;
     // Pass-mode penetration: track troops already hit so each troop is attacked at most once.
-    this._hitTroops = new Set();
+    this._hitTroops = null; // lazily allocated for pass-mode monsters only
 
     this._updatePosition();
   }
@@ -280,6 +280,7 @@ export class Monster {
       // Pass-mode penetration: deal damage to each troop at most once while moving.
       // Prune dead troops from the Set periodically to prevent unbounded growth.
       if (attackMode === 'pass' && troopTileIndex) {
+        if (!this._hitTroops) this._hitTroops = new Set();
         if (this._hitTroops.size > 16) {
           for (const t of this._hitTroops) {
             if (!t.alive) this._hitTroops.delete(t);

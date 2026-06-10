@@ -53,21 +53,31 @@ export function renderGame(game) {
     }
     const x = t.gx * T + 6,
       y = t.gy * T + 6;
-    ctx.save();
-    ctx.translate(x, y);
-    if (t.shield > 0 && t.maxShield > 0) {
+    const isShielded = t.shield > 0 && t.maxShield > 0;
+    if (isShielded) {
+      ctx.save();
+      ctx.translate(x, y);
       // Shrink to 80% to fit inside the shield square outline.
       const s = T - 12;
       ctx.translate(s * 0.5, s * 0.5);
       ctx.scale(0.8, 0.8);
       ctx.translate(-s * 0.5, -s * 0.5);
+      ctx.fillStyle = t.spec.color;
+      ctx.fill(_troopPath);
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke(_troopPath);
+      ctx.restore();
+    } else {
+      ctx.translate(x, y);
+      ctx.fillStyle = t.spec.color;
+      ctx.fill(_troopPath);
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke(_troopPath);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      RENDERER.applyMapTransform();
     }
-    ctx.fillStyle = t.spec.color;
-    ctx.fill(_troopPath);
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1.5;
-    ctx.stroke(_troopPath);
-    ctx.restore();
     const dotColor = t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7';
     ctx.fillStyle = dotColor;
     ctx.fillRect(t.x - 2.5, t.y - 5.5, 5, 5);
@@ -100,11 +110,10 @@ export function renderGame(game) {
   for (let i = 0; i < game.monsters.length; i++) {
     const m = game.monsters[i];
     if (!m.alive) continue;
-    // Outer shadow.
+    // Outer shadow (rect for performance — indistinguishable from arc at small size).
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.beginPath();
-    ctx.arc(m.x, m.y, m.spec.size * 0.5 + 3, 0, Math.PI * 2);
-    ctx.fill();
+    const shadowR = m.spec.size * 0.5 + 3;
+    ctx.fillRect(m.x - shadowR, m.y - shadowR, shadowR * 2, shadowR * 2);
     // Shield ring.
     if (m.shield > 0) {
       const shieldRatio = m.shield / m.maxShield;

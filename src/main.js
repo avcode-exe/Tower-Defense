@@ -2,11 +2,11 @@ import { Game } from './game.js';
 import { RENDERER } from './rendering/renderer.js';
 import { Input } from './input.js';
 import { UpdateManager } from './updateManager.js';
-import { UI, UI_LAYOUT } from './ui/index.js';
-import { CONFIG } from './config.js';
+import { UI_LAYOUT } from './ui/index.js';
+import { MONSTER_SPECS } from './config.js';
 import { AUDIO } from './audio.js';
-import { LAYOUT } from './config.js';
 import { SaveSerializer } from './gamePersistence.js';
+import { showToast } from './ui/toast.js';
 
 let game = null;
 
@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   game = new Game(canvas);
   window.game = game;
   new Input(canvas, game);
+  let updateDevSpawnCounts = () => {};
 
   // ── Load progress dialog ─────────────────────────────────────────────────────
   const loadDialog = document.getElementById('load-progress-dialog');
@@ -83,9 +84,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       /* non-Electron or first launch */
     }
   }
-  if (typeof UI_LAYOUT !== 'undefined') {
-    Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
-  }
+  Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
 
   const barBtnFor = {
     help: 'bar-controls-btn',
@@ -180,6 +179,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // DRY: Sync settings draft to main process (called from 3 places).
+  async function syncSettingsToMainProcess() {
+    if (window.electron && window.electron.saveSettings) {
+      await window.electron.saveSettings(JSON.parse(JSON.stringify(settingsDraft)));
+    }
+    if (window.electron && window.electron.setAutoDownload) {
+      window.electron.setAutoDownload(settingsDraft.update.autoDownload !== false);
+    }
+    if (window.electron && window.electron.setUpdateChannel) {
+      window.electron.setUpdateChannel(settingsDraft.update.channel || 'release');
+    }
+  }
+
   // ── settings form (draft-based, saves only on Save click) ──────────────
   let settingsDraft = {};
 
@@ -230,15 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveStatus = document.getElementById('settings-save-status');
   if (saveBtn) {
     saveBtn.addEventListener('click', async () => {
-      if (window.electron && window.electron.saveSettings) {
-        await window.electron.saveSettings(JSON.parse(JSON.stringify(settingsDraft)));
-      }
-      if (window.electron && window.electron.setAutoDownload) {
-        window.electron.setAutoDownload(settingsDraft.update.autoDownload !== false);
-      }
-      if (window.electron && window.electron.setUpdateChannel) {
-        window.electron.setUpdateChannel(settingsDraft.update.channel || 'release');
-      }
+      await syncSettingsToMainProcess();
       // Visual feedback: flash "✓ Saved" text
       if (saveStatus) {
         saveStatus.style.opacity = '1';
@@ -266,16 +270,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const checkNowBtn = document.getElementById('settings-check-now-btn');
   if (checkNowBtn) {
     checkNowBtn.addEventListener('click', async () => {
-      // Sync the current draft settings to main process before checking
-      if (window.electron && window.electron.saveSettings) {
-        await window.electron.saveSettings(JSON.parse(JSON.stringify(settingsDraft)));
-      }
-      if (window.electron && window.electron.setUpdateChannel) {
-        window.electron.setUpdateChannel(settingsDraft.update.channel || 'release');
-      }
-      if (window.electron && window.electron.setAutoDownload) {
-        window.electron.setAutoDownload(settingsDraft.update.autoDownload !== false);
-      }
+      await syncSettingsToMainProcess();
       // Small delay to let main process apply the settings
       setTimeout(() => {
         if (window.electron && window.electron.sendManualCheck) {
@@ -286,9 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Sync update channel on startup
-  if (window.electron && window.electron.setUpdateChannel) {
-    window.electron.setUpdateChannel(settingsDraft.update.channel || 'release');
-  }
+  syncSettingsToMainProcess();
 
   // ── settings accordion ──────────────────────────────────────────────────────
   document.querySelectorAll('.settings-section-header').forEach((header) => {
@@ -337,39 +330,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const notifyClearAll = document.getElementById('notify-clear-all');
   const notifyPanel = document.getElementById('notify-panel');
   const notifyBtn = document.getElementById('bar-notify-btn');
-  const toastContainer = document.getElementById('toast-container');
 
   function timeAgo() {
     return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  }
-
-  // ── Toast popups (bottom-right, newest top, old bottom) ──────────────────
-  function showToast(text, type, duration) {
-    if (!toastContainer) return;
-    const toast = document.createElement('div');
-    toast.className = 'toast';
-    const dotClass =
-      type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
-    const dot = document.createElement('span');
-    dot.className = 'toast-dot ' + dotClass;
-    toast.appendChild(dot);
-    toast.appendChild(document.createTextNode(text));
-    toast.addEventListener('click', () => {
-      removeToast(toast);
-    });
-    toastContainer.appendChild(toast);
-    // Auto-fade after duration (default 4s)
-    setTimeout(() => removeToast(toast), duration || 4000);
-  }
-  // Expose toast globally for game.js
-  window.showToast = showToast;
-
-  function removeToast(toast) {
-    if (!toast || !toast.parentNode) return;
-    toast.classList.add('toast-out');
-    setTimeout(() => {
-      if (toast.parentNode) toast.parentNode.removeChild(toast);
-    }, 400);
   }
 
   // ── Notification list management ────────────────────────────────────────
@@ -601,7 +564,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── populate monster info (unchanged) ──────────────────────────────────────
   const monsterInfoContent = document.getElementById('monster-info-content');
-  if (monsterInfoContent && typeof MONSTER_SPECS !== 'undefined') {
+  if (monsterInfoContent) {
     const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
     for (const key of order) {
       const spec = MONSTER_SPECS[key];
@@ -642,7 +605,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── populate DEV popup spawn content ─────────────────────────────────────
   const devSpawnContent = document.getElementById('dev-spawn-content');
-  if (devSpawnContent && typeof MONSTER_SPECS !== 'undefined') {
+  if (devSpawnContent) {
     const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
     const devRows = [];
     for (const key of order) {
@@ -671,7 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           'width:22px; height:18px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:3px; cursor:pointer; font-size:8px; font-family:inherit; padding:0;';
         btn.textContent = tag;
         btn.addEventListener('click', () => {
-          if (typeof game !== 'undefined') {
+          if (game !== null) {
             const delta = parseInt(tag);
             game.devMonsterCounts[key] = Math.max(0, (game.devMonsterCounts[key] || 0) + delta);
             countSpan.textContent = 'x' + (game.devMonsterCounts[key] || 0);
@@ -687,8 +650,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       devRows.push({ key, countSpan });
     }
     // Update counts display when dev mode changes
-    window._updateDevSpawnCounts = () => {
-      if (typeof game !== 'undefined') {
+    const updateDevSpawnCounts = () => {
+      if (game !== null) {
         for (const r of devRows) {
           r.countSpan.textContent = 'x' + (game.devMonsterCounts[r.key] || 0);
         }
@@ -700,16 +663,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   const devResetBtn = document.getElementById('dev-reset-btn');
   if (devResetBtn) {
     devResetBtn.addEventListener('click', () => {
-      if (typeof game !== 'undefined') {
-        game.resetDevMonsterCounts();
-        if (window._updateDevSpawnCounts) window._updateDevSpawnCounts();
+        if (game !== null) {
+          game.resetDevMonsterCounts();
+          updateDevSpawnCounts();
       }
     });
   }
   const devStartBtn = document.getElementById('dev-start-btn');
   if (devStartBtn) {
     devStartBtn.addEventListener('click', () => {
-      if (typeof game !== 'undefined') {
+      if (game !== null) {
         game.wave.buildCustomFromCounts(game.devMonsterCounts);
         if (game.state === 'PRE_WAVE' && game.wave.startNextWave()) {
           game.state = 'WAVE_ACTIVE';

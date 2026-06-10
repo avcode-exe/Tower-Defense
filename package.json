@@ -1,16 +1,17 @@
 {
   "name": "tower-defense",
-  "version": "1.4.1-beta.2",
+  "version": "1.4.1",
   "description": "Tower Defense Game",
   "main": "electron-main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win --x64",
     "release": "electron-builder --win --x64 --publish always",
-    "lint": "eslint src/ js/ electron-main.js preload.js",
-    "lint:fix": "eslint --fix src/ js/ electron-main.js preload.js",
-    "format": "prettier --write \"src/**/*.js\" \"js/**/*.js\" \"*.js\" \"css/**/*.css\"",
-    "test": "echo \"No tests yet — add Vitest and write tests in tests/\" && exit 0"
+    "lint": "eslint src/ electron-main.js preload.js",
+    "lint:fix": "eslint --fix src/ electron-main.js preload.js",
+    "format": "prettier --write \"src/**/*.js\" \"*.js\" \"css/**/*.css\"",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "build": {
     "appId": "com.towerdefense.app",
@@ -32,14 +33,13 @@
       "repo": "Tower-Defense"
     },
     "files": [
-    "electron-main.js",
-    "preload.js",
-    "index.html",
-    "src/**/*",
-    "css/**/*",
-    "js/**/*",
-    "icon.png"
-  ],
+      "electron-main.js",
+      "preload.js",
+      "index.html",
+      "src/**/*",
+      "css/**/*",
+      "icon.png"
+    ],
     "directories": {
       "output": "dist"
     }
@@ -51,6 +51,7 @@
     "electron": "^42.3.2",
     "electron-builder": "^26.8.1",
     "eslint": "^8.57.0",
-    "prettier": "^3.3.0"
+    "prettier": "^3.3.0",
+    "vitest": "^4.1.8"
   }
 }

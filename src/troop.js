@@ -1,5 +1,4 @@
 import { CONFIG, TROOP_SPECS } from './config.js';
-import { Projectile } from './projectile.js';
 import { PARTICLES } from './particles.js';
 import { AUDIO } from './audio.js';
 
@@ -408,7 +407,7 @@ export class Troop {
         this.cooldown = atkSpd;
       }
     } else {
-      projectiles.push(new Projectile(this, this.target, this.x, this.y));
+      projectiles.push(game.acquireProjectile(this, this.target, this.x, this.y));
       this.cooldown = atkSpd;
     }
   }

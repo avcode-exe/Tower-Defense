@@ -2,19 +2,18 @@ import { CONFIG } from './config.js';
 import { RENDERER } from './rendering/renderer.js';
 import { AUDIO } from './audio.js';
 import { renderGame, updateCursor } from './rendering/gameRenderer.js';
+import { showToast } from './ui/toast.js';
 
-// GameRuntimeController: owns worker lifecycle, pause render loop, resize
-// subscription, and centralised state transitions.  Game delegates all
-// phase-changing operations here so that duplicated transition branches
-// collapse into single call sites.
+// GameRuntimeController: owns the main loop (rAF + fixed timestep),
+// pause render loop, resize subscription, and centralised state transitions.
 
 export class GameRuntimeController {
   constructor(game) {
     this.game = game;
 
-    this._simWorker = null;
     this._running = false;
     this._rafVersion = 0;
+    this._rafId = null;
     this._pauseRafId = null;
     this._resizeHandler = null;
     this._resizeRAF = null;
@@ -45,10 +44,10 @@ export class GameRuntimeController {
   }
 
   // ── Pause render loop ───────────────────────────────────────────────
-  // Lightweight rAF loop that only renders — used when the sim worker is
+  // Lightweight rAF loop that only renders — used when the sim is
   // stopped (PAUSED / DEFEAT) so the canvas stays interactive.
   startPauseRender() {
-    if (this._pauseRafId != null) return; // already running
+    if (this._pauseRafId != null) return;
     const game = this.game;
     const loop = () => {
       this._pauseRafId = null;
@@ -67,62 +66,31 @@ export class GameRuntimeController {
     }
   }
 
-  // ── Worker lifecycle ────────────────────────────────────────────────
-  _spawnWorker(canvas) {
-    const game = this.game;
-    const rafVersion = this._rafVersion;
-
-    try {
-      this._simWorker = new Worker(new URL('../simWorker.js', import.meta.url));
-      this._simWorker.onmessage = (e) => {
-        if (e.data === 'tick') {
-          if (!this._running) return;
-          game._runSimTick(performance.now());
-        }
-      };
-      this._simWorker.onerror = (e) => {
-        console.error('Sim worker error, falling back to main thread:', e);
-        this._simWorker = null;
-        this._startFallbackLoop(rafVersion);
-      };
-      this._simWorker.postMessage('start');
-    } catch (err) {
-      console.warn('Web Worker unavailable, falling back to main-thread loop:', err);
-      this._startFallbackLoop(rafVersion);
-    }
-  }
-
-  _startFallbackLoop(rafVersion) {
-    const game = this.game;
-    this._running = true;
-    game.lastTime = performance.now();
-    const loop = () => {
-      if (!this._running || this._rafVersion !== rafVersion) return;
-      game._runSimTick(performance.now());
-      requestAnimationFrame(loop);
-    };
-    requestAnimationFrame(loop);
-  }
-
-  // ── Main loop start ─────────────────────────────────────────────────
+  // ── Main loop (rAF + fixed timestep) ────────────────────────────────
   // Called by Game.start() / Game.restart() to kick off the background loop.
   startLoop(canvas) {
     this.installResize(canvas);
     this.game.lastTime = performance.now();
     this._running = true;
     this._rafVersion++;
-    this._spawnWorker(canvas);
+    const rafVersion = this._rafVersion;
+    const game = this.game;
+
+    const loop = () => {
+      if (!this._running || this._rafVersion !== rafVersion) return;
+      game._runSimTick(performance.now());
+      this._rafId = requestAnimationFrame(loop);
+    };
+    this._rafId = requestAnimationFrame(loop);
   }
 
   // ── State transition commands ───────────────────────────────────────
-  // Each command centralises the duplicated transition logic that was
-  // previously scattered across onMouseDown, onKeyDown, step, and restart.
 
   pauseGame() {
     const game = this.game;
     if (game.state !== 'WAVE_ACTIVE') return;
     game.state = 'PAUSED';
-    if (this._simWorker) this._simWorker.postMessage('stop');
+    this._cancelRaf();
     this.startPauseRender();
   }
 
@@ -131,7 +99,14 @@ export class GameRuntimeController {
     if (game.state !== 'PAUSED') return;
     game.state = 'WAVE_ACTIVE';
     this.stopPauseRender();
-    if (this._simWorker) this._simWorker.postMessage('start');
+    game.lastTime = performance.now();
+    const rafVersion = this._rafVersion;
+    const loop = () => {
+      if (!this._running || this._rafVersion !== rafVersion) return;
+      game._runSimTick(performance.now());
+      this._rafId = requestAnimationFrame(loop);
+    };
+    this._rafId = requestAnimationFrame(loop);
   }
 
   togglePause() {
@@ -147,7 +122,7 @@ export class GameRuntimeController {
     const game = this.game;
     if (game.state !== 'PRE_WAVE') return false;
     if (game.devMode) {
-      if (window.showToast) window.showToast('Use the DEV window to start a custom wave', 'warning');
+      showToast('Use the DEV window to start a custom wave', 'warning');
       return false;
     }
     if (game.wave.startNextWave()) {
@@ -163,19 +138,23 @@ export class GameRuntimeController {
     game.lives = 0;
     game.state = 'DEFEAT';
     AUDIO.defeat();
-    if (this._simWorker) this._simWorker.postMessage('stop');
+    this._cancelRaf();
     this.startPauseRender();
     if (window.electron && window.electron.deleteSave) window.electron.deleteSave();
   }
 
-  // Full loop stop: terminates worker, clears RAF, removes resize.
+  // Full loop stop: cancels rAF, removes resize.
   stopLoop() {
-    if (this._simWorker) {
-      this._simWorker.terminate();
-      this._simWorker = null;
-    }
+    this._cancelRaf();
     this.stopPauseRender();
     this.removeResize();
     this._running = false;
+  }
+
+  _cancelRaf() {
+    if (this._rafId != null) {
+      cancelAnimationFrame(this._rafId);
+      this._rafId = null;
+    }
   }
 }

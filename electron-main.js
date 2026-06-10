@@ -171,6 +171,8 @@ ipcMain.handle('get-settings', () => {
 });
 
 ipcMain.handle('save-settings', (_event, settings) => {
+  if (!settings || typeof settings !== 'object') return false;
+  if (JSON.stringify(settings).length > 1024 * 100) return false; // 100KB limit
   return writeSettings(settings);
 });
 
@@ -191,6 +193,7 @@ ipcMain.on('download-update', () => {
 });
 
 ipcMain.on('skip-update', (_event, version) => {
+  if (typeof version !== 'string' || version.length > 50) return;
   const settings = readSettings();
   if (!settings.update) settings.update = {};
   settings.update.skippedVersions = settings.update.skippedVersions || [];
@@ -220,6 +223,8 @@ ipcMain.on('cancel-update', () => {
 
 ipcMain.handle('save-game', (_event, data) => {
   try {
+    if (!data || typeof data !== 'object') return false;
+    if (JSON.stringify(data).length > 1024 * 1024) return false; // 1MB limit
     fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
     fs.writeFileSync(SAVE_PATH, JSON.stringify(data, null, 2), 'utf-8');
     return true;
@@ -232,6 +237,8 @@ ipcMain.handle('save-game', (_event, data) => {
 ipcMain.handle('load-game', () => {
   try {
     if (fs.existsSync(SAVE_PATH)) {
+      const stat = fs.statSync(SAVE_PATH);
+      if (stat.size > 1024 * 1024) return null; // 1MB limit
       return JSON.parse(fs.readFileSync(SAVE_PATH, 'utf-8'));
     }
   } catch (err) {
