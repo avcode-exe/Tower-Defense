@@ -37,7 +37,7 @@ export function clipToGameplayArea(c) {
     shopW,
     UI_LAYOUT.hudHeight,
     RENDERER.width - shopW - shieldW,
-    RENDERER.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight,
+    RENDERER.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight
   );
   c.clip();
 }

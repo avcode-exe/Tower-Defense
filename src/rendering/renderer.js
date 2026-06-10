@@ -161,20 +161,14 @@ export const RENDERER = {
     this.ctx.restore();
   },
 
-  // Draw cached static layers — called instead of per-frame tile loops
+  // Draw cached static layers — caller must have map transform applied.
   drawStaticLayers(grid) {
     if (this._cacheDirty || !this._bgCache || !this._pathCache) {
       this._rebuildCache(grid);
     }
     const c = this.ctx;
-    c.save();
-    c.translate(this.offsetX, this.offsetY);
-    c.scale(this.scale, this.scale);
-    // Cache is DPR-scaled internally; draw at CSS-pixel size so the
-    // main canvas DPR transform maps it to device-pixel sharpness.
     const ms = CONFIG.GRID_SIZE * CONFIG.TILE_SIZE;
     c.drawImage(this._bgCache, 0, 0, ms, ms);
     c.drawImage(this._pathCache, 0, 0, ms, ms);
-    c.restore();
   },
 };

@@ -167,7 +167,8 @@ export class Monster {
     let bestTroop = null;
     let bestDist = Infinity;
     const gs = CONFIG.GRID_SIZE;
-    const tileRange = Math.ceil(this.spec.attackRange);
+    const atkRange = this.spec.attackRange;
+    const tileRange = Math.ceil(atkRange);
     for (let dy = -tileRange; dy <= tileRange; dy++) {
       for (let dx = -tileRange; dx <= tileRange; dx++) {
         const tx = gx + dx;
@@ -179,7 +180,7 @@ export class Monster {
           const t = tileTroops[i];
           if (!t.alive) continue;
           const d = Math.max(Math.abs(tx - gx), Math.abs(ty - gy));
-          if (d <= this.spec.attackRange) {
+          if (d <= atkRange) {
             const pdx = t.x - this.x;
             const pdy = t.y - this.y;
             const pxDist = pdx * pdx + pdy * pdy;
@@ -225,6 +226,8 @@ export class Monster {
     }
 
     const attackMode = this.spec.attackMode || 'stop';
+    const atkSpd = this.spec.attackSpeed;
+    const atkRange = this.spec.attackRange;
 
     // ATTACKING state (used by 'stop' mode).
     if (this.state === 'ATTACKING') {
@@ -234,13 +237,13 @@ export class Monster {
       } else {
         const dx = Math.abs(this._tileGx - this.attackTarget.gx);
         const dy = Math.abs(this._tileGy - this.attackTarget.gy);
-        if (Math.max(dx, dy) > this.spec.attackRange) {
+        if (Math.max(dx, dy) > atkRange) {
           this.attackTarget = null;
           this.state = 'MOVING';
         } else {
           this.attackTimer -= dt;
           if (this.attackTimer <= 0) {
-            this.attackTimer = this.spec.attackSpeed;
+            this.attackTimer = atkSpd;
             this._pendingAttack = this.attackTarget;
           }
         }
@@ -259,7 +262,7 @@ export class Monster {
           this.speed = Math.min(this.speed, slowModeSpeed);
           this.attackTimer -= dt;
           if (this.attackTimer <= 0) {
-            this.attackTimer = this.spec.attackSpeed;
+            this.attackTimer = atkSpd;
             this._pendingAttack = nearTarget;
           }
         } else if (this.slowTimer <= 0) {
@@ -320,7 +323,7 @@ export class Monster {
         if (target) {
           this.state = 'ATTACKING';
           this.attackTarget = target;
-          this.attackTimer = this.spec.attackSpeed;
+          this.attackTimer = atkSpd;
           this._pendingAttack = target;
         }
       }

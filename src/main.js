@@ -590,7 +590,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       stats.appendChild(statSpan('+' + spec.reward + 'g'));
       stats.appendChild(statSpan('Dmg:' + spec.damage));
       stats.appendChild(statSpan('Leak:' + spec.leak));
-      if (spec.shield) stats.appendChild(statSpan('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
+      if (spec.shield)
+        stats.appendChild(statSpan('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
       const mode = spec.attackMode || 'stop';
       if (mode === 'slow') {
         stats.appendChild(statSpan('Slow: slows near troops, attacks closest'));

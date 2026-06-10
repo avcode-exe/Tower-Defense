@@ -432,11 +432,15 @@ export class Game {
     this.projectiles.length = pw;
     const selRef = this.selectedTroopIndex >= 0 ? this.troops[this.selectedTroopIndex] : null;
     let tw = 0;
+    let newSelIdx = -1;
     for (let i = 0; i < this.troops.length; i++) {
-      if (this.troops[i].alive) this.troops[tw++] = this.troops[i];
+      if (this.troops[i].alive) {
+        if (this.troops[i] === selRef) newSelIdx = tw;
+        this.troops[tw++] = this.troops[i];
+      }
     }
     this.troops.length = tw;
-    this.selectedTroopIndex = selRef && selRef.alive ? this.troops.indexOf(selRef) : -1;
+    this.selectedTroopIndex = selRef && selRef.alive ? newSelIdx : -1;
   }
 
   _stepWaveCompletion() {
@@ -541,11 +545,12 @@ export class Game {
       }
     }
     const G = CONFIG.GRID_SIZE;
+    const T = CONFIG.TILE_SIZE;
     for (let i = 0; i < this.monsters.length; i++) {
       const m = this.monsters[i];
       if (!m.alive) continue;
-      const gx = Math.max(0, Math.min(G - 1, (m.x / CONFIG.TILE_SIZE) | 0));
-      const gy = Math.max(0, Math.min(G - 1, (m.y / CONFIG.TILE_SIZE) | 0));
+      const gx = Math.max(0, Math.min(G - 1, (m.x / T) | 0));
+      const gy = Math.max(0, Math.min(G - 1, (m.y / T) | 0));
       const idx = gy * G + gx;
       let arr = tiIdx[idx];
       if (!arr) {

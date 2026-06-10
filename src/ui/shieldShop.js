@@ -125,7 +125,16 @@ export function drawShieldShop(game) {
   // Strict if/else if/else if/else chain for the four button states.
   if (!hasSelection) {
     // a) No troop selected or not alive — greyed out.
-    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
+    fillStrokeRoundedRect(
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      5,
+      'rgba(255,255,255,0.04)',
+      'rgba(255,255,255,0.06)'
+    );
     c.fillStyle = UI_COLORS.textDim;
     c.font = '9px system-ui, sans-serif';
     c.textAlign = 'center';
@@ -133,7 +142,16 @@ export function drawShieldShop(game) {
     c.fillText('SELECT A TROOP', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
   } else if (t.shield > 0) {
     // b) Shield already active — cyan-tinted.
-    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(93,173,226,0.18)', 'rgba(93,173,226,0.45)');
+    fillStrokeRoundedRect(
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      5,
+      'rgba(93,173,226,0.18)',
+      'rgba(93,173,226,0.45)'
+    );
     c.fillStyle = '#5dade2';
     c.font = 'bold 10px system-ui, sans-serif';
     c.textAlign = 'center';
@@ -141,7 +159,16 @@ export function drawShieldShop(game) {
     c.fillText('ACTIVE', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
   } else if (!canAfford) {
     // c) Can't afford — greyed out with cost.
-    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
+    fillStrokeRoundedRect(
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      5,
+      'rgba(255,255,255,0.04)',
+      'rgba(255,255,255,0.06)'
+    );
     c.fillStyle = UI_COLORS.textDim;
     c.font = '9px system-ui, sans-serif';
     c.textAlign = 'center';
@@ -149,7 +176,16 @@ export function drawShieldShop(game) {
     c.fillText('BUY (' + cost + 'g)', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
   } else {
     // d) Can buy — bright cyan button.
-    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(93,173,226,0.28)', 'rgba(93,173,226,0.6)');
+    fillStrokeRoundedRect(
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      5,
+      'rgba(93,173,226,0.28)',
+      'rgba(93,173,226,0.6)'
+    );
     c.fillStyle = '#5dade2';
     c.font = 'bold 10px system-ui, sans-serif';
     c.textAlign = 'center';

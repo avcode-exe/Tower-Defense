@@ -373,7 +373,19 @@ export const TROOP_SPECS = [
 for (let i = 0; i < TROOP_SPECS.length; i++) {
   const s = TROOP_SPECS[i];
   const type = s.type.charAt(0).toUpperCase() + s.type.slice(1);
-  s._statsStr = type + ' \u00B7 ' + s.damage + 'dmg \u00B7 ' + s.range + 'rng \u00B7 ' + s.attackSpeed + 's \u00B7 ' + s.hp + 'hp' + (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') + (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+  s._statsStr =
+    type +
+    ' \u00B7 ' +
+    s.damage +
+    'dmg \u00B7 ' +
+    s.range +
+    'rng \u00B7 ' +
+    s.attackSpeed +
+    's \u00B7 ' +
+    s.hp +
+    'hp' +
+    (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') +
+    (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
 }
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.

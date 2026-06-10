@@ -3,7 +3,14 @@ import { CONFIG, LAYOUT, TROOP_SPECS } from '../config.js';
 import { UI_LAYOUT, UI_COLORS } from './constants.js';
 import { AUDIO } from '../audio.js';
 import { clamp } from '../utils.js';
-import { UIRoundRect, drawToggleButton, hitToggleButton, _wrapText, _drawShopTooltip, fillStrokeRoundedRect } from './utils.js';
+import {
+  UIRoundRect,
+  drawToggleButton,
+  hitToggleButton,
+  _wrapText,
+  _drawShopTooltip,
+  fillStrokeRoundedRect,
+} from './utils.js';
 
 export function shopCardRect(i) {
   const gap = LAYOUT.SHOP.CARD_GAP;
@@ -314,7 +321,16 @@ export function drawShop(game) {
       const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
       const panelY = upgradeBtnY - panelH - 4;
 
-      fillStrokeRoundedRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8, UI_COLORS.cardBg, UI_COLORS.panelBorder);
+      fillStrokeRoundedRect(
+        c,
+        8,
+        panelY,
+        UI_LAYOUT.SHOP_WIDTH - 16,
+        panelH,
+        8,
+        UI_COLORS.cardBg,
+        UI_COLORS.panelBorder
+      );
 
       c.fillStyle = UI_COLORS.textBright;
       c.font = 'bold 12px system-ui, sans-serif';
@@ -413,7 +429,16 @@ export function drawShop(game) {
 
       if (isMaxHp) {
         // Max HP — greyed out
-        fillStrokeRoundedRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
+        fillStrokeRoundedRect(
+          c,
+          LAYOUT.SHOP.BTN_PAD,
+          healBtnY,
+          healBtnW,
+          LAYOUT.SHOP.HEAL_BTN_H,
+          6,
+          'rgba(255,255,255,0.04)',
+          'rgba(255,255,255,0.06)'
+        );
         c.fillStyle = UI_COLORS.textDim;
         c.font = 'bold 9px system-ui, sans-serif';
         c.textAlign = 'center';
@@ -423,7 +448,16 @@ export function drawShop(game) {
         // Can heal — show cost and HP
         const healBg = healAffordable ? '#2ea043' : 'rgba(255,255,255,0.04)';
         const healBorder = healAffordable ? null : 'rgba(255,255,255,0.06)';
-        fillStrokeRoundedRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6, healBg, healBorder);
+        fillStrokeRoundedRect(
+          c,
+          LAYOUT.SHOP.BTN_PAD,
+          healBtnY,
+          healBtnW,
+          LAYOUT.SHOP.HEAL_BTN_H,
+          6,
+          healBg,
+          healBorder
+        );
         c.fillStyle = healAffordable ? '#fff' : UI_COLORS.textDim;
         c.font = 'bold 10px system-ui, sans-serif';
         c.textAlign = 'center';
@@ -454,11 +488,38 @@ export function drawShop(game) {
       const onCooldown = cd > 0 && !isDevDelete;
 
       if (isDevDelete) {
-        fillStrokeRoundedRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6, 'rgba(218,54,51,0.15)', 'rgba(218,54,51,0.25)');
+        fillStrokeRoundedRect(
+          c,
+          sellBtn.x,
+          sellBtn.y,
+          sellBtn.w,
+          sellBtn.h,
+          6,
+          'rgba(218,54,51,0.15)',
+          'rgba(218,54,51,0.25)'
+        );
       } else if (onCooldown) {
-        fillStrokeRoundedRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6, 'rgba(128,128,128,0.12)', 'rgba(128,128,128,0.2)');
+        fillStrokeRoundedRect(
+          c,
+          sellBtn.x,
+          sellBtn.y,
+          sellBtn.w,
+          sellBtn.h,
+          6,
+          'rgba(128,128,128,0.12)',
+          'rgba(128,128,128,0.2)'
+        );
       } else {
-        fillStrokeRoundedRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6, 'rgba(212,118,30,0.12)', 'rgba(212,118,30,0.2)');
+        fillStrokeRoundedRect(
+          c,
+          sellBtn.x,
+          sellBtn.y,
+          sellBtn.w,
+          sellBtn.h,
+          6,
+          'rgba(212,118,30,0.12)',
+          'rgba(212,118,30,0.2)'
+        );
       }
       c.fillStyle = isDevDelete ? UI_COLORS.red : onCooldown ? UI_COLORS.textDim : UI_COLORS.orange;
       c.font = 'bold 10px system-ui, sans-serif';

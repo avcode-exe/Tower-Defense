@@ -48,6 +48,7 @@ export const PARTICLES = {
   _colorToIndex: {},
   _colorByIndex: [],
   _nextColorIndex: 0,
+  _tmpCfg: null,
 
   _getParticle() {
     if (this._activeCount < this._maxPool) {
@@ -119,9 +120,8 @@ export const PARTICLES = {
     const keys = this._bucketKeys;
     for (let i = 0; i < this._activeCount; i++) {
       const p = this._pool[i];
-      const alphaKey = p.maxLife > 0 ? Math.round((p.life / p.maxLife) * 10) / 10 : 0;
       const ci = this._getColorIndex(p.color);
-      const aq = alphaKey > 0 ? Math.min(10, Math.round(alphaKey * 10)) : 0;
+      const aq = p.maxLife > 0 ? Math.min(10, Math.round((p.life / p.maxLife) * 10)) : 0;
       const key = ci * 11 + aq;
       if (!buckets[key]) {
         buckets[key] = [];
@@ -131,7 +131,7 @@ export const PARTICLES = {
     }
     for (let k = 0; k < keys.length; k++) {
       const key = keys[k];
-      const colorIdx = Math.floor(key / 11);
+      const colorIdx = (key / 11) | 0;
       const alpha = (key % 11) / 10;
       ctx.globalAlpha = alpha;
       ctx.fillStyle = this._colorByIndex[colorIdx];
@@ -142,7 +142,7 @@ export const PARTICLES = {
         ctx.fillRect(p.x - half, p.y - half, p.size, p.size);
       }
       batch.length = 0;
-      delete buckets[key];
+      buckets[key] = null;
     }
     keys.length = 0;
     ctx.globalAlpha = 1;
@@ -156,12 +156,28 @@ export const PARTICLES = {
   },
 
   _getColorIndex(color) {
-    if (!(color in this._colorToIndex)) {
-      const idx = this._nextColorIndex++;
-      this._colorToIndex[color] = idx;
-      this._colorByIndex[idx] = color;
+    let ci = this._colorToIndex[color];
+    if (ci === undefined) {
+      ci = this._nextColorIndex++;
+      this._colorToIndex[color] = ci;
+      this._colorByIndex[ci] = color;
     }
-    return this._colorToIndex[color];
+    return ci;
+  },
+
+  // Reuse a single config object to avoid per-call allocation from spread.
+  _applyCfg(src, color) {
+    const dst = this._tmpCfg || (this._tmpCfg = {});
+    dst.count = src.count;
+    dst.color = color;
+    dst.minSize = src.minSize;
+    dst.maxSize = src.maxSize;
+    dst.minSpeed = src.minSpeed;
+    dst.maxSpeed = src.maxSpeed;
+    dst.minLife = src.minLife;
+    dst.maxLife = src.maxLife;
+    dst.gravity = src.gravity;
+    return dst;
   },
 
   // Predefined effect configs (returned by copy so mutations don't cross-contaminate).
@@ -177,7 +193,7 @@ export const PARTICLES = {
     gravity: false,
   },
   hitSpark(color) {
-    return { ...this._hitSparkCfg, color: color || '#fff' };
+    return this._applyCfg(this._hitSparkCfg, color || '#fff');
   },
 
   _deathBurstCfg: {
@@ -192,7 +208,7 @@ export const PARTICLES = {
     gravity: false,
   },
   deathBurst(color) {
-    return { ...this._deathBurstCfg, color: color || '#fff' };
+    return this._applyCfg(this._deathBurstCfg, color || '#fff');
   },
 
   _troopDeathCfg: {
@@ -207,7 +223,7 @@ export const PARTICLES = {
     gravity: false,
   },
   troopDeath(color) {
-    return { ...this._troopDeathCfg, color: color || '#fff' };
+    return this._applyCfg(this._troopDeathCfg, color || '#fff');
   },
 
   _splashImpactCfg: {
@@ -222,7 +238,7 @@ export const PARTICLES = {
     gravity: false,
   },
   splashImpact(color) {
-    return { ...this._splashImpactCfg, color: color || '#9b59b6' };
+    return this._applyCfg(this._splashImpactCfg, color || '#9b59b6');
   },
 
   _chainSparkCfg: {
@@ -236,8 +252,8 @@ export const PARTICLES = {
     maxLife: 0.2,
     gravity: false,
   },
-  chainSpark() {
-    return { ...this._chainSparkCfg };
+  chainSpark(color) {
+    return this._applyCfg(this._chainSparkCfg, color || '#f1c40f');
   },
 
   _shieldActivateCfg: {
@@ -252,7 +268,7 @@ export const PARTICLES = {
     gravity: false,
   },
   troopShieldActivate(color) {
-    return { ...this._shieldActivateCfg, color: color || '#5dade2' };
+    return this._applyCfg(this._shieldActivateCfg, color || '#5dade2');
   },
 
   _slowApplyCfg: {
@@ -267,6 +283,6 @@ export const PARTICLES = {
     gravity: false,
   },
   slowApply(color) {
-    return { ...this._slowApplyCfg, color: color || '#7fdbff' };
+    return this._applyCfg(this._slowApplyCfg, color || '#7fdbff');
   },
 };

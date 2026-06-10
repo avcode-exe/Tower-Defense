@@ -1,7 +1,7 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG, LAYOUT } from '../config.js';
-import { UI_LAYOUT, UI_COLORS } from './constants.js';
 import { AUDIO } from '../audio.js';
+import { UI_LAYOUT, UI_COLORS } from './constants.js';
 import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect } from './utils.js';
 
 export function drawHUD(game) {
@@ -98,7 +98,16 @@ export function drawHUD(game) {
 
   // Mute button.
   const muteBtn = LAYOUT.HUD.MUTE_BTN;
-  fillStrokeRoundedRect(c, muteBtn.x, muteBtn.y, muteBtn.w, muteBtn.h, 6, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.1)');
+  fillStrokeRoundedRect(
+    c,
+    muteBtn.x,
+    muteBtn.y,
+    muteBtn.w,
+    muteBtn.h,
+    6,
+    'rgba(255,255,255,0.04)',
+    'rgba(255,255,255,0.1)'
+  );
   c.fillStyle = AUDIO.muted ? '#e74c3c' : UI_COLORS.textDim;
   c.font = 'bold 11px system-ui, sans-serif';
   c.textAlign = 'center';
@@ -149,7 +158,16 @@ export function drawHUD(game) {
     const isStart = game.state === 'PRE_WAVE' || game.state === 'PAUSED';
     if (isDevDisabled) {
       // Greyed-out disabled state
-      fillStrokeRoundedRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
+      fillStrokeRoundedRect(
+        c,
+        ctrlBtn.x,
+        ctrlBtn.y,
+        ctrlBtn.w,
+        ctrlBtn.h,
+        6,
+        'rgba(255,255,255,0.04)',
+        'rgba(255,255,255,0.06)'
+      );
       c.fillStyle = UI_COLORS.textDim;
       c.font = 'bold 11px system-ui, sans-serif';
       c.textAlign = 'center';

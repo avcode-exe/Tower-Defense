@@ -1,16 +1,16 @@
 import { RENDERER } from './renderer.js';
 import { CONFIG, LAYOUT } from '../config.js';
 import { PARTICLES } from '../particles.js';
-import { UI, UI_LAYOUT } from '../ui/index.js';
 import { AUDIO } from '../audio.js';
 import { pixelToTile, tileCenterInto, clamp, inBounds } from '../utils.js';
+import { UI, UI_LAYOUT } from '../ui/index.js';
 
 let _troopPath = null;
 
 export function renderGame(game) {
   RENDERER.beginFrame();
-  RENDERER.drawStaticLayers(game.grid);
   RENDERER.applyMapTransform();
+  RENDERER.drawStaticLayers(game.grid);
 
   const T = CONFIG.TILE_SIZE;
   const ctx = RENDERER.ctx;
@@ -96,11 +96,11 @@ export function renderGame(game) {
     }
   }
 
-  // PASS 1: Monster bodies (shadows, shield rings, body arcs, stun overlays).
+  // PASS 1: Monster bodies — shadows, shield rings, body arcs, stun overlays.
   for (let i = 0; i < game.monsters.length; i++) {
     const m = game.monsters[i];
     if (!m.alive) continue;
-    // Outer shadow.
+    // Shadow.
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     const shadowR = m.spec.size * 0.5 + 3;
     ctx.beginPath();

@@ -171,7 +171,7 @@ ipcMain.handle('get-settings', () => {
 
 ipcMain.handle('save-settings', (_event, settings) => {
   if (!settings || typeof settings !== 'object') return false;
-  if (JSON.stringify(settings).length > 1024 * 100) return false; // 100KB limit
+  if (JSON.stringify(settings, null, 2).length > 1024 * 100) return false; // 100KB limit
   return writeSettings(settings);
 });
 
@@ -227,9 +227,10 @@ ipcMain.on('cancel-update', () => {
 ipcMain.handle('save-game', (_event, data) => {
   try {
     if (!data || typeof data !== 'object') return false;
-    if (JSON.stringify(data).length > 1024 * 1024) return false; // 1MB limit
+    const json = JSON.stringify(data, null, 2);
+    if (json.length > 1024 * 1024) return false; // 1MB limit
     fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
-    fs.writeFileSync(SAVE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(SAVE_PATH, json, 'utf-8');
     return true;
   } catch (err) {
     console.error('[save] failed:', err);

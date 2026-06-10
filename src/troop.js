@@ -90,7 +90,14 @@ export class Troop {
 
   // Cost for next upgrade of a stat: base cost * 2^(level-1).
   getUpgradeCost(stat) {
-    const levelMap = { dmg: this.dmgLevel, range: this.rangeLevel, speed: this.speedLevel, chain: this.chainLevel, hp: this.hpLevel, slow: this.slowLevel };
+    const levelMap = {
+      dmg: this.dmgLevel,
+      range: this.rangeLevel,
+      speed: this.speedLevel,
+      chain: this.chainLevel,
+      hp: this.hpLevel,
+      slow: this.slowLevel,
+    };
     const level = levelMap[stat];
     if (level === undefined) return Infinity;
     return Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
@@ -108,7 +115,14 @@ export class Troop {
   // Upgrade a specific stat. Returns false if already maxed or invalid for this troop type.
   upgradeStat(stat) {
     if (!this.canUpgrade(stat)) return false;
-    const levelProp = { dmg: 'dmgLevel', range: 'rangeLevel', speed: 'speedLevel', chain: 'chainLevel', hp: 'hpLevel', slow: 'slowLevel' }[stat];
+    const levelProp = {
+      dmg: 'dmgLevel',
+      range: 'rangeLevel',
+      speed: 'speedLevel',
+      chain: 'chainLevel',
+      hp: 'hpLevel',
+      slow: 'slowLevel',
+    }[stat];
     if (!levelProp) return false;
     if (this[levelProp] >= this.maxUpgradeLevel) return false;
     this[levelProp]++;
@@ -126,7 +140,14 @@ export class Troop {
   isMaxed(stat) {
     // Hidden stats are reported as maxed so the UI button collapses cleanly.
     if (!this.canUpgrade(stat)) return true;
-    const levelProp = { dmg: 'dmgLevel', range: 'rangeLevel', speed: 'speedLevel', chain: 'chainLevel', hp: 'hpLevel', slow: 'slowLevel' }[stat];
+    const levelProp = {
+      dmg: 'dmgLevel',
+      range: 'rangeLevel',
+      speed: 'speedLevel',
+      chain: 'chainLevel',
+      hp: 'hpLevel',
+      slow: 'slowLevel',
+    }[stat];
     if (!levelProp) return false;
     return this[levelProp] >= this.maxUpgradeLevel;
   }
@@ -190,7 +211,14 @@ export class Troop {
   // Total gold invested in this troop (base cost + all upgrades).
   getTotalInvested() {
     let total = this.spec.cost;
-    const levelMap = { dmg: this.dmgLevel, range: this.rangeLevel, speed: this.speedLevel, chain: this.chainLevel, hp: this.hpLevel, slow: this.slowLevel };
+    const levelMap = {
+      dmg: this.dmgLevel,
+      range: this.rangeLevel,
+      speed: this.speedLevel,
+      chain: this.chainLevel,
+      hp: this.hpLevel,
+      slow: this.slowLevel,
+    };
     for (const stat of ['dmg', 'range', 'speed', 'chain', 'hp', 'slow']) {
       const level = levelMap[stat];
       for (let l = 1; l < level; l++) {
@@ -205,22 +233,24 @@ export class Troop {
     const range = this._cachedRange;
     const tgx = this.gx,
       tgy = this.gy;
+    const G = CONFIG.GRID_SIZE;
+    const tileBuf = CONFIG.TILE_BUFFER;
     if (this.spec.type === 'melee') {
       let best = null;
-      let bestDist = range + CONFIG.TILE_BUFFER + 1;
+      let bestDist = range + tileBuf + 1;
       if (tileIndex) {
         for (let dx = -1; dx <= 1; dx++) {
           for (let dy = -1; dy <= 1; dy++) {
             const tx = tgx + dx;
             const ty = tgy + dy;
-            if (tx < 0 || tx >= CONFIG.GRID_SIZE || ty < 0 || ty >= CONFIG.GRID_SIZE) continue;
-            const tileMonsters = tileIndex[ty * CONFIG.GRID_SIZE + tx];
+            if (tx < 0 || tx >= G || ty < 0 || ty >= G) continue;
+            const tileMonsters = tileIndex[ty * G + tx];
             if (!tileMonsters) continue;
             for (let i = 0; i < tileMonsters.length; i++) {
               const m = tileMonsters[i];
               if (!m.alive) continue;
               const d = m.tileDistanceTo(tgx, tgy);
-              if (d <= range + CONFIG.TILE_BUFFER && d < bestDist) {
+              if (d <= range + tileBuf && d < bestDist) {
                 bestDist = d;
                 best = m;
               }
@@ -233,26 +263,26 @@ export class Troop {
         const m = monsters[i];
         if (!m.alive) continue;
         const d = m.tileDistanceTo(tgx, tgy);
-        if (d <= range + CONFIG.TILE_BUFFER && d < bestDist) {
+        if (d <= range + tileBuf && d < bestDist) {
           bestDist = d;
           best = m;
         }
       }
       return best;
     }
-    const rangePx = (range + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE;
+    const rangePx = (range + tileBuf) * CONFIG.TILE_SIZE;
     let best = null;
     let bestProgress = -1;
     const txpx = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
     const typx = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
     const rangePxSq = rangePx * rangePx;
     if (tileIndex) {
-      const tileRange = Math.ceil(range + CONFIG.TILE_BUFFER);
+      const tileRange = Math.ceil(range + tileBuf);
       for (let dy = -tileRange; dy <= tileRange; dy++) {
         for (let dx = -tileRange; dx <= tileRange; dx++) {
           const tx = tgx + dx;
           const ty = tgy + dy;
-          if (tx < 0 || tx >= CONFIG.GRID_SIZE || ty < 0 || ty >= CONFIG.GRID_SIZE) continue;
+          if (tx < 0 || tx >= G || ty < 0 || ty >= G) continue;
           const tileMonsters = tileIndex[ty * CONFIG.GRID_SIZE + tx];
           if (!tileMonsters) continue;
           for (let i = 0; i < tileMonsters.length; i++) {

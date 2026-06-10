@@ -33,9 +33,13 @@ export function showToast(text, type, duration) {
   dot.className = 'toast-dot ' + dotClass;
   toast.appendChild(dot);
   toast.appendChild(document.createTextNode(text));
-  toast.addEventListener('click', () => {
-    removeToast(toast);
-  }, { once: true });
+  toast.addEventListener(
+    'click',
+    () => {
+      removeToast(toast);
+    },
+    { once: true }
+  );
   container.appendChild(toast);
   setTimeout(() => removeToast(toast), duration || TOAST_DURATION);
 }
