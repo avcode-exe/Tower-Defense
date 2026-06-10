@@ -39,7 +39,7 @@ export function renderGame(game) {
     if (!t.alive) continue;
     // Shield square outline — replaces the old circular arc. Troop body shrinks
     // to 80% so the overall footprint (body + outline) matches an unshielded troop.
-    if (t.shield > 0 && t.alive && t.maxShield > 0) {
+    if (t.shield > 0 && t.maxShield > 0) {
       const sqSize = T - 12; // 48px, same as normal troop body
       const sqX = t.gx * T + 6;
       const sqY = t.gy * T + 6;
@@ -54,30 +54,20 @@ export function renderGame(game) {
     const x = t.gx * T + 6,
       y = t.gy * T + 6;
     const isShielded = t.shield > 0 && t.maxShield > 0;
+    ctx.save();
+    ctx.translate(x, y);
     if (isShielded) {
-      ctx.save();
-      ctx.translate(x, y);
-      // Shrink to 80% to fit inside the shield square outline.
       const s = T - 12;
       ctx.translate(s * 0.5, s * 0.5);
       ctx.scale(0.8, 0.8);
       ctx.translate(-s * 0.5, -s * 0.5);
-      ctx.fillStyle = t.spec.color;
-      ctx.fill(_troopPath);
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke(_troopPath);
-      ctx.restore();
-    } else {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.fillStyle = t.spec.color;
-      ctx.fill(_troopPath);
-      ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-      ctx.lineWidth = 1.5;
-      ctx.stroke(_troopPath);
-      ctx.restore();
     }
+    ctx.fillStyle = t.spec.color;
+    ctx.fill(_troopPath);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke(_troopPath);
+    ctx.restore();
     const dotColor = t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7';
     ctx.fillStyle = dotColor;
     ctx.fillRect(t.x - 2.5, t.y - 5.5, 5, 5);
@@ -110,10 +100,12 @@ export function renderGame(game) {
   for (let i = 0; i < game.monsters.length; i++) {
     const m = game.monsters[i];
     if (!m.alive) continue;
-    // Outer shadow (rect for performance — indistinguishable from arc at small size).
+    // Outer shadow.
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     const shadowR = m.spec.size * 0.5 + 3;
-    ctx.fillRect(m.x - shadowR, m.y - shadowR, shadowR * 2, shadowR * 2);
+    ctx.beginPath();
+    ctx.arc(m.x, m.y + 2, shadowR, 0, Math.PI * 2);
+    ctx.fill();
     // Shield ring.
     if (m.shield > 0) {
       const shieldRatio = m.shield / m.maxShield;
@@ -231,7 +223,7 @@ export function renderGame(game) {
 export function updateCursor(game) {
   const canvas = RENDERER.canvas;
   if (!canvas || RENDERER.hoverPx == null) {
-    canvas.style.cursor = 'default';
+    if (canvas) canvas.style.cursor = 'default';
     return;
   }
   const px = RENDERER.hoverPx;
@@ -281,21 +273,17 @@ export function hitTestCursor(game, px, py) {
       return 'pointer';
     const w = RENDERER.width;
     for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
-      const r = {
-        x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28,
-        y: 14,
-        w: LAYOUT.HUD.SPEED_BTN_W,
-        h: LAYOUT.HUD.SPEED_BTN_H,
-      };
-      if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return 'pointer';
+      const rx = w - LAYOUT.HUD.SPEED_OFFSET + i * 28;
+      const ry = 14;
+      const rw = LAYOUT.HUD.SPEED_BTN_W;
+      const rh = LAYOUT.HUD.SPEED_BTN_H;
+      if (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh) return 'pointer';
     }
-    const btn = {
-      x: w - LAYOUT.HUD.CTRL_RIGHT,
-      y: LAYOUT.HUD.CTRL_BTN.y,
-      w: LAYOUT.HUD.CTRL_BTN.w,
-      h: LAYOUT.HUD.CTRL_BTN.h,
-    };
-    if (px >= btn.x && px <= btn.x + btn.w && py >= btn.y && py <= btn.y + btn.h) return 'pointer';
+    const bx = w - LAYOUT.HUD.CTRL_RIGHT;
+    const by = LAYOUT.HUD.CTRL_BTN.y;
+    const bw = LAYOUT.HUD.CTRL_BTN.w;
+    const bh = LAYOUT.HUD.CTRL_BTN.h;
+    if (px >= bx && px <= bx + bw && py >= by && py <= by + bh) return 'pointer';
   }
   // Shop cards.
   if (UI.hitShop(px, py) >= 0) return 'pointer';

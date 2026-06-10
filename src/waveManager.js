@@ -17,8 +17,7 @@ export class WaveManager {
     this.spawnIndex = 0;
     this.waveActive = false;
     this.waveComplete = false;
-    this.currentPreview = this._previewForWave(this.currentWave);
-    this.buildQueue(); // pre-build queue for wave 1
+    this.buildQueue(); // pre-build queue for wave 1 (also sets currentPreview)
   }
 
   // Build the spawn queue for a given 1-based wave number.

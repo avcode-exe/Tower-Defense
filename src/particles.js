@@ -156,7 +156,7 @@ export const PARTICLES = {
   },
 
   _getColorIndex(color) {
-    if (this._colorToIndex[color] === undefined) {
+    if (!(color in this._colorToIndex)) {
       const idx = this._nextColorIndex++;
       this._colorToIndex[color] = idx;
       this._colorByIndex[idx] = color;

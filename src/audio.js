@@ -56,6 +56,25 @@ export class AudioManager {
     osc.stop(t + duration);
   }
 
+  _toneRamp(freqStart, freqEnd, duration, type, vol, startTime) {
+    if (!this._enabled) return null;
+    this._ensure();
+    if (!this._ctx) return null;
+    const t = startTime !== undefined ? startTime : this._ctx.currentTime;
+    const osc = this._ctx.createOscillator();
+    const gain = this._ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freqStart, t);
+    if (freqEnd !== freqStart) osc.frequency.exponentialRampToValueAtTime(freqEnd, t + duration);
+    gain.gain.setValueAtTime((vol || 1) * this._volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+    osc.connect(gain);
+    gain.connect(this._ctx.destination);
+    osc.start(t);
+    osc.stop(t + duration);
+    return { osc, gain };
+  }
+
   _noise(duration, vol = 1, freq = 1000, Q = 1) {
     if (!this._enabled) return;
     this._ensure();
@@ -85,38 +104,16 @@ export class AudioManager {
   // ── Sound Effects ──
 
   waveStart() {
-    this._ensure();
-    if (!this._ctx) return;
-    const t = this._ctx.currentTime;
-    const osc = this._ctx.createOscillator();
-    const gain = this._ctx.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(200, t);
-    osc.frequency.exponentialRampToValueAtTime(600, t + 0.3);
-    gain.gain.setValueAtTime(0.3 * this._volume, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-    osc.connect(gain);
-    gain.connect(this._ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.4);
+    this._toneRamp(200, 600, 0.4, 'sine', 0.3);
   }
 
   waveComplete() {
+    if (!this._enabled) return;
     this._ensure();
     if (!this._ctx) return;
     const t = this._ctx.currentTime;
     [523, 659, 784].forEach((freq, i) => {
-      const osc = this._ctx.createOscillator();
-      const gain = this._ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, t);
-      const start = t + i * 0.12;
-      gain.gain.setValueAtTime(0.25 * this._volume, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.3);
-      osc.connect(gain);
-      gain.connect(this._ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.3);
+      this._toneRamp(freq, freq, 0.3, 'sine', 0.25, t + i * 0.12);
     });
   }
 
@@ -129,6 +126,7 @@ export class AudioManager {
   }
 
   rangedAttack() {
+    if (!this._enabled) return;
     this._ensure();
     if (!this._ctx) return;
     const t = this._ctx.currentTime;
@@ -155,31 +153,19 @@ export class AudioManager {
   }
 
   monsterLeak() {
-    this._ensure();
-    if (!this._ctx) return;
-    const t = this._ctx.currentTime;
-    const osc = this._ctx.createOscillator();
-    const gain = this._ctx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(500, t);
-    osc.frequency.exponentialRampToValueAtTime(80, t + 0.3);
-    gain.gain.setValueAtTime(0.3 * this._volume, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-    osc.connect(gain);
-    gain.connect(this._ctx.destination);
-    osc.start(t);
-    osc.stop(t + 0.4);
+    this._toneRamp(500, 80, 0.4, 'triangle', 0.3);
   }
 
   defeat() {
+    if (!this._enabled) return;
     this._ensure();
     if (!this._ctx) return;
     const t = this._ctx.currentTime;
     [523, 622, 784].forEach((freq, i) => {
+      const start = t + i * 0.15;
       const osc = this._ctx.createOscillator();
       const gain = this._ctx.createGain();
       osc.type = 'sine';
-      const start = t + i * 0.15;
       osc.frequency.setValueAtTime(freq, t);
       osc.frequency.exponentialRampToValueAtTime(freq * 0.5, t + 0.6);
       gain.gain.setValueAtTime(0.25 * this._volume, start);
@@ -196,21 +182,12 @@ export class AudioManager {
   }
 
   upgrade() {
+    if (!this._enabled) return;
     this._ensure();
     if (!this._ctx) return;
     const t = this._ctx.currentTime;
     [600, 900].forEach((freq, i) => {
-      const osc = this._ctx.createOscillator();
-      const gain = this._ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, t);
-      const start = t + i * 0.1;
-      gain.gain.setValueAtTime(0.2 * this._volume, start);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.2);
-      osc.connect(gain);
-      gain.connect(this._ctx.destination);
-      osc.start(start);
-      osc.stop(start + 0.2);
+      this._toneRamp(freq, freq, 0.2, 'sine', 0.2, t + i * 0.1);
     });
   }
 

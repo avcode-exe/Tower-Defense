@@ -35,7 +35,7 @@ export function showToast(text, type, duration) {
   toast.appendChild(document.createTextNode(text));
   toast.addEventListener('click', () => {
     removeToast(toast);
-  });
+  }, { once: true });
   container.appendChild(toast);
   setTimeout(() => removeToast(toast), duration || TOAST_DURATION);
 }

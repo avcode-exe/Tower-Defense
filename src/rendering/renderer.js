@@ -106,19 +106,17 @@ export const RENDERER = {
         }
       }
     }
-    // Grid lines
+    // Grid lines — batch into single paths for fewer draw calls
     bgCtx.strokeStyle = CONFIG.COLORS.gridLine;
     bgCtx.lineWidth = 1;
+    bgCtx.beginPath();
     for (let i = 0; i <= CONFIG.GRID_SIZE; i++) {
-      bgCtx.beginPath();
       bgCtx.moveTo(i * T, 0);
       bgCtx.lineTo(i * T, ms);
-      bgCtx.stroke();
-      bgCtx.beginPath();
       bgCtx.moveTo(0, i * T);
       bgCtx.lineTo(ms, i * T);
-      bgCtx.stroke();
     }
+    bgCtx.stroke();
 
     // Path tiles (drawn on transparent background)
     this._pathCache.width = cacheW;

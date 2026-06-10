@@ -10,11 +10,7 @@ export const UI_LAYOUT = {
     shop: false,
     hud: false,
     preview: false,
-    help: false,
-    monsterInfo: false,
     shieldShop: false,
-    settings: false,
-    dev: false,
   },
 
   get hudHeight() {

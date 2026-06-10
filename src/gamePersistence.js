@@ -48,12 +48,18 @@ export const SaveSerializer = {
   isValid(data) {
     if (!data || typeof data !== 'object') return false;
     if (typeof data.seed !== 'number') return false;
+    if (data.speed != null && (typeof data.speed !== 'number' || data.speed <= 0)) return false;
     if (!Array.isArray(data.troops)) return false;
     if (data.devMode && (data.gold !== null || data.lives !== null)) return false;
     if (!data.devMode && (typeof data.gold !== 'number' || typeof data.lives !== 'number')) return false;
     if (!data.wave || typeof data.wave.currentWave !== 'number') return false;
     return data.troops.every(
-      (t) => t && typeof t.specId === 'string' && typeof t.gx === 'number' && typeof t.gy === 'number'
+      (t) =>
+        t &&
+        typeof t.specId === 'string' &&
+        typeof t.gx === 'number' &&
+        typeof t.gy === 'number' &&
+        typeof t.hp === 'number'
     );
   },
 };

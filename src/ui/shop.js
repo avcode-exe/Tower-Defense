@@ -3,7 +3,7 @@ import { CONFIG, LAYOUT, TROOP_SPECS } from '../config.js';
 import { UI_LAYOUT, UI_COLORS } from './constants.js';
 import { AUDIO } from '../audio.js';
 import { clamp } from '../utils.js';
-import { UIRoundRect, drawToggleButton, hitToggleButton, _wrapText, _drawShopTooltip } from './utils.js';
+import { UIRoundRect, drawToggleButton, hitToggleButton, _wrapText, _drawShopTooltip, fillStrokeRoundedRect } from './utils.js';
 
 export function shopCardRect(i) {
   const gap = LAYOUT.SHOP.CARD_GAP;
@@ -314,13 +314,7 @@ export function drawShop(game) {
       const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
       const panelY = upgradeBtnY - panelH - 4;
 
-      c.fillStyle = UI_COLORS.cardBg;
-      UIRoundRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8);
-      c.fill();
-      c.strokeStyle = UI_COLORS.panelBorder;
-      c.lineWidth = 1;
-      UIRoundRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8);
-      c.stroke();
+      fillStrokeRoundedRect(c, 8, panelY, UI_LAYOUT.SHOP_WIDTH - 16, panelH, 8, UI_COLORS.cardBg, UI_COLORS.panelBorder);
 
       c.fillStyle = UI_COLORS.textBright;
       c.font = 'bold 12px system-ui, sans-serif';
@@ -385,13 +379,7 @@ export function drawShop(game) {
         visibleBtnIdx++;
 
         if (t.isMaxed(stat)) {
-          c.fillStyle = 'rgba(255,255,255,0.08)';
-          UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
-          c.fill();
-          c.strokeStyle = 'rgba(255,255,255,0.1)';
-          c.lineWidth = 1;
-          UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
-          c.stroke();
+          fillStrokeRoundedRect(c, btn.x, btn.y, btn.w, btn.h, 6, 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.1)');
           c.fillStyle = UI_COLORS.textDim;
           c.font = 'bold 8px system-ui, sans-serif';
           c.textAlign = 'center';
@@ -401,15 +389,9 @@ export function drawShop(game) {
           c.font = '7px system-ui, sans-serif';
           c.fillText('MAX', btn.x + btn.w / 2, btn.y + 27);
         } else {
-          c.fillStyle = affordable ? statColors[stat] : 'rgba(255,255,255,0.04)';
-          UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
-          c.fill();
-          if (!affordable) {
-            c.strokeStyle = 'rgba(255,255,255,0.06)';
-            c.lineWidth = 1;
-            UIRoundRect(c, btn.x, btn.y, btn.w, btn.h, 6);
-            c.stroke();
-          }
+          const btnBg = affordable ? statColors[stat] : 'rgba(255,255,255,0.04)';
+          const btnBorder = affordable ? null : 'rgba(255,255,255,0.06)';
+          fillStrokeRoundedRect(c, btn.x, btn.y, btn.w, btn.h, 6, btnBg, btnBorder);
           c.fillStyle = affordable ? '#fff' : UI_COLORS.textDim;
           c.font = 'bold 9px system-ui, sans-serif';
           c.textAlign = 'center';
@@ -431,13 +413,7 @@ export function drawShop(game) {
 
       if (isMaxHp) {
         // Max HP — greyed out
-        c.fillStyle = 'rgba(255,255,255,0.04)';
-        UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
-        c.fill();
-        c.strokeStyle = 'rgba(255,255,255,0.06)';
-        c.lineWidth = 1;
-        UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
-        c.stroke();
+        fillStrokeRoundedRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
         c.fillStyle = UI_COLORS.textDim;
         c.font = 'bold 9px system-ui, sans-serif';
         c.textAlign = 'center';
@@ -445,15 +421,9 @@ export function drawShop(game) {
         c.fillText('HEAL  MAX HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 14);
       } else {
         // Can heal — show cost and HP
-        c.fillStyle = healAffordable ? '#2ea043' : 'rgba(255,255,255,0.04)';
-        UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
-        c.fill();
-        if (!healAffordable) {
-          c.strokeStyle = 'rgba(255,255,255,0.06)';
-          c.lineWidth = 1;
-          UIRoundRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6);
-          c.stroke();
-        }
+        const healBg = healAffordable ? '#2ea043' : 'rgba(255,255,255,0.04)';
+        const healBorder = healAffordable ? null : 'rgba(255,255,255,0.06)';
+        fillStrokeRoundedRect(c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, 6, healBg, healBorder);
         c.fillStyle = healAffordable ? '#fff' : UI_COLORS.textDim;
         c.font = 'bold 10px system-ui, sans-serif';
         c.textAlign = 'center';
@@ -484,24 +454,12 @@ export function drawShop(game) {
       const onCooldown = cd > 0 && !isDevDelete;
 
       if (isDevDelete) {
-        c.fillStyle = 'rgba(218,54,51,0.15)';
+        fillStrokeRoundedRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6, 'rgba(218,54,51,0.15)', 'rgba(218,54,51,0.25)');
       } else if (onCooldown) {
-        c.fillStyle = 'rgba(128,128,128,0.12)';
+        fillStrokeRoundedRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6, 'rgba(128,128,128,0.12)', 'rgba(128,128,128,0.2)');
       } else {
-        c.fillStyle = 'rgba(212,118,30,0.12)';
+        fillStrokeRoundedRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6, 'rgba(212,118,30,0.12)', 'rgba(212,118,30,0.2)');
       }
-      UIRoundRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6);
-      c.fill();
-      if (isDevDelete) {
-        c.strokeStyle = 'rgba(218,54,51,0.25)';
-      } else if (onCooldown) {
-        c.strokeStyle = 'rgba(128,128,128,0.2)';
-      } else {
-        c.strokeStyle = 'rgba(212,118,30,0.2)';
-      }
-      c.lineWidth = 1;
-      UIRoundRect(c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, 6);
-      c.stroke();
       c.fillStyle = isDevDelete ? UI_COLORS.red : onCooldown ? UI_COLORS.textDim : UI_COLORS.orange;
       c.font = 'bold 10px system-ui, sans-serif';
       c.textAlign = 'center';

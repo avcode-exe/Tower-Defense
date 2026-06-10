@@ -114,13 +114,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       hidePopup(openKey);
       // After the close animation finishes, open the target.
       const openPopup = document.getElementById(popupFor[openKey]);
+      let fallbackTimer = null;
       const onDone = () => {
         openPopup.removeEventListener('transitionend', onDone);
+        clearTimeout(fallbackTimer);
         openTarget();
       };
       openPopup.addEventListener('transitionend', onDone);
       // Fallback if transitionend never fires (e.g. element hidden).
-      setTimeout(openTarget, POPUP_ANIM_MS + 50);
+      fallbackTimer = setTimeout(openTarget, POPUP_ANIM_MS + 50);
       return;
     }
     openTarget();
@@ -337,8 +339,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // ── Notification list management ────────────────────────────────────────
   // opts: { group, actions, silent, version }
-  function addNotification(text, type, group, opts) {
-    opts = opts || {};
+  function addNotification(text, type, group, opts = {}) {
     const matchKey = group || text;
     const existing = notifications.find((n) => (n.group || n.text) === matchKey);
     if (existing) {
@@ -579,22 +580,22 @@ document.addEventListener('DOMContentLoaded', async () => {
       name.textContent = spec.name;
       const stats = document.createElement('span');
       stats.className = 'monster-stats';
-      const _s = (t) => {
+      const statSpan = (t) => {
         const e = document.createElement('span');
         e.textContent = t;
         return e;
       };
-      stats.appendChild(_s('HP:' + spec.hp));
-      stats.appendChild(_s('Spd:' + spec.speed));
-      stats.appendChild(_s('+' + spec.reward + 'g'));
-      stats.appendChild(_s('Dmg:' + spec.damage));
-      stats.appendChild(_s('Leak:' + spec.leak));
-      if (spec.shield) stats.appendChild(_s('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
+      stats.appendChild(statSpan('HP:' + spec.hp));
+      stats.appendChild(statSpan('Spd:' + spec.speed));
+      stats.appendChild(statSpan('+' + spec.reward + 'g'));
+      stats.appendChild(statSpan('Dmg:' + spec.damage));
+      stats.appendChild(statSpan('Leak:' + spec.leak));
+      if (spec.shield) stats.appendChild(statSpan('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
       const mode = spec.attackMode || 'stop';
       if (mode === 'slow') {
-        stats.appendChild(_s('Slow: slows near troops, attacks closest'));
+        stats.appendChild(statSpan('Slow: slows near troops, attacks closest'));
       } else if (mode === 'pass') {
-        stats.appendChild(_s('Pass: penetration, hits each troop once'));
+        stats.appendChild(statSpan('Pass: penetration, hits each troop once'));
       }
       row.appendChild(dot);
       row.appendChild(name);
@@ -623,12 +624,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       countSpan.textContent = 'x0';
       const btns = document.createElement('div');
       btns.style.cssText = 'display:flex; gap:2px;';
-      for (const [tag, dx] of [
-        ['-10', -80],
-        ['-1', -58],
-        ['+1', -36],
-        ['+10', -14],
-      ]) {
+      for (const tag of ['-10', '-1', '+1', '+10']) {
         const btn = document.createElement('button');
         btn.style.cssText =
           'width:22px; height:18px; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.08); border-radius:3px; cursor:pointer; font-size:8px; font-family:inherit; padding:0;';
@@ -649,8 +645,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       devSpawnContent.appendChild(row);
       devRows.push({ key, countSpan });
     }
-    // Update counts display when dev mode changes
-    const updateDevSpawnCounts = () => {
+    // Update counts display when dev mode changes (reassigns outer variable)
+    updateDevSpawnCounts = () => {
       if (game !== null) {
         for (const r of devRows) {
           r.countSpan.textContent = 'x' + (game.devMonsterCounts[r.key] || 0);
@@ -663,9 +659,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const devResetBtn = document.getElementById('dev-reset-btn');
   if (devResetBtn) {
     devResetBtn.addEventListener('click', () => {
-        if (game !== null) {
-          game.resetDevMonsterCounts();
-          updateDevSpawnCounts();
+      if (game !== null) {
+        game.resetDevMonsterCounts();
+        updateDevSpawnCounts();
       }
     });
   }

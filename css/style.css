@@ -60,27 +60,6 @@ body {
   padding: 0;
 }
 
-.game-panel .panel-tab {
-  cursor: pointer;
-  padding: 2px 6px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 11px;
-  user-select: none;
-}
-.game-panel .panel-tab:hover {
-  color: rgba(255, 255, 255, 0.8);
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 6px;
-}
-
-.game-panel.collapsed {
-  padding: 4px 10px;
-  border-radius: 8px;
-}
-.game-panel.collapsed .panel-body {
-  display: none;
-}
-
 /* ── Bottom bar ── */
 #panel-bar {
   position: fixed;
@@ -165,25 +144,6 @@ body {
   max-width: 300px;
 }
 
-/* Panel positions */
-#right-panels {
-  position: fixed;
-  right: 18px;
-  bottom: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-end;
-  max-width: calc(100vw - 36px);
-  z-index: 10;
-}
-#help,
-#monster-info {
-  position: static;
-  width: max-content;
-  max-width: 340px;
-}
-
 /* Monster info rows */
 .monster-row {
   display: flex;
@@ -249,15 +209,12 @@ body {
 }
 
 /* ── Settings panel ── */
-#settings {
-  max-width: 300px;
-  z-index: 11;
-}
 .settings-section {
   margin-top: 6px;
 }
 .settings-section-header {
   cursor: pointer;
+  -webkit-user-select: none;
   user-select: none;
   padding: 4px 0;
   color: rgba(255, 255, 255, 0.7);

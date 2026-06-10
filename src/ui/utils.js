@@ -1,5 +1,5 @@
 import { RENDERER } from '../rendering/renderer.js';
-import { UI_COLORS } from './constants.js';
+import { UI_LAYOUT, UI_COLORS } from './constants.js';
 import { CONFIG } from '../config.js';
 
 export function UIRoundRect(c, x, y, w, h, r) {
@@ -14,6 +14,32 @@ export function UIRoundRect(c, x, y, w, h, r) {
   c.lineTo(x, y + r);
   c.quadraticCurveTo(x, y, x + r, y);
   c.closePath();
+}
+
+export function fillStrokeRoundedRect(c, x, y, w, h, r, fillColor, strokeColor, lineWidth) {
+  UIRoundRect(c, x, y, w, h, r);
+  if (fillColor) {
+    c.fillStyle = fillColor;
+    c.fill();
+  }
+  if (strokeColor) {
+    c.strokeStyle = strokeColor;
+    c.lineWidth = lineWidth || 1;
+    c.stroke();
+  }
+}
+
+export function clipToGameplayArea(c) {
+  const shopW = UI_LAYOUT.collapsed.shop ? 0 : UI_LAYOUT.shopWidth;
+  const shieldW = UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth;
+  c.beginPath();
+  c.rect(
+    shopW,
+    UI_LAYOUT.hudHeight,
+    RENDERER.width - shopW - shieldW,
+    RENDERER.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight,
+  );
+  c.clip();
 }
 
 export function drawToggleButton(c, rect, collapsed, expandDir) {
@@ -78,7 +104,11 @@ export function _drawShopTooltip(c, r, spec) {
   c.save();
   c.font = '11px system-ui, sans-serif';
   const rawLines = _wrapText(c, spec.desc, RENDERER.width - r.w - 60, 11, 'system-ui, sans-serif');
-  const maxTextW = Math.max(...rawLines.map((l) => c.measureText(l).width), 0);
+  let maxTextW = 0;
+  for (let i = 0; i < rawLines.length; i++) {
+    const lw = c.measureText(rawLines[i]).width;
+    if (lw > maxTextW) maxTextW = lw;
+  }
   c.restore();
   const padX = 14,
     padTop = 10,

@@ -2,7 +2,7 @@ import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG, LAYOUT } from '../config.js';
 import { UI_LAYOUT, UI_COLORS } from './constants.js';
 import { AUDIO } from '../audio.js';
-import { UIRoundRect, drawToggleButton } from './utils.js';
+import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect } from './utils.js';
 
 export function drawHUD(game) {
   const c = RENDERER.ctx;
@@ -79,13 +79,7 @@ export function drawHUD(game) {
     const devH = 18;
     const devX = (w - devW) / 2;
     const devY = (UI_LAYOUT.HUD_HEIGHT - devH) / 2;
-    c.fillStyle = 'rgba(46,160,67,0.2)';
-    UIRoundRect(c, devX, devY, devW, devH, 5);
-    c.fill();
-    c.strokeStyle = 'rgba(46,160,67,0.5)';
-    c.lineWidth = 1;
-    UIRoundRect(c, devX, devY, devW, devH, 5);
-    c.stroke();
+    fillStrokeRoundedRect(c, devX, devY, devW, devH, 5, 'rgba(46,160,67,0.2)', 'rgba(46,160,67,0.5)');
     c.fillStyle = '#2ea043';
     c.textAlign = 'center';
     c.textBaseline = 'middle';
@@ -96,13 +90,7 @@ export function drawHUD(game) {
   // Reset button.
   const rstX = 310,
     rstW = 50;
-  c.fillStyle = 'rgba(255,255,255,0.04)';
-  UIRoundRect(c, rstX, 14, rstW, 28, 6);
-  c.fill();
-  c.strokeStyle = 'rgba(255,255,255,0.1)';
-  c.lineWidth = 1;
-  UIRoundRect(c, rstX, 14, rstW, 28, 6);
-  c.stroke();
+  fillStrokeRoundedRect(c, rstX, 14, rstW, 28, 6, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.1)');
   c.fillStyle = UI_COLORS.textDim;
   c.font = 'bold 10px system-ui, sans-serif';
   c.textAlign = 'center';
@@ -110,13 +98,7 @@ export function drawHUD(game) {
 
   // Mute button.
   const muteBtn = LAYOUT.HUD.MUTE_BTN;
-  c.fillStyle = 'rgba(255,255,255,0.04)';
-  UIRoundRect(c, muteBtn.x, muteBtn.y, muteBtn.w, muteBtn.h, 6);
-  c.fill();
-  c.strokeStyle = 'rgba(255,255,255,0.1)';
-  c.lineWidth = 1;
-  UIRoundRect(c, muteBtn.x, muteBtn.y, muteBtn.w, muteBtn.h, 6);
-  c.stroke();
+  fillStrokeRoundedRect(c, muteBtn.x, muteBtn.y, muteBtn.w, muteBtn.h, 6, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.1)');
   c.fillStyle = AUDIO.muted ? '#e74c3c' : UI_COLORS.textDim;
   c.font = 'bold 11px system-ui, sans-serif';
   c.textAlign = 'center';
@@ -167,13 +149,7 @@ export function drawHUD(game) {
     const isStart = game.state === 'PRE_WAVE' || game.state === 'PAUSED';
     if (isDevDisabled) {
       // Greyed-out disabled state
-      c.fillStyle = 'rgba(255,255,255,0.04)';
-      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
-      c.fill();
-      c.strokeStyle = 'rgba(255,255,255,0.06)';
-      c.lineWidth = 1;
-      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
-      c.stroke();
+      fillStrokeRoundedRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
       c.fillStyle = UI_COLORS.textDim;
       c.font = 'bold 11px system-ui, sans-serif';
       c.textAlign = 'center';
@@ -182,13 +158,9 @@ export function drawHUD(game) {
       c.font = '7px system-ui, sans-serif';
       c.fillText('(Button disabled)', ctrlBtn.x + ctrlBtn.w / 2, ctrlBtn.y + ctrlBtn.h / 2 + 9);
     } else {
-      c.fillStyle = isStart ? 'rgba(46,160,67,0.15)' : 'rgba(218,54,51,0.15)';
-      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
-      c.fill();
-      c.strokeStyle = isStart ? 'rgba(46,160,67,0.3)' : 'rgba(218,54,51,0.3)';
-      c.lineWidth = 1;
-      UIRoundRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6);
-      c.stroke();
+      const ctrlBg = isStart ? 'rgba(46,160,67,0.15)' : 'rgba(218,54,51,0.15)';
+      const ctrlBorder = isStart ? 'rgba(46,160,67,0.3)' : 'rgba(218,54,51,0.3)';
+      fillStrokeRoundedRect(c, ctrlBtn.x, ctrlBtn.y, ctrlBtn.w, ctrlBtn.h, 6, ctrlBg, ctrlBorder);
       c.fillStyle = isStart ? UI_COLORS.green : UI_COLORS.red;
       c.font = 'bold 11px system-ui, sans-serif';
       c.textAlign = 'center';

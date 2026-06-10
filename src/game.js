@@ -2,7 +2,7 @@
 // routes input to logic.
 
 import { RENDERER } from './rendering/renderer.js';
-import { CONFIG, LAYOUT, TROOP_SPECS } from './config.js';
+import { CONFIG, LAYOUT, TROOP_SPECS, PROJECTILE_STYLES } from './config.js';
 import { TILE } from './grid.js';
 import { PARTICLES } from './particles.js';
 import { Monster } from './monster.js';
@@ -13,7 +13,7 @@ import { GameRuntimeController } from './gameRuntime.js';
 import { SaveSerializer, GameWorldFactory, GameSnapshotRestorer } from './gamePersistence.js';
 import { UI, UI_LAYOUT } from './ui/index.js';
 import { AUDIO } from './audio.js';
-import { pixelToTile, tileCenterInto, dist, inBounds } from './utils.js';
+import { pixelToTile, tileCenterInto, inBounds } from './utils.js';
 import { renderGame, updateCursor } from './rendering/gameRenderer.js';
 
 export class Game {
@@ -81,14 +81,6 @@ export class Game {
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = null;
     this.devMonsterCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 };
-  }
-
-  // Pause render loop — delegated to the runtime controller.
-  _startPauseRender() {
-    this.runtime.startPauseRender();
-  }
-  _stopPauseRender() {
-    this.runtime.stopPauseRender();
   }
 
   _getPopup(text, x, y, t, color) {
@@ -204,7 +196,7 @@ export class Game {
     let p;
     if (this._projectilePool.length > 0) {
       p = this._projectilePool.pop();
-      const style = CONFIG.PROJECTILE_STYLES[troop.spec.id] || { color: '#fff', size: 4, speed: 10, kind: 'orb' };
+      const style = PROJECTILE_STYLES[troop.spec.id] || { color: '#fff', size: 4, speed: 10, kind: 'orb' };
       p.troop = troop;
       p.color = style.color;
       p.size = style.size;
@@ -364,10 +356,10 @@ export class Game {
 
   _stepWaveSpawning(dt) {
     this.wave.update(dt);
-    let monData = this.wave.popDueMonster();
-    while (monData != null) {
-      this.spawnMonster(monData.level, monData.hpMult);
-      monData = this.wave.popDueMonster();
+    let spawnData = this.wave.popDueMonster();
+    while (spawnData != null) {
+      this.spawnMonster(spawnData.level, spawnData.hpMult);
+      spawnData = this.wave.popDueMonster();
     }
   }
 
@@ -393,21 +385,19 @@ export class Game {
       const m = this.monsters[i];
       if (!m.alive) continue;
       if (m.hp <= 0) {
-        this.damageMonster(m, m.maxHp);
+        m.alive = false;
         continue;
       }
       m.update(dt, this._troopTileIndex);
-      if (m.reachedEnd) {
-        m.alive = false;
-        if (!this.devMode) {
-          this.lives -= m.leak;
-          this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
-          AUDIO.monsterLeak();
-          if (this.lives <= 0) {
-            this.runtime.applyDefeat();
-            break;
-          }
-        }
+      if (!m.reachedEnd) continue;
+      m.alive = false;
+      if (this.devMode) continue;
+      this.lives -= m.leak;
+      this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
+      AUDIO.monsterLeak();
+      if (this.lives <= 0) {
+        this.runtime.applyDefeat();
+        break;
       }
     }
   }
@@ -446,24 +436,13 @@ export class Game {
       if (this.troops[i].alive) this.troops[tw++] = this.troops[i];
     }
     this.troops.length = tw;
-    if (selRef && selRef.alive) {
-      let found = false;
-      for (let i = 0; i < tw; i++) {
-        if (this.troops[i] === selRef) {
-          this.selectedTroopIndex = i;
-          found = true;
-          break;
-        }
-      }
-      if (!found) this.selectedTroopIndex = -1;
-    } else {
-      this.selectedTroopIndex = -1;
-    }
+    this.selectedTroopIndex = selRef && selRef.alive ? this.troops.indexOf(selRef) : -1;
   }
 
   _stepWaveCompletion() {
-    if (this.state !== 'WAVE_ACTIVE' || this.wave.spawnIndex < this.wave.queue.length || this.monsters.length > 0)
-      return;
+    if (this.state !== 'WAVE_ACTIVE') return;
+    if (this.wave.spawnIndex < this.wave.queue.length) return;
+    if (this.monsters.length > 0) return;
     const waveNum = this.wave.currentWave + 1;
     this.waveCompleteAnim = { active: true, waveNum: waveNum, startMs: performance.now() };
     AUDIO.waveComplete();
@@ -587,42 +566,38 @@ export class Game {
     }
   }
 
+  // Apply chain / splash / single-hit damage at a position.
+  _applyHitAtPosition(x, y, troop, dmg, hasSlow) {
+    if (troop.spec.chain > 0) {
+      this.chainHitAt(x, y, troop);
+    } else if (troop.spec.splash > 0) {
+      const hit = this.splashAt(x, y, dmg, troop.spec.splash, troop);
+      if (hasSlow) {
+        for (let i = 0; i < hit.length; i++) this._applySlowToMonster(hit[i], troop);
+      }
+    } else {
+      const closest = this._findClosestMonsterNear(x, y);
+      if (closest) {
+        const killed = this.damageMonster(closest, dmg);
+        if (hasSlow && !killed) this._applySlowToMonster(closest, troop);
+      }
+    }
+  }
+
   // Apply damage + optional AoE from a projectile. Also handles reward.
   applyProjectileImpact(proj) {
     const dmg = proj.troop._cachedDamage;
     const troop = proj.troop;
     const hasSlow = troop.spec.slowFactor && troop._cachedSlowFactor !== undefined;
+    const target = proj.target;
 
-    if (!proj.target || !proj.target.alive) {
-      if (troop.spec.chain > 0) {
-        this.chainHitAt(proj.lastTargetX, proj.lastTargetY, troop);
-      } else if (troop.spec.splash > 0) {
-        const hit = this.splashAt(proj.lastTargetX, proj.lastTargetY, dmg, troop.spec.splash, troop);
-        if (hasSlow)
-          hit.forEach((m) => {
-            this._applySlowToMonster(m, troop);
-          });
-      } else {
-        const closest = this._findClosestMonsterNear(proj.lastTargetX, proj.lastTargetY);
-        if (closest) {
-          const killed = this.damageMonster(closest, dmg);
-          if (hasSlow && !killed) this._applySlowToMonster(closest, troop);
-        }
+    if (target && target.alive) {
+      this._applyHitAtPosition(target.x, target.y, troop, dmg, hasSlow);
+      if (troop.spec.chain > 0 && hasSlow && target.alive) {
+        this._applySlowToMonster(target, troop);
       }
-      return;
-    }
-    if (troop.spec.chain > 0) {
-      this.chainHitAt(proj.target.x, proj.target.y, troop);
-      if (hasSlow && proj.target.alive) this._applySlowToMonster(proj.target, troop);
-    } else if (troop.spec.splash > 0) {
-      const hit = this.splashAt(proj.target.x, proj.target.y, dmg, troop.spec.splash, troop);
-      if (hasSlow)
-        hit.forEach((m) => {
-          this._applySlowToMonster(m, troop);
-        });
     } else {
-      const killed = this.damageMonster(proj.target, dmg);
-      if (hasSlow && !killed) this._applySlowToMonster(proj.target, troop);
+      this._applyHitAtPosition(proj.lastTargetX, proj.lastTargetY, troop, dmg, hasSlow);
     }
   }
 
@@ -635,7 +610,7 @@ export class Game {
     const stunDuration = troop.spec.stun || 0;
     const maxChainDist = CONFIG.CHAIN_MAX_DIST_TILES * CONFIG.TILE_SIZE;
 
-    // Apply stun + damage to a single target. Returns true if it split.
+    // Apply stun + damage to a single target.
     const applyHit = (m, srcX, srcY) => {
       if (!m.alive) return null;
       const countBefore = this.monsters.length;
@@ -728,7 +703,7 @@ export class Game {
         for (let i = 0; i < arr.length; i++) {
           const m = arr[i];
           if (!m.alive) continue;
-          const dx = x - m.x,
+          const dx = m.x - x,
             dy = m.y - y;
           const dSq = dx * dx + dy * dy;
           if (dSq <= rSq) {
@@ -863,10 +838,8 @@ export class Game {
   }
 
   _handleShieldBuyClick(px, py) {
-    if (!UI_LAYOUT.collapsed.shieldShop && UI._shieldBuyBtn) {
-      if (this._hitBox(px, py, UI._shieldBuyBtn)) {
-        this.buyTroopShield(this.selectedTroopIndex);
-      }
+    if (!UI_LAYOUT.collapsed.shieldShop && UI._shieldBuyBtn && this._hitBox(px, py, UI._shieldBuyBtn)) {
+      this.buyTroopShield(this.selectedTroopIndex);
     }
   }
 
@@ -874,14 +847,13 @@ export class Game {
     if (this.selectedTroopIndex < 0 || UI_LAYOUT.collapsed.shop) return;
     const t = this.troops[this.selectedTroopIndex];
     if (!t || !t.alive || !t.canHeal()) return;
-    const healBtnY = RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET;
-    const healBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
-    if (
-      px >= LAYOUT.SHOP.BTN_PAD &&
-      px <= LAYOUT.SHOP.BTN_PAD + healBtnW &&
-      py >= healBtnY &&
-      py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H
-    ) {
+    const healBtn = {
+      x: LAYOUT.SHOP.BTN_PAD,
+      y: RENDERER.height - LAYOUT.SHOP.HEAL_BTN_Y_OFFSET,
+      w: UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW,
+      h: LAYOUT.SHOP.HEAL_BTN_H,
+    };
+    if (this._hitBox(px, py, healBtn)) {
       this.healTroop(this.selectedTroopIndex);
     }
   }
@@ -1037,46 +1009,47 @@ export class Game {
       return;
     }
     // Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings), Alt+D (Dev)
-    if (e.altKey) {
-      const popupKeys = [
-        { key: 'c', popupId: 'controls-popup', collapsedKey: 'help', btnId: 'bar-controls-btn' },
-        { key: 'm', popupId: 'monster-popup', collapsedKey: 'monsterInfo', btnId: 'bar-monster-btn' },
-        { key: 'u', popupId: 'settings-popup', collapsedKey: 'settings', btnId: 'bar-settings-btn' },
-        { key: 'd', popupId: 'dev-popup', collapsedKey: 'dev', btnId: 'bar-dev-btn' },
-      ];
-      const match = popupKeys.find((p) => e.key.toLowerCase() === p.key);
-      if (match) {
-        e.preventDefault();
-        // If already open, close it.
-        if (!UI_LAYOUT.collapsed[match.collapsedKey]) {
-          this.togglePopupEl(match.popupId, true, match.btnId);
-        } else {
-          // Find any currently open popup and close it, wait for animation, then open target.
-          const openKey = popupKeys.find((p) => !UI_LAYOUT.collapsed[p.collapsedKey]);
-          if (openKey) {
-            this.togglePopupEl(openKey.popupId, true, openKey.btnId);
-            const el = document.getElementById(openKey.popupId);
-            const openFn = () => {
-              UI_LAYOUT.collapsed[match.collapsedKey] = false;
-              this.togglePopupEl(match.popupId, false, match.btnId);
-            };
-            if (el) {
-              const onDone = () => {
-                el.removeEventListener('transitionend', onDone);
-                openFn();
-              };
-              el.addEventListener('transitionend', onDone);
-              setTimeout(openFn, 350);
-            } else {
-              openFn();
-            }
-          } else {
-            UI_LAYOUT.collapsed[match.collapsedKey] = false;
-            this.togglePopupEl(match.popupId, false, match.btnId);
-          }
-        }
-      }
+    if (e.altKey) this._handlePopupShortcut(e);
+  }
+
+  _handlePopupShortcut(e) {
+    const popupKeys = [
+      { key: 'c', popupId: 'controls-popup', collapsedKey: 'help', btnId: 'bar-controls-btn' },
+      { key: 'm', popupId: 'monster-popup', collapsedKey: 'monsterInfo', btnId: 'bar-monster-btn' },
+      { key: 'u', popupId: 'settings-popup', collapsedKey: 'settings', btnId: 'bar-settings-btn' },
+      { key: 'd', popupId: 'dev-popup', collapsedKey: 'dev', btnId: 'bar-dev-btn' },
+    ];
+    const match = popupKeys.find((p) => e.key.toLowerCase() === p.key);
+    if (!match) return;
+    e.preventDefault();
+    // If already open, close it.
+    if (!UI_LAYOUT.collapsed[match.collapsedKey]) {
+      this.togglePopupEl(match.popupId, true, match.btnId);
+      return;
     }
+    // Find any currently open popup and close it, wait for animation, then open target.
+    const openKey = popupKeys.find((p) => !UI_LAYOUT.collapsed[p.collapsedKey]);
+    if (!openKey) {
+      UI_LAYOUT.collapsed[match.collapsedKey] = false;
+      this.togglePopupEl(match.popupId, false, match.btnId);
+      return;
+    }
+    this.togglePopupEl(openKey.popupId, true, openKey.btnId);
+    const el = document.getElementById(openKey.popupId);
+    const openFn = () => {
+      UI_LAYOUT.collapsed[match.collapsedKey] = false;
+      this.togglePopupEl(match.popupId, false, match.btnId);
+    };
+    if (!el) {
+      openFn();
+      return;
+    }
+    const onDone = () => {
+      el.removeEventListener('transitionend', onDone);
+      openFn();
+    };
+    el.addEventListener('transitionend', onDone);
+    setTimeout(openFn, 350);
   }
 
   restart() {

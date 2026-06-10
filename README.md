@@ -8,6 +8,9 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 
 ## Features
 
+- **ES modules** — source organized in `src/` with clean module boundaries
+- **Canvas 2D rendering** — all UI drawn directly on canvas, no DOM manipulation
+- **Electron desktop app** — packaged with electron-builder (NSIS), auto-updates via GitHub Releases
 - **10 troop types** — melee, ranged, splash, chain lightning, siege, and **Ice Wizard** (splash + slow + shatter)
 - **8 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss, **Spear** (slow-attack hybrid)
 - **Modernized icon** — redesigned tower icon with glowing beacon and vibrant gradients
@@ -130,7 +133,7 @@ The bottom bar contains buttons for all in-game panels:
 
 ### About Page
 
-Displays the game name, version with release type (e.g. `v1.3.0-beta.1 (Beta)`), author (AvCode-exe), and a clickable link to the GitHub repository.
+Displays the game name, version with release type (e.g. `v1.4.1`), author (AvCode-exe), and a clickable link to the GitHub repository.
 
 ## Auto-Update
 
@@ -149,13 +152,62 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 
 ## Tech Stack
 
+- **ES modules** — source organized in `src/` with subdirectories for rendering and UI modules
 - **Vanilla JavaScript (ES6+)** — no frameworks, all UI drawn directly on canvas
 - **HTML5 Canvas 2D** rendering with `devicePixelRatio` scaling and offscreen canvas caching
 - **Web Worker heartbeat** — 16ms tick that keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
+- **Vitest** — unit test suite (87 tests)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
+
+## Project Structure
+
+```
+src/
+  main.js            # App entry point
+  game.js            # Core game loop and state
+  gameRuntime.js     # Runtime execution and wave orchestration
+  config.js          # Game constants and tuning values
+  grid.js            # 16x16 grid management
+  troop.js           # Troop definitions, upgrades, and combat
+  monster.js         # Monster AI, pathfinding, and splitting
+  projectile.js      # Projectile logic (bullets, chains, splash)
+  waveManager.js     # Wave spawning and progression
+  pathGenerator.js   # Procedural path generation
+  particles.js       # Particle effects
+  audio.js           # Sound management
+  input.js           # Keyboard and mouse input
+  gamePersistence.js # Save/load game state
+  updateManager.js   # Auto-update logic
+  utils.js           # Shared helpers
+  rendering/
+    renderer.js      # Core Canvas 2D renderer
+    gameRenderer.js  # Game-specific rendering (troops, monsters, projectiles)
+  ui/
+    index.js         # UI module aggregator
+    hud.js           # Heads-up display (gold, lives, wave info)
+    shop.js          # Troop shop panel
+    shieldShop.js    # Shield shop panel
+    overlays.js      # Win/lose overlays
+    placement.js     # Troop placement logic
+    preview.js       # Troop preview on hover
+    toast.js         # Toast notification system
+    constants.js     # UI layout constants
+    utils.js         # UI helper functions
+tests/
+  config.test.js
+  grid.test.js
+  utils.test.js
+  pathGenerator.test.js
+  projectile.test.js
+  persistence.test.js
+electron-main.js     # Electron main process
+preload.js          # Electron preload script
+index.html          # Single-page canvas host
+css/                # Minimal styles (tray windows, notifications)
+```
 
 ## Data Storage
 
@@ -187,6 +239,8 @@ npm run release      # Build + publish to GitHub Releases (requires GH_TOKEN)
 npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
+npm test             # Run test suite (87 tests)
+npm run test:watch   # Run tests in watch mode
 ```
 
 ## License

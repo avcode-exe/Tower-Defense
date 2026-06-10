@@ -1,20 +1,94 @@
-fix: screen shrinks when placing troops + clip range circles to gameplay area
+Comprehensive refactor, bug fixes, and quality improvements across entire codebase
 
-Bug fix: placing a troop caused the entire canvas to visually shift/shrink.
-The non-shielded troop render path called ctx.setTransform() +
-RENDERER.applyMapTransform() which leaked a ctx.save() frame onto the
-canvas state stack every frame per troop. The single restoreTransform()
-at end-of-frame only popped one level, leaving the map transform still
-active when UI overlay drawing began — rendering HUD, shop, and preview
-panels at map-offset coordinates.
+6-agent parallel overhaul: 25 files changed, −604 lines, +408 lines. Lint clean, 87 tests pass.
 
-Fix: replaced setTransform + applyMapTransform with proper ctx.save() /
-ctx.restore() for non-shielded troops, matching the shielded troop path
-that already worked correctly. Zero save-frame leakage, balanced stack.
+BUG FIXES:
 
-Also clip the troop range circle (both selected-troop and placement-ghost)
-to the gameplay area bounded by the collapsible sidebars (shop left,
-shield shop right, HUD top, preview bottom) so the dashed range indicator
-no longer draws over UI panels. Clip rect respects collapsed sidebar state.
+- game.js: Fix ranged projectile crash — `CONFIG.PROJECTILE_STYLES` was undefined because
+  PROJECTILE_STYLES is a separate named export from config.js, not a CONFIG property.
+  Added missing import and used `PROJECTILE_STYLES` directly.
+- game.js: Fix non-shielded troop render leak — `setTransform` + `applyMapTransform` leaked
+  a ctx.save() frame per troop per frame, corrupting the canvas state stack and causing the
+  entire screen to visually shift after placing any troop. Replaced with balanced save/restore.
+- game.js: Fix misleading defensive kill — `_stepMonsters` called `damageMonster(m, m.maxHp)`
+  when `m.hp <= 0`, which routed through the full damage pipeline only to hit an early-return
+  guard. Replaced with direct `m.alive = false`.
+- main.js: Fix `updateDevSpawnCounts` scoping — inner `const` shadowed outer `let`, so the
+  Dev panel Reset button called a no-op and counts never refreshed. Removed `const`.
+- main.js: Fix `showPopup` double-fire — both `transitionend` listener and `setTimeout`
+  fallback could call `openTarget()`. Added `clearTimeout` in the onDone handler.
+- gamePersistence.js: Add missing `speed` field validation in `isValid()` — non-number or
+  negative speed would pass validation and break the game loop.
+- gamePersistence.js: Add missing troop `hp` field validation in `isValid()` — non-numeric
+  hp would pass validation but break `Math.min` in `apply`.
+- electron-main.js: Fix `delete-save` handler missing return value.
+- gameRenderer.js: Fix cursor crash when `RENDERER.canvas` is null.
+- rendering/renderer.js: Batch grid line drawing into single beginPath/stroke instead of
+  32+ separate pairs, reducing draw call overhead.
 
-Files: src/rendering/gameRenderer.js, src/ui/placement.js
+REFACTORING:
+
+- game.js: Extract `_applyHitAtPosition(x, y, troop, dmg, hasSlow)` — consolidates
+  duplicated chain/splash/single-hit branching between dead-target and alive-target
+  projectile impact paths into a single 15-line method.
+- game.js: Flatten `_stepMonsters` nesting with guard clauses (4→2 levels).
+- game.js: Flatten `_stepWaveCompletion` with sequential early returns.
+- game.js: Extract `_handlePopupShortcut` from `onKeyDown` with guard clauses.
+- game.js: Simplify `_cleanupDead` troop index tracking using `indexOf()`.
+- game.js: Consistent button bounds in `_handleHealClick` using `_hitBox()`.
+- game.js: Normalize inconsistent dx/dy sign conventions in `splashAt`.
+- troop.js: Replace 8-line `if/else if` chain in `getUpgradeCost` with O(1) map lookup.
+- troop.js: Refactor `upgradeStat` from 6 independent if-blocks to map lookup + single if/else.
+- troop.js: Refactor `isMaxed` from 6 chained if-returns to map lookup.
+- troop.js: Replace deeply nested ternary in `getTotalInvested` with object lookup.
+- troop.js: Add `if (!game) return` guard, flatten nesting in `pickTarget`.
+- troop.js: Fix `_cachedSlowFactor` default from 0 to 1 (1 = no slow, semantically correct).
+- troop.js: Move `rangePx` computation after melee early-return (dead code for melee troops).
+- audio.js: Extract `_toneRamp()` helper for reusable oscillator+gain creation.
+- audio.js: Add missing `_enabled` guards to `waveComplete`, `rangedAttack`, `defeat`, `upgrade`.
+- monster.js: Add null-safety fallback for unknown spec levels (falls back to Grunt).
+- monster.js: Remove unused PARTICLES import.
+- monster.js: Conditional `maxShield` computation only when shield > 0.
+- main.js: Rename cryptic `_s` helper to `statSpan`.
+- main.js: Replace `opts = opts || {}` with default parameter.
+- config.js: Simplify `_statsStr` precomputation.
+
+UI/RENDERING:
+
+- utils.js: Add `fillStrokeRoundedRect()` helper — draws path once, applies fill+stroke
+  in a single beginPath call, saving one path reconstruction per button.
+- utils.js: Add `clipToGameplayArea()` helper to centralize the 8-line clip rect calculation.
+- placement.js: Apply clip rect to both range circle (selected troop) and placement ghost
+  so the dashed range indicator no longer draws over UI sidebars. Respects collapsed state.
+- hud.js: Replace 6 fill+stroke button patterns with `fillStrokeRoundedRect()`.
+- shop.js: Replace 8 fill+stroke button patterns with `fillStrokeRoundedRect()`.
+- shieldShop.js: Replace 4 fill+stroke button patterns with `fillStrokeRoundedRect()`.
+- shieldShop.js: Consolidate duplicated selection state computation.
+- overlays.js: Replace dialog bg fill+stroke with `fillStrokeRoundedRect()`.
+- constants.js: Remove 4 dead `collapsed` state keys (`help`, `monsterInfo`, `settings`, `dev`).
+- index.js: Minor import cleanup.
+- gameRenderer.js: Consolidate shielded/unshielded troop drawing into single save/restore block.
+- gameRenderer.js: Eliminate per-frame object allocations in `hitTestCursor` (inline coords).
+- utils.js (ui): Replace `Math.max(...rawLines.map(...))` spread with simple for-loop.
+- toast.js: Add `{ once: true }` to click listener for automatic cleanup.
+
+ELECTRON/SECURITY/HTML:
+
+- electron-main.js: Add regex validation for `skip-update` version strings.
+- electron-main.js: Add typeof+allowlist validation for `set-update-channel` parameter.
+- electron-main.js: Split `checkForUpdates()` into one-shot and periodic functions.
+- electron-main.js: Remove unused `dialog` import and `skippedVersions` variable.
+- index.html: Upgrade CSP with `connect-src 'self' https://github.com` and `worker-src 'self'`.
+- index.html: Add ARIA labels/roles to buttons, dialogs, inputs, and SVG icons.
+- css/style.css: Remove dead CSS rules (`.panel-tab`, `.game-panel.collapsed`,
+  `#right-panels`, `#help`, `#monster-info`, `#settings`).
+- css/style.css: Add `-webkit-user-select: none` vendor prefix.
+
+TESTS:
+
+- persistence.test.js: Update valid troop fixture to include `hp` field matching new validation.
+
+README:
+
+- Update to v1.4.1, document ES modules architecture, Vitest test suite (87 tests),
+  project structure with src/ modules, and available npm scripts.

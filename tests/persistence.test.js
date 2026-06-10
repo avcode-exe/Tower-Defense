@@ -61,7 +61,7 @@ describe('SaveSerializer.isValid', () => {
   it('validates troop entries', () => {
     const base = { seed: 42, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
     // Valid troop
-    expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gx: 0, gy: 0 }] })).toBe(true);
+    expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gx: 0, gy: 0, hp: 100 }] })).toBe(true);
     // Missing specId
     expect(SaveSerializer.isValid({ ...base, troops: [{ gx: 0, gy: 0 }] })).toBe(false);
     // Missing gx

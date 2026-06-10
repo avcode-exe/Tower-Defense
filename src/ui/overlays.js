@@ -1,7 +1,7 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG } from '../config.js';
 import { UI_COLORS } from './constants.js';
-import { UIRoundRect } from './utils.js';
+import { UIRoundRect, fillStrokeRoundedRect } from './utils.js';
 
 export function drawWaveTransition(game) {
   if (!game.waveCompleteAnim || !game.waveCompleteAnim.active) return;
@@ -76,13 +76,7 @@ export function drawDevConfirmDialog(game) {
   const px = (RENDERER.width - pw) / 2;
   const py = (RENDERER.height - ph) / 2;
 
-  c.fillStyle = '#111a24';
-  UIRoundRect(c, px, py, pw, ph, 12);
-  c.fill();
-  c.strokeStyle = 'rgba(88,166,255,0.2)';
-  c.lineWidth = 1;
-  UIRoundRect(c, px, py, pw, ph, 12);
-  c.stroke();
+  fillStrokeRoundedRect(c, px, py, pw, ph, 12, '#111a24', 'rgba(88,166,255,0.2)');
 
   c.textAlign = 'center';
   c.textBaseline = 'middle';

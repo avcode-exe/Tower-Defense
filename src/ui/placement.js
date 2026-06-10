@@ -2,7 +2,7 @@ import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG } from '../config.js';
 import { UI_LAYOUT } from './constants.js';
 import { pixelToTile, tileCenterInto, inBounds } from '../utils.js';
-import { UIRoundRect } from './utils.js';
+import { UIRoundRect, clipToGameplayArea } from './utils.js';
 
 export function drawPlacementGhost(game) {
   if (!game.selectedSpec) return;
@@ -20,17 +20,7 @@ export function drawPlacementGhost(game) {
   const valid = game.canPlace(tile.gx, tile.gy, game.selectedSpec);
   c.save();
 
-  // Clip to the gameplay area bounded by sidebars.
-  const shopW = UI_LAYOUT.collapsed.shop ? 0 : UI_LAYOUT.shopWidth;
-  const shieldW = UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth;
-  c.beginPath();
-  c.rect(
-    shopW,
-    UI_LAYOUT.hudHeight,
-    RENDERER.width - shopW - shieldW,
-    RENDERER.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight,
-  );
-  c.clip();
+  clipToGameplayArea(c);
 
   c.translate(RENDERER.offsetX, RENDERER.offsetY);
   c.scale(RENDERER.scale, RENDERER.scale);
@@ -63,17 +53,7 @@ export function drawSelectedTroopRange(game) {
   const c = RENDERER.ctx;
   c.save();
 
-  // Clip to the gameplay area bounded by sidebars.
-  const shopW = UI_LAYOUT.collapsed.shop ? 0 : UI_LAYOUT.shopWidth;
-  const shieldW = UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth;
-  c.beginPath();
-  c.rect(
-    shopW,
-    UI_LAYOUT.hudHeight,
-    RENDERER.width - shopW - shieldW,
-    RENDERER.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight,
-  );
-  c.clip();
+  clipToGameplayArea(c);
 
   c.translate(RENDERER.offsetX, RENDERER.offsetY);
   c.scale(RENDERER.scale, RENDERER.scale);

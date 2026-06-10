@@ -1,7 +1,7 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG } from '../config.js';
 import { UI_LAYOUT, UI_COLORS } from './constants.js';
-import { UIRoundRect, drawToggleButton } from './utils.js';
+import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect } from './utils.js';
 
 export function drawShieldShop(game) {
   const c = RENDERER.ctx;
@@ -71,11 +71,10 @@ export function drawShieldShop(game) {
   UIRoundRect(c, cardX, cardY + 6, 3, cardH - 12, 1.5);
   c.fill();
 
-  // Determine selected troop state for the strict 4-way button chain AND the
-  // info line below — compute early so the info text is drawn before the button.
-  const _selIdxEarly = game.selectedTroopIndex;
-  const _tEarly = _selIdxEarly >= 0 ? game.troops[_selIdxEarly] : null;
-  const _hasSelEarly = !!(_tEarly && _tEarly.alive);
+  // Determine selected troop state — used for info text, button state, and status label.
+  const selIdx = game.selectedTroopIndex;
+  const t = selIdx >= 0 ? game.troops[selIdx] : null;
+  const hasSelection = !!(t && t.alive);
 
   // Shield icon — emoji.
   const iconX = cardX + 14;
@@ -86,7 +85,7 @@ export function drawShieldShop(game) {
   c.fillText('🛡️', iconX, iconY);
 
   // Shield label next to icon.
-  c.fillStyle = _hasSelEarly ? '#5dade2' : UI_COLORS.textDim;
+  c.fillStyle = hasSelection ? '#5dade2' : UI_COLORS.textDim;
   c.font = 'bold 10px system-ui, sans-serif';
   c.textAlign = 'left';
   c.textBaseline = 'middle';
@@ -95,16 +94,16 @@ export function drawShieldShop(game) {
   // Info text (below icon row).
   let _infoText;
   let _infoColor = UI_COLORS.textDim;
-  if (!_hasSelEarly) {
+  if (!hasSelection) {
     _infoText = 'Select a troop to buy shield';
-  } else if (_tEarly.shield > 0) {
+  } else if (t.shield > 0) {
     const _cw = game.wave.currentWave;
     const _wavesLeft = CONFIG.SHIELD_EXPIRE_WAVES - (_cw % CONFIG.SHIELD_EXPIRE_WAVES);
     _infoText = '+100% HP · Expires in ' + _wavesLeft + ' waves';
     _infoColor = '#5dade2';
   } else {
-    const _cost = _tEarly.getShieldCost();
-    _infoText = '+' + Math.round(_tEarly.spec.hp) + ' HP · ' + _cost + 'g · ' + CONFIG.SHIELD_EXPIRE_WAVES + ' waves';
+    const _cost = t.getShieldCost();
+    _infoText = '+' + Math.round(t.spec.hp) + ' HP · ' + _cost + 'g · ' + CONFIG.SHIELD_EXPIRE_WAVES + ' waves';
   }
   c.fillStyle = _infoColor;
   c.font = '8px system-ui, sans-serif';
@@ -116,10 +115,6 @@ export function drawShieldShop(game) {
   const buyBtnRect = { x: cardX + 4, y: buyBtnY, w: cardW - 8, h: buyBtnH };
   this._shieldBuyBtn = buyBtnRect;
 
-  // Determine selected troop state for the strict 4-way button chain.
-  const selIdx = game.selectedTroopIndex;
-  const t = selIdx >= 0 ? game.troops[selIdx] : null;
-  const hasSelection = !!(t && t.alive);
   let cost = 0;
   let canAfford = false;
   if (hasSelection) {
@@ -130,13 +125,7 @@ export function drawShieldShop(game) {
   // Strict if/else if/else if/else chain for the four button states.
   if (!hasSelection) {
     // a) No troop selected or not alive — greyed out.
-    c.fillStyle = 'rgba(255,255,255,0.04)';
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.fill();
-    c.strokeStyle = 'rgba(255,255,255,0.06)';
-    c.lineWidth = 1;
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.stroke();
+    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
     c.fillStyle = UI_COLORS.textDim;
     c.font = '9px system-ui, sans-serif';
     c.textAlign = 'center';
@@ -144,13 +133,7 @@ export function drawShieldShop(game) {
     c.fillText('SELECT A TROOP', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
   } else if (t.shield > 0) {
     // b) Shield already active — cyan-tinted.
-    c.fillStyle = 'rgba(93,173,226,0.18)';
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.fill();
-    c.strokeStyle = 'rgba(93,173,226,0.45)';
-    c.lineWidth = 1;
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.stroke();
+    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(93,173,226,0.18)', 'rgba(93,173,226,0.45)');
     c.fillStyle = '#5dade2';
     c.font = 'bold 10px system-ui, sans-serif';
     c.textAlign = 'center';
@@ -158,13 +141,7 @@ export function drawShieldShop(game) {
     c.fillText('ACTIVE', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
   } else if (!canAfford) {
     // c) Can't afford — greyed out with cost.
-    c.fillStyle = 'rgba(255,255,255,0.04)';
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.fill();
-    c.strokeStyle = 'rgba(255,255,255,0.06)';
-    c.lineWidth = 1;
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.stroke();
+    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(255,255,255,0.04)', 'rgba(255,255,255,0.06)');
     c.fillStyle = UI_COLORS.textDim;
     c.font = '9px system-ui, sans-serif';
     c.textAlign = 'center';
@@ -172,13 +149,7 @@ export function drawShieldShop(game) {
     c.fillText('BUY (' + cost + 'g)', buyBtnRect.x + buyBtnRect.w / 2, buyBtnRect.y + buyBtnRect.h / 2);
   } else {
     // d) Can buy — bright cyan button.
-    c.fillStyle = 'rgba(93,173,226,0.28)';
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.fill();
-    c.strokeStyle = 'rgba(93,173,226,0.6)';
-    c.lineWidth = 1;
-    UIRoundRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5);
-    c.stroke();
+    fillStrokeRoundedRect(c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, 5, 'rgba(93,173,226,0.28)', 'rgba(93,173,226,0.6)');
     c.fillStyle = '#5dade2';
     c.font = 'bold 10px system-ui, sans-serif';
     c.textAlign = 'center';

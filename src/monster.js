@@ -1,5 +1,4 @@
 import { CONFIG, MONSTER_SPECS } from './config.js';
-import { PARTICLES } from './particles.js';
 import { clamp, lerp } from './utils.js';
 
 // A monster travels along the waypoint list at a constant rate (tiles per
@@ -13,13 +12,16 @@ export class Monster {
     this.hpMult = hpMult || 1;
     const key = level === 'B' ? 'B' : level;
     this.spec = MONSTER_SPECS[key];
-    this.maxHp = Math.round((this.spec ? this.spec.hp : 1) * hpMult);
+    if (!this.spec) {
+      this.spec = MONSTER_SPECS[1]; // fallback to Grunt if unknown level
+    }
+    this.maxHp = Math.round(this.spec.hp * hpMult);
     // Boss gets an extra 100% HP on top.
     if (level === 'B') this.maxHp *= CONFIG.BOSS_HP_MULTIPLIER;
     this.hp = this.maxHp;
-    this.speed = this.spec ? this.spec.speed : 1;
-    this.reward = this.spec ? this.spec.reward : 0;
-    this.leak = this.spec ? this.spec.leak : 1;
+    this.speed = this.spec.speed;
+    this.reward = this.spec.reward;
+    this.leak = this.spec.leak;
 
     // Use shared path data (avoids rebuilding per monster).
     this.segments = sharedPath.segments;
@@ -32,12 +34,12 @@ export class Monster {
 
     // Shield mechanics (Shielded monster type).
     this.shield = Math.round((this.spec.shield || 0) * hpMult);
-    this.maxShield = Math.ceil(this.shield * 1.5);
+    this.maxShield = this.shield > 0 ? Math.ceil(this.shield * 1.5) : 0;
     this.shieldRegenTimer = 0;
     this.shieldRegenDelay = CONFIG.SHIELD_REGEN_DELAY;
 
     // Passive healing (Boss).
-    this.healPerSecond = this.spec ? this.spec.healPerSecond || 0 : 0;
+    this.healPerSecond = this.spec.healPerSecond || 0;
 
     // Slow / shatter mechanics (v1.3.0)
     this.slowTimer = 0;

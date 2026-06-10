@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -37,7 +37,6 @@ const DEFAULT_SETTINGS = {
 
 let mainWindow = null;
 let updateCheckInterval = null;
-let skippedVersions = [];
 
 function readSettings() {
   const defaults = {
@@ -193,7 +192,7 @@ ipcMain.on('download-update', () => {
 });
 
 ipcMain.on('skip-update', (_event, version) => {
-  if (typeof version !== 'string' || version.length > 50) return;
+  if (typeof version !== 'string' || version.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(version)) return;
   const settings = readSettings();
   if (!settings.update) settings.update = {};
   settings.update.skippedVersions = settings.update.skippedVersions || [];
@@ -208,11 +207,15 @@ ipcMain.on('restart-to-update', () => {
 });
 
 ipcMain.on('set-auto-download', (_event, enabled) => {
-  autoUpdater.autoDownload = !!enabled;
-  autoUpdater.autoInstallOnAppQuit = !!enabled;
+  const val = !!enabled;
+  autoUpdater.autoDownload = val;
+  autoUpdater.autoInstallOnAppQuit = val;
 });
 
 ipcMain.on('set-update-channel', (_event, channel) => {
+  if (typeof channel !== 'string') return;
+  const allowed = ['release', 'pre-release'];
+  if (!allowed.includes(channel)) return;
   autoUpdater.allowPrerelease = channel === 'pre-release';
 });
 
@@ -250,8 +253,10 @@ ipcMain.handle('load-game', () => {
 ipcMain.handle('delete-save', () => {
   try {
     if (fs.existsSync(SAVE_PATH)) fs.unlinkSync(SAVE_PATH);
+    return true;
   } catch (err) {
     console.error('[save] delete failed:', err);
+    return false;
   }
 });
 
@@ -281,6 +286,7 @@ function createWindow() {
     if ((settings.update || {}).checkOnStartup !== false) {
       checkForUpdates();
     }
+    startPeriodicUpdateCheck();
   });
 }
 
@@ -289,15 +295,17 @@ function checkForUpdates() {
     const errMsg = err ? err.message || String(err) : 'Unknown error';
     sendStatus('error', { message: errMsg });
   });
-  if (!updateCheckInterval) {
-    const settings = readSettings();
-    const intervalMs = ((settings.update || {}).checkIntervalMinutes || 60) * 60 * 1000;
-    updateCheckInterval = setInterval(() => {
-      autoUpdater.checkForUpdates().catch((err) => {
-        sendStatus('error', { message: err?.message || String(err) });
-      });
-    }, intervalMs);
-  }
+}
+
+function startPeriodicUpdateCheck() {
+  if (updateCheckInterval) return;
+  const settings = readSettings();
+  const intervalMs = ((settings.update || {}).checkIntervalMinutes || 60) * 60 * 1000;
+  updateCheckInterval = setInterval(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      sendStatus('error', { message: err?.message || String(err) });
+    });
+  }, intervalMs);
 }
 
 app.whenReady().then(createWindow);
