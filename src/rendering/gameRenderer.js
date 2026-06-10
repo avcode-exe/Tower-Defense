@@ -69,14 +69,14 @@ export function renderGame(game) {
       ctx.stroke(_troopPath);
       ctx.restore();
     } else {
+      ctx.save();
       ctx.translate(x, y);
       ctx.fillStyle = t.spec.color;
       ctx.fill(_troopPath);
       ctx.strokeStyle = 'rgba(255,255,255,0.12)';
       ctx.lineWidth = 1.5;
       ctx.stroke(_troopPath);
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      RENDERER.applyMapTransform();
+      ctx.restore();
     }
     const dotColor = t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7';
     ctx.fillStyle = dotColor;

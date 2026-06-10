@@ -19,6 +19,19 @@ export function drawPlacementGhost(game) {
   const c = RENDERER.ctx;
   const valid = game.canPlace(tile.gx, tile.gy, game.selectedSpec);
   c.save();
+
+  // Clip to the gameplay area bounded by sidebars.
+  const shopW = UI_LAYOUT.collapsed.shop ? 0 : UI_LAYOUT.shopWidth;
+  const shieldW = UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth;
+  c.beginPath();
+  c.rect(
+    shopW,
+    UI_LAYOUT.hudHeight,
+    RENDERER.width - shopW - shieldW,
+    RENDERER.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight,
+  );
+  c.clip();
+
   c.translate(RENDERER.offsetX, RENDERER.offsetY);
   c.scale(RENDERER.scale, RENDERER.scale);
 
@@ -49,6 +62,19 @@ export function drawSelectedTroopRange(game) {
   if (!t || !t.alive) return;
   const c = RENDERER.ctx;
   c.save();
+
+  // Clip to the gameplay area bounded by sidebars.
+  const shopW = UI_LAYOUT.collapsed.shop ? 0 : UI_LAYOUT.shopWidth;
+  const shieldW = UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth;
+  c.beginPath();
+  c.rect(
+    shopW,
+    UI_LAYOUT.hudHeight,
+    RENDERER.width - shopW - shieldW,
+    RENDERER.height - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight,
+  );
+  c.clip();
+
   c.translate(RENDERER.offsetX, RENDERER.offsetY);
   c.scale(RENDERER.scale, RENDERER.scale);
   c.strokeStyle = 'rgba(88,166,255,0.5)';
