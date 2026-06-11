@@ -2,9 +2,15 @@ const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { parseUpdateInfo } = require('electron-updater/out/providers/Provider');
 const { autoUpdater } = require('electron-updater');
+const { selectNewestNewerPrereleaseTag } = require('./src/githubReleaseFeed');
 
 Menu.setApplicationMenu(null);
+
+const GITHUB_OWNER = 'avcode-exe';
+const GITHUB_REPO = 'Tower-Defense';
+const GITHUB_RELEASES_ATOM_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases.atom`;
 
 // Persistent settings path survives uninstall/reinstall (stored in user home dir)
 const PERSISTENT_DIR = path.join(os.homedir(), '.tower-defense');
@@ -163,6 +169,87 @@ function shouldAnnounceToUser(info, settings) {
   if (!isPre && channel === 'pre-release' && !newer) return false;
   return newer;
 }
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function fetchText(url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Request failed for ${url}: ${response.status} ${response.statusText}`);
+  }
+  return response.text();
+}
+
+function createReleaseAssetProvider(tag) {
+  const downloadBaseUrl = new URL(
+    `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(tag)}/`
+  );
+
+  return {
+    isUseMultipleRangeRequest: false,
+    getBlockMapFiles(newInstallerUrl, oldVersion, newVersion) {
+      const newBlockMapUrl = new URL(`${newInstallerUrl.pathname}.blockmap`, newInstallerUrl.origin);
+      const oldBlockMapUrl = new URL(
+        `${newInstallerUrl.pathname.replace(new RegExp(escapeRegExp(newVersion), 'g'), oldVersion)}.blockmap`,
+        newInstallerUrl.origin
+      );
+      return [oldBlockMapUrl, newBlockMapUrl];
+    },
+    resolveFiles(updateInfo) {
+      return (updateInfo.files || []).map((fileInfo) => {
+        if (fileInfo.sha2 == null && fileInfo.sha512 == null) {
+          throw new Error(`Update info doesn't contain checksum: ${JSON.stringify(fileInfo)}`);
+        }
+        return {
+          url: new URL(encodeURI(fileInfo.url), downloadBaseUrl),
+          info: fileInfo,
+        };
+      });
+    },
+  };
+}
+
+async function getSelectedPrereleaseUpdateInfo(selectedRelease) {
+  const channelFileUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(
+    selectedRelease.tag
+  )}/latest.yml`;
+  const rawData = await fetchText(channelFileUrl);
+  const updateInfo = parseUpdateInfo(rawData, 'latest.yml', channelFileUrl);
+  updateInfo.tag = selectedRelease.tag;
+  updateInfo.releaseName = selectedRelease.title || updateInfo.releaseName;
+  return {
+    info: updateInfo,
+    provider: createReleaseAssetProvider(selectedRelease.tag),
+  };
+}
+
+function patchGitHubPrereleaseDiscovery() {
+  const originalGetUpdateInfoAndProvider = autoUpdater.getUpdateInfoAndProvider.bind(autoUpdater);
+
+  autoUpdater.getUpdateInfoAndProvider = async function getUpdateInfoAndProviderWithPrereleaseScan() {
+    const settings = readSettings();
+    if ((settings.update || {}).channel !== 'pre-release') {
+      return originalGetUpdateInfoAndProvider();
+    }
+
+    try {
+      const feedXml = await fetchText(GITHUB_RELEASES_ATOM_URL);
+      const selectedRelease = selectNewestNewerPrereleaseTag(feedXml, app.getVersion());
+      if (!selectedRelease) return originalGetUpdateInfoAndProvider();
+      return getSelectedPrereleaseUpdateInfo(selectedRelease);
+    } catch (err) {
+      console.warn(
+        '[auto-updater] prerelease feed scan failed; falling back to electron-updater:',
+        err?.message || err
+      );
+      return originalGetUpdateInfoAndProvider();
+    }
+  };
+}
+
+patchGitHubPrereleaseDiscovery();
 
 autoUpdater.logger = {
   info: (msg) => console.log('[auto-updater]', msg),
