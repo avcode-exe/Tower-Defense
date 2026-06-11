@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CONFIG, TROOP_SPECS } from '../src/config.js';
 import { Troop } from '../src/troop.js';
+import { PARTICLES } from '../src/particles.js';
 
 describe('Healer Troop Behavior', () => {
   const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
@@ -33,7 +34,59 @@ describe('Healer Troop Behavior', () => {
     expect(healer.getHealAmount()).toBe(healer.getDamage());
   });
 
-  it('pickHealTarget locks onto first damaged ally in range', () => {
+  it('getDps returns cached damage over attack speed', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getDps()).toBe(healerSpec.damage / healerSpec.attackSpeed);
+  });
+
+  it('getHps returns cached heal amount over attack speed', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getHps()).toBe(healerSpec.damage / healerSpec.attackSpeed);
+  });
+
+  it('pickHealTarget selects the lowest-HP ally over a closer ally', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const closerAlly = new Troop(swordsmanSpec, 6, 5);
+    closerAlly.hp = 30;
+    const fartherAlly = new Troop(swordsmanSpec, 5, 6);
+    fartherAlly.hp = 10;
+
+    const target = healer.pickHealTarget([closerAlly, fartherAlly]);
+    expect(target).toBe(fartherAlly);
+  });
+
+  it('pickHealTarget selects the lowest HP ratio when absolute HP differs', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const highMaxAlly = new Troop(swordsmanSpec, 6, 5);
+    highMaxAlly.maxHp = 200;
+    highMaxAlly.hp = 100;
+    const lowMaxAlly = new Troop(swordsmanSpec, 5, 6);
+    lowMaxAlly.maxHp = 100;
+    lowMaxAlly.hp = 50;
+
+    const target = healer.pickHealTarget([highMaxAlly, lowMaxAlly]);
+    expect(target).toBe(lowMaxAlly);
+  });
+
+  it('pickHealTarget selects multiple lowest-HP allies', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    healer.healTargetLevel = 2;
+    const closestAlly = new Troop(swordsmanSpec, 6, 5);
+    closestAlly.hp = 40;
+    const lowestAlly = new Troop(swordsmanSpec, 5, 6);
+    lowestAlly.hp = 10;
+    const secondLowestAlly = new Troop(swordsmanSpec, 7, 5);
+    secondLowestAlly.hp = 30;
+    const highestAlly = new Troop(swordsmanSpec, 5, 7);
+    highestAlly.hp = 45;
+
+    const target = healer.pickHealTarget([closestAlly, lowestAlly, secondLowestAlly, highestAlly]);
+
+    expect(target).toBe(lowestAlly);
+    expect(healer.healTargets).toEqual([lowestAlly, secondLowestAlly]);
+  });
+
+  it('pickHealTarget selects the lowest-HP ally in range', () => {
     const healer = new Troop(healerSpec, 5, 5);
     const ally1 = new Troop(swordsmanSpec, 5, 6);
     ally1.hp = 30;
@@ -43,7 +96,7 @@ describe('Healer Troop Behavior', () => {
     ally3.hp = 50;
 
     const target = healer.pickHealTarget([ally1, ally2, ally3]);
-    expect(target).toBe(ally1);
+    expect(target).toBe(ally2);
   });
 
   it('pickHealTarget excludes self', () => {
@@ -73,7 +126,8 @@ describe('Healer Troop Behavior', () => {
     allyHealer.hp = 10;
     const ally = new Troop(swordsmanSpec, 6, 5);
     ally.hp = 30;
-    healer.healTargets.push(allyHealer);
+    healer.hp = 10;
+    healer.healTargets.push(healer, allyHealer);
 
     const target = healer.pickHealTarget([allyHealer, ally]);
     expect(target).toBe(ally);
@@ -108,6 +162,54 @@ describe('Healer Troop Behavior', () => {
 
     const target = healer.pickHealTarget([deadAlly, aliveAlly]);
     expect(target).toBe(aliveAlly);
+  });
+
+  function makeGame(troops) {
+    return {
+      troops,
+      gold: 123,
+      popups: [],
+      _getPopup(text, x, y, t, color) {
+        this.popups.push({ text, x, y, t, color });
+      },
+    };
+  }
+
+  it('support healing through update heals without spending gold and spawns particles', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const ally = new Troop(swordsmanSpec, 5, 6);
+    ally.hp = 10;
+    const game = makeGame([healer, ally]);
+    const spawnSpy = vi.spyOn(PARTICLES, 'spawn');
+
+    healer.targetRefresh = 0;
+    healer.cooldown = 0;
+    healer.update(0.1, [], [], game);
+
+    expect(ally.hp).toBeGreaterThan(10);
+    expect(game.gold).toBe(123);
+    expect(game.popups[0]).toMatchObject({ text: '+8', color: '#44cc44' });
+    expect(ally.healBeam).toEqual({ troop: healer, timer: 0.6 });
+    expect(spawnSpy).toHaveBeenCalledWith(ally.x, ally.y, expect.any(Object));
+    spawnSpy.mockRestore();
+  });
+
+  it('support update skips self and other support heal targets without spending gold', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const allyHealer = new Troop(healerSpec, 5, 6);
+    allyHealer.hp = 10;
+    const game = makeGame([healer, allyHealer]);
+
+    healer.hp = 10;
+    healer.healTargets.push(healer, allyHealer);
+    healer.targetRefresh = 0;
+    healer.cooldown = 0;
+    healer.update(0.1, [], [], game);
+
+    expect(healer.hp).toBe(10);
+    expect(allyHealer.hp).toBe(10);
+    expect(game.gold).toBe(123);
+    expect(game.popups).toHaveLength(0);
   });
 
   it('healer can be manually healed', () => {

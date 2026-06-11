@@ -96,7 +96,7 @@ export function renderGame(game) {
     }
   }
 
-  // Heal beams — faint yellow lines from healers to recently-healed allies.
+  // Heal beams — faint green lines from healers to recently-healed allies.
   for (let i = 0; i < game.troops.length; i++) {
     const t = game.troops[i];
     if (!t.alive || !t.healBeam || !t.healBeam.troop.alive) continue;
@@ -104,7 +104,7 @@ export function renderGame(game) {
     const alpha = Math.min(1, t.healBeam.timer / 0.3) * 0.35;
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.strokeStyle = '#f1c40f';
+    ctx.strokeStyle = '#44cc44';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(src.x, src.y);
@@ -359,7 +359,7 @@ export function hitTestCursor(game, px, py) {
     if (
       inBounds(tgx, tgy) &&
       px > UI_LAYOUT.shopWidth &&
-      px < RENDERER.width &&
+      px < RENDERER.width - (UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth) &&
       py > UI_LAYOUT.hudHeight &&
       py < RENDERER.height - UI_LAYOUT.previewHeight
     ) {

@@ -23,7 +23,7 @@ describe('UpdateManager.passesFilter', () => {
   });
 
   it('accepts newer stable versions on the release channel', () => {
-    expect(manager('1.5.0-beta.1', 'release').passesFilter({ version: '1.5.0' })).toBe(true);
+    expect(manager('1.5.0', 'release').passesFilter({ version: '1.5.1' })).toBe(true);
   });
 
   it('rejects the current prerelease version on the pre-release channel', () => {

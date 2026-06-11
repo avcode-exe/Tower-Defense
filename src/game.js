@@ -921,9 +921,7 @@ export class Game {
   }
 
   _handleMapClick(px, py) {
-    const shieldShopRight = UI_LAYOUT.collapsed.shieldShop
-      ? RENDERER.width
-      : RENDERER.width - UI_LAYOUT.shieldShopWidth;
+    const shieldShopRight = RENDERER.width - UI_LAYOUT.shieldShopWidth;
     if (
       px < UI_LAYOUT.shopWidth ||
       py < UI_LAYOUT.hudHeight ||

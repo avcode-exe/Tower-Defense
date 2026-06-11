@@ -33,6 +33,38 @@ describe('SaveSerializer.isValid', () => {
     ).toBe(false);
   });
 
+  it('returns false when non-dev mode has non-finite gold or lives', () => {
+    expect(
+      SaveSerializer.isValid({ seed: 1, troops: [], gold: -1, lives: 25, devMode: false, wave: { currentWave: 1 } })
+    ).toBe(false);
+    expect(
+      SaveSerializer.isValid({
+        seed: 1,
+        troops: [],
+        gold: 100,
+        lives: Infinity,
+        devMode: false,
+        wave: { currentWave: 1 },
+      })
+    ).toBe(false);
+  });
+
+  it('returns false when wave currentWave is not finite or non-negative', () => {
+    expect(
+      SaveSerializer.isValid({
+        seed: 1,
+        troops: [],
+        gold: 100,
+        lives: 25,
+        devMode: false,
+        wave: { currentWave: Infinity },
+      })
+    ).toBe(false);
+    expect(
+      SaveSerializer.isValid({ seed: 1, troops: [], gold: 100, lives: 25, devMode: false, wave: { currentWave: -1 } })
+    ).toBe(false);
+  });
+
   it('returns true for valid non-dev save', () => {
     expect(
       SaveSerializer.isValid({
@@ -61,27 +93,43 @@ describe('SaveSerializer.isValid', () => {
 
   it('validates troop entries', () => {
     const base = { seed: 42, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
+    const troop = (overrides = {}) => ({
+      specId: 'archer',
+      gx: 0,
+      gy: 0,
+      hp: 100,
+      maxHp: 100,
+      shield: 0,
+      maxShield: 0,
+      healGoldSpent: 0,
+      ...overrides,
+    });
     // Valid troop
-    expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gx: 0, gy: 0, hp: 100 }] })).toBe(true);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop()] })).toBe(true);
+    // Out-of-bounds gx/gy
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ gx: CONFIG.GRID_SIZE })] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ gy: -1 })] })).toBe(false);
     // Non-finite HP
-    expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gx: 0, gy: 0, hp: Infinity }] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ hp: Infinity })] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ maxHp: -1 })] })).toBe(false);
+    // Invalid shield state
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ shield: Infinity })] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ maxShield: -1 })] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ shield: 10, maxShield: 5 })] })).toBe(false);
+    // Invalid heal spend
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ healGoldSpent: -1 })] })).toBe(false);
     // Missing specId
-    expect(SaveSerializer.isValid({ ...base, troops: [{ gx: 0, gy: 0 }] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ specId: undefined })] })).toBe(false);
     // Missing gx
-    expect(SaveSerializer.isValid({ ...base, troops: [{ specId: 'archer', gy: 0 }] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [troop({ gx: undefined })] })).toBe(false);
   });
 
   it('rejects invalid healer target levels', () => {
     const base = { seed: 42, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
-    expect(
-      SaveSerializer.isValid({ ...base, troops: [{ specId: 'healer', gx: 0, gy: 0, hp: 40, healTargetLevel: 0 }] })
-    ).toBe(false);
-    expect(
-      SaveSerializer.isValid({ ...base, troops: [{ specId: 'healer', gx: 0, gy: 0, hp: 40, healTargetLevel: 1.5 }] })
-    ).toBe(false);
-    expect(
-      SaveSerializer.isValid({ ...base, troops: [{ specId: 'healer', gx: 0, gy: 0, hp: 40, healTargetLevel: 6 }] })
-    ).toBe(false);
+    const troop = { specId: 'healer', gx: 0, gy: 0, hp: 40, maxHp: 40, shield: 0, maxShield: 0, healGoldSpent: 0 };
+    expect(SaveSerializer.isValid({ ...base, troops: [{ ...troop, healTargetLevel: 0 }] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [{ ...troop, healTargetLevel: 1.5 }] })).toBe(false);
+    expect(SaveSerializer.isValid({ ...base, troops: [{ ...troop, healTargetLevel: 6 }] })).toBe(false);
   });
 });
 
@@ -137,7 +185,7 @@ describe('SaveSerializer.fromGame', () => {
     };
     const data = SaveSerializer.fromGame(game);
 
-    expect(data.version).toBe('1.5.0-beta.1');
+    expect(data.version).toBe('1.5.0');
     expect(data.gold).toBe(500);
     expect(data.lives).toBe(20);
     expect(data.seed).toBe(42);
@@ -174,9 +222,15 @@ describe('GameSnapshotRestorer.apply', () => {
     RENDERER._rebuildCache = () => {};
 
     try {
+      const oldMonsterIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      oldMonsterIndex[0] = ['stale'];
+      let troopIndexBuilt = false;
       const game = {
         _defaultDevCounts: () => ({ 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 }),
-        _buildTroopTileIndex: () => {},
+        _buildTroopTileIndex: () => {
+          troopIndexBuilt = true;
+        },
+        _monsterTileIndex: oldMonsterIndex,
       };
 
       GameSnapshotRestorer.apply(game, {
@@ -203,6 +257,10 @@ describe('GameSnapshotRestorer.apply', () => {
       });
 
       expect(game.troops[0].healTargetLevel).toBe(CONFIG.MAX_UPGRADE_LEVEL);
+      expect(game._monsterTileIndex).not.toBe(oldMonsterIndex);
+      expect(game._monsterTileIndex).toHaveLength(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      expect(game._monsterTileIndex.every((entry) => entry === undefined)).toBe(true);
+      expect(troopIndexBuilt).toBe(true);
     } finally {
       RENDERER.markCacheDirty = originalMarkCacheDirty;
       RENDERER._rebuildCache = originalRebuildCache;

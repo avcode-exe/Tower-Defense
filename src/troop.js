@@ -58,6 +58,12 @@ export class Troop {
   getHealAmount() {
     return this._cachedDamage;
   }
+  getDps() {
+    return this._cachedDamage / this._cachedAttackSpeed;
+  }
+  getHps() {
+    return this.spec.type === 'support' ? this._cachedDamage / this._cachedAttackSpeed : 0;
+  }
   getHealTargetCount() {
     return this.healTargetLevel;
   }
@@ -249,8 +255,16 @@ export class Troop {
     const rangePx = (range + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE;
     const rangePxSq = rangePx * rangePx;
     const maxTargets = this.healTargetLevel;
+    const compareHealPriority = (a, b) => {
+      const ratioDelta = a.hpRatio - b.hpRatio;
+      if (ratioDelta !== 0) return ratioDelta;
+      const hpDelta = a.hp - b.hp;
+      if (hpDelta !== 0) return hpDelta;
+      const distDelta = a.distSq - b.distSq;
+      if (distDelta !== 0) return distDelta;
+      return a.index - b.index;
+    };
 
-    // 1. Evict targets that are dead, full HP, or out of range.
     for (let i = this.healTargets.length - 1; i >= 0; i--) {
       const t = this.healTargets[i];
       if (!t.alive || t.hp >= t.maxHp || t.spec.type === 'support') {
@@ -264,7 +278,6 @@ export class Troop {
       }
     }
 
-    // 2. Fill empty slots with the closest damaged ally.
     if (this.healTargets.length < maxTargets) {
       const candidates = [];
       for (let i = 0; i < troops.length; i++) {
@@ -273,16 +286,44 @@ export class Troop {
         if (this.healTargets.includes(t)) continue;
         const dx = t.x - this.x;
         const dy = t.y - this.y;
-        if (dx * dx + dy * dy <= rangePxSq) {
-          candidates.push({ troop: t, dist: dx * dx + dy * dy });
+        const distSq = dx * dx + dy * dy;
+        if (distSq <= rangePxSq) {
+          candidates.push({
+            troop: t,
+            hpRatio: t.getHpRatio(),
+            hp: t.hp,
+            distSq,
+            index: i,
+          });
         }
       }
-      candidates.sort((a, b) => a.dist - b.dist);
+      candidates.sort(compareHealPriority);
       const slots = maxTargets - this.healTargets.length;
       for (let i = 0; i < Math.min(slots, candidates.length); i++) {
         this.healTargets.push(candidates[i].troop);
       }
     }
+
+    this.healTargets.sort((a, b) => {
+      const dxA = a.x - this.x;
+      const dyA = a.y - this.y;
+      const dxB = b.x - this.x;
+      const dyB = b.y - this.y;
+      return compareHealPriority(
+        {
+          hpRatio: a.getHpRatio(),
+          hp: a.hp,
+          distSq: dxA * dxA + dyA * dyA,
+          index: troops.indexOf(a),
+        },
+        {
+          hpRatio: b.getHpRatio(),
+          hp: b.hp,
+          distSq: dxB * dxB + dyB * dyB,
+          index: troops.indexOf(b),
+        }
+      );
+    });
 
     return this.healTargets.length > 0 ? this.healTargets[0] : null;
   }
@@ -423,7 +464,7 @@ export class Troop {
       const healAmount = this._cachedDamage;
       for (let i = this.healTargets.length - 1; i >= 0; i--) {
         const t = this.healTargets[i];
-        if (!t.alive || t.hp >= t.maxHp) {
+        if (!t.alive || t.hp >= t.maxHp || t.spec.type === 'support' || t === this) {
           this.healTargets.splice(i, 1);
           continue;
         }
@@ -432,6 +473,7 @@ export class Troop {
         const actual = Math.ceil(t.hp - prevHp);
         if (actual > 0) {
           game._getPopup('+' + actual, t.x, t.y - 10, 0.8, '#44cc44');
+          PARTICLES.spawn(t.x, t.y, PARTICLES.healBurst());
           t.healBeam = { troop: this, timer: 0.6 };
         }
       }

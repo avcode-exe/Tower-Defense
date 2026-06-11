@@ -323,13 +323,13 @@ export function drawShop(game) {
       statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
       if (t.spec.type === 'support') {
         statLines.push({
-          text: 'HPS ' + (t.getDamage() / t.getAttackSpeed()).toFixed(1),
+          text: 'HPS ' + t.getHps().toFixed(1),
           color: '#2ecc71',
           bold: true,
         });
       } else {
         statLines.push({
-          text: 'DPS ' + (t.getDamage() / t.getAttackSpeed()).toFixed(1),
+          text: 'DPS ' + t.getDps().toFixed(1),
           color: UI_COLORS.accent,
           bold: true,
         });
