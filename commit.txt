@@ -1,20 +1,36 @@
-Release 1.5.1 beta 1: Necromancer monster
+Balance and dev-mode economy updates
 
-- Add Necromancer monster with key Y.
-- Implement Necromancer noSplit behavior, including normal wave and dev queue support.
-- Implement Runner noSplit behavior.
-- Implement Necromancer revive behavior:
-  - Revives up to 5 non-Necromancer allied monsters within 2 blocks.
-  - Skips monsters that reached the end.
-  - Restores 50% max HP.
-  - Prevents monsters from being revived again.
-  - Applies a persistent blue glowing ring until defeated.
-  - Adds revive particles.
-- Revived monsters do not split when defeated and deal 50% original damage to defense troops.
-- Preserve non-Necromancer order when Necromancer wave shuffling occurs.
-- Keep version metadata at 1.5.1-beta.1.
-- Expand tests for revive behavior, HP ratio, glow persistence, troop damage, no-split behavior, wave shuffling, config, and versioning.
+- Movement speed categories:
+  - Added CONFIG.MOVEMENT_SPEED_CATEGORIES and CONFIG.MOVEMENT_SPEEDS.
+  - Mapped monsters to categories and numeric speeds:
+    - Grunt: medium, speed 1.0
+    - Runner: very fast, speed 3.0
+    - Brute: slow, speed 0.8
+    - Elite: medium, speed 1.0
+    - Champion: slow, speed 0.8
+    - Boss: very slow, speed 0.6
+    - Shielded: medium, speed 1.0
+    - Spear: fast, speed 2.0
+    - Necromancer: slow, speed 0.8
+- Economy changes:
+  - Monster defeat now awards base reward + 1 gold using _addGold.
+  - Healer troop cost reduced from 150 to 140.
+- Dev-mode economy:
+  - Dev mode placement, upgrades, heals, and shields are free and bypass gold checks.
+  - _addGold keeps dev mode gold at Infinity.
+  - Shop cards are visually affordable in dev mode.
+  - Normal mode still requires and spends gold normally.
+- Splitting change:
+  - Splitting monsters never produce Runner children.
+  - Brute splits into Grunts, skipping Runner.
+  - Elite and Champion split normally one level lower.
+  - Runner still does not split.
+- Tests:
+  - Added tests/config movement speed coverage.
+  - Added tests/devMode.test.js.
+  - Added tests/splitting.test.js.
+  - Updated Healer, Necromancer, and splitting reward expectations.
 - Validation:
-  - npm test passed with 14 files and 173 tests.
+  - npm test passed with 16 files and 188 tests.
   - npm run lint passed.
   - npm run format:check still fails only on src/gamePersistence.js, src/ui/preview.js, and src/updateManager.js.

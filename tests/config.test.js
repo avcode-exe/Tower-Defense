@@ -1,5 +1,25 @@
 import { describe, it, expect } from 'vitest';
 import { CONFIG, MONSTER_SPECS, TROOP_SPECS, WAVES, PROJECTILE_STYLES, MONSTER_DEV_ORDER } from '../src/config.js';
+const EXPECTED_MOVEMENT_SPEED_CATEGORIES = ['very slow', 'slow', 'medium', 'fast', 'very fast'];
+const EXPECTED_MOVEMENT_SPEEDS = {
+  'very slow': 0.6,
+  slow: 0.8,
+  medium: 1.0,
+  fast: 2.0,
+  'very fast': 3.0,
+};
+const EXPECTED_MONSTER_MOVEMENT_SPEEDS = {
+  Grunt: 'medium',
+  Runner: 'very fast',
+  Brute: 'slow',
+  Elite: 'medium',
+  Champion: 'slow',
+  Boss: 'very slow',
+  Shielded: 'medium',
+  Spear: 'fast',
+  Necromancer: 'slow',
+};
+
 
 describe('CONFIG', () => {
   it('has valid GRID_SIZE', () => {
@@ -35,6 +55,11 @@ describe('CONFIG', () => {
     expect(CONFIG.COLORS).toHaveProperty('hpBarBg');
     expect(CONFIG.COLORS).toHaveProperty('hpBarFill');
   });
+
+  it('has movement speed categories', () => {
+    expect(CONFIG.MOVEMENT_SPEED_CATEGORIES).toEqual(EXPECTED_MOVEMENT_SPEED_CATEGORIES);
+    expect(CONFIG.MOVEMENT_SPEEDS).toEqual(EXPECTED_MOVEMENT_SPEEDS);
+  });
 });
 
 describe('MONSTER_SPECS', () => {
@@ -52,6 +77,7 @@ describe('MONSTER_SPECS', () => {
       expect(spec).toHaveProperty('name');
       expect(spec).toHaveProperty('hp');
       expect(spec).toHaveProperty('speed');
+      expect(spec).toHaveProperty('movementSpeed');
       expect(spec).toHaveProperty('reward');
       expect(spec).toHaveProperty('leak');
       expect(spec).toHaveProperty('color');
@@ -63,6 +89,25 @@ describe('MONSTER_SPECS', () => {
       expect(spec.speed).toBeGreaterThan(0);
       expect(spec.reward).toBeGreaterThan(0);
     }
+  });
+
+  it('each spec has a valid movement speed category', () => {
+    for (const spec of Object.values(MONSTER_SPECS)) {
+      expect(CONFIG.MOVEMENT_SPEED_CATEGORIES).toContain(spec.movementSpeed);
+      expect(CONFIG.MOVEMENT_SPEEDS).toHaveProperty(spec.movementSpeed);
+    }
+  });
+
+  it('monster movement speeds match category mapping', () => {
+    for (const spec of Object.values(MONSTER_SPECS)) {
+      expect(spec.movementSpeed).toBe(EXPECTED_MONSTER_MOVEMENT_SPEEDS[spec.name]);
+      expect(spec.speed).toBe(CONFIG.MOVEMENT_SPEEDS[spec.movementSpeed]);
+    }
+  });
+
+  it('monster movement speed category mapping is exact', () => {
+    const actual = Object.fromEntries(Object.values(MONSTER_SPECS).map((spec) => [spec.name, spec.movementSpeed]));
+    expect(actual).toEqual(EXPECTED_MONSTER_MOVEMENT_SPEEDS);
   });
 
   it('boss has higher HP than grunt', () => {

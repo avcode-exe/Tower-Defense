@@ -123,7 +123,7 @@ describe('Necromancer milestone 3 acceptance', () => {
 
     expect(game.monsters).toHaveLength(1);
     expect(necro.alive).toBe(false);
-    expect(game.gold).toBe(necro.reward);
+    expect(game.gold).toBe(necro.reward + 1);
     expect(goldSpy).toHaveBeenCalledTimes(1);
     expect(spawnSpy).toHaveBeenCalledWith(necro.x, necro.y, expect.any(Object));
   });

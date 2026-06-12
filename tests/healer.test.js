@@ -52,6 +52,10 @@ describe('Healer Troop', () => {
     expect(healerSpec.cost).toBeLessThanOrEqual(sniper.cost);
   });
 
+  it('cost is 140', () => {
+    expect(healerSpec.cost).toBe(140);
+  });
+
   it('has a stats string with heal info', () => {
     expect(healerSpec._statsStr).toContain('heal');
     expect(healerSpec._statsStr).toContain('Support');

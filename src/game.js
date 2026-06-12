@@ -122,7 +122,8 @@ export class Game {
     if (!this.canPlace(gx, gy, spec)) return false;
     const t = new Troop(spec, gx, gy);
     this.troops.push(t);
-    if (!this.devMode) this.gold -= spec.cost;
+    const cost = this.devMode ? 0 : spec.cost;
+    this.gold -= cost;
     this._buildTroopTileIndex();
     AUDIO.troopPlace();
     return true;
@@ -153,8 +154,9 @@ export class Game {
     if (!t || !t.alive) return;
     if (t.isMaxed(stat)) return;
     const cost = t.getUpgradeCost(stat);
-    if (this.gold < cost) return;
-    this.gold -= cost;
+    if (!this.devMode && this.gold < cost) return;
+    const goldCost = this.devMode ? 0 : cost;
+    this.gold -= goldCost;
     t.upgradeStat(stat);
     this._getPopup(stat.toUpperCase() + ' +1', t.x, t.y - 10, 1.2, '#f1c40f');
     AUDIO.upgrade();
@@ -166,8 +168,9 @@ export class Game {
     if (!t || !t.alive) return;
     if (!t.canHeal()) return;
     const cost = t.getHealCost();
-    if (this.gold < cost) return;
-    this.gold -= cost;
+    if (!this.devMode && this.gold < cost) return;
+    const goldCost = this.devMode ? 0 : cost;
+    this.gold -= goldCost;
     t.healGoldSpent = (t.healGoldSpent || 0) + cost;
     const prevHp = t.hp;
     t.heal();
@@ -181,9 +184,9 @@ export class Game {
     const t = this.troops[index];
     if (!t || !t.alive) return false;
     if (!t.canAddShield()) return false; // already has shield (one-at-a-time)
-    const cost = Math.ceil(t.spec.cost * CONFIG.SHIELD_COST_RATIO);
+    const cost = this.devMode ? 0 : Math.ceil(t.spec.cost * CONFIG.SHIELD_COST_RATIO);
     if (!this.devMode && this.gold < cost) return false;
-    if (!this.devMode) this.gold -= cost;
+    this.gold -= cost;
     t.applyShield();
     this._getPopup('SHIELD!', t.x, t.y - 12, 1.0, '#5dade2');
     if (PARTICLES && PARTICLES.troopShieldActivate) {
@@ -235,16 +238,19 @@ export class Game {
     }
     const r = m.takeDamage(amount);
     if (r.killed) {
-      this._addGold(r.reward);
+      const awardedGold = r.reward + 1;
+      this._addGold(awardedGold);
       AUDIO.goldEarned();
-      this._getPopup('+' + r.reward, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
+      this._getPopup('+' + awardedGold, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
       PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
       m.reviveGlow = false;
       m._reviveGlowTimer = 0;
-      // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
+      // Split monster: if level > 1, spawn 2 monsters one split tier lower at this
+      // position. Runner is skipped in split children.
       const noSplit = m.spec.noSplit === true || (m.spec.attackMode || 'stop') === 'pass';
       if (!m.reviveImmune && !noSplit && typeof m.level === 'number' && m.level > 1) {
-        const childLvl = m.level - 1;
+        let childLvl = m.level - 1;
+        if (childLvl === 2) childLvl = 1;
         for (let i = 0; i < CONFIG.MONSTER_SPLIT_COUNT; i++) {
           const child = new Monster(childLvl, this.waypoints, this.pathSegments, m.hpMult);
           child.distance = m.distance;
@@ -340,6 +346,10 @@ export class Game {
 
   // DRY: Add gold with MAX_GOLD cap.
   _addGold(amount) {
+    if (this.devMode) {
+      this.gold = Infinity;
+      return;
+    }
     this.gold = Math.min(this.gold + amount, CONFIG.MAX_GOLD);
   }
 

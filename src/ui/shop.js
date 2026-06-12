@@ -181,7 +181,7 @@ export function drawShop(game) {
   for (let i = 0; i < TROOP_SPECS.length; i++) {
     const spec = TROOP_SPECS[i];
     const r = this.shopCardRectInto(i, _shopScratch);
-    const affordable = game.gold >= spec.cost;
+    const affordable = game.devMode || game.gold >= spec.cost;
     const isSelected = game.selectedSpec === spec;
     const isHovered = this.hoveredShopIndex === i;
 
