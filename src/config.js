@@ -54,7 +54,10 @@ export const CONFIG = {
   // Monster mechanics
   BOSS_HP_MULTIPLIER: 2,
   MONSTER_SPLIT_COUNT: 2,
-
+  MONSTER_REVIVE_RANGE: 2.0,
+  MONSTER_REVIVE_HP_RATIO: 0.3,
+  MONSTER_REVIVE_MAX_TARGETS: 5,
+  MONSTER_REVIVE_GLOW_DURATION: 1.5,
   // Path generation
   PATH_EDGE_REJECTION: 0.35,
 
@@ -78,6 +81,7 @@ export const CONFIG = {
 
   // Visual
   COLORS: {
+    revive: '#39a7ff',
     background: '#0e1418',
     gridLine: 'rgba(255,255,255,0.06)',
     path: '#3a2a18',
@@ -146,6 +150,7 @@ export const MONSTER_SPECS = {
     attackSpeed: 1.0,
     attackRange: 1,
     attackMode: 'pass',
+    noSplit: true,
   },
   3: {
     name: 'Brute',
@@ -226,6 +231,24 @@ export const MONSTER_SPECS = {
     attackSpeed: 0.8,
     attackRange: 2.5,
     attackMode: 'slow',
+  },
+  Y: {
+    name: 'Necromancer',
+    hp: 220,
+    speed: 0.85,
+    reward: 18,
+    leak: 2,
+    color: '#7b4397',
+    size: 14,
+    damage: 18,
+    attackSpeed: 1.0,
+    attackRange: 1,
+    attackMode: 'stop',
+    noSplit: true,
+    reviveRange: CONFIG.MONSTER_REVIVE_RANGE,
+    reviveHpRatio: CONFIG.MONSTER_REVIVE_HP_RATIO,
+    reviveMaxTargets: CONFIG.MONSTER_REVIVE_MAX_TARGETS,
+    reviveGlowDuration: CONFIG.MONSTER_REVIVE_GLOW_DURATION,
   },
 };
 
@@ -415,6 +438,8 @@ for (let i = 0; i < TROOP_SPECS.length; i++) {
 }
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.
+export const MONSTER_DEV_ORDER = [1, 2, 3, 4, 5, 'Y', 'B', 'S', 'X'];
+
 export const WAVES = [
   [[1, 8]], // Wave 1: 8 Grunts (272 HP)
   [[1, 12]], // Wave 2: 12 Grunts (408 HP)
@@ -450,8 +475,9 @@ export const WAVES = [
   [
     [4, 10],
     [5, 4],
+    ['Y', 1],
     [3, 2],
-  ], // Wave 9: 10 Elite + 4 Champion + 2 Brute
+  ], // Wave 9: 10 Elite + 4 Champion + 1 Necromancer + 2 Brute
   [
     [5, 6],
     ['S', 4],

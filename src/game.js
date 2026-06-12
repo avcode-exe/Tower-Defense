@@ -2,7 +2,7 @@
 // routes input to logic.
 
 import { RENDERER } from './rendering/renderer.js';
-import { CONFIG, LAYOUT, TROOP_SPECS, PROJECTILE_STYLES } from './config.js';
+import { CONFIG, LAYOUT, TROOP_SPECS, PROJECTILE_STYLES, MONSTER_DEV_ORDER } from './config.js';
 import { TILE } from './grid.js';
 import { PARTICLES } from './particles.js';
 import { Monster } from './monster.js';
@@ -81,7 +81,7 @@ export class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroopIndex = null;
-    this.devMonsterCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 };
+    this.devMonsterCounts = this._defaultDevCounts();
   }
 
   _getPopup(text, x, y, t, color) {
@@ -238,8 +238,8 @@ export class Game {
       this._getPopup('+' + r.reward, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
       PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
       // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
-      const noSplit = (m.spec.attackMode || 'stop') === 'pass';
-      if (!noSplit && m.level !== 'B' && m.level !== 'S' && m.level > 1) {
+      const noSplit = m.spec.noSplit === true || (m.spec.attackMode || 'stop') === 'pass';
+      if (!noSplit && typeof m.level === 'number' && m.level > 1) {
         const childLvl = m.level - 1;
         for (let i = 0; i < CONFIG.MONSTER_SPLIT_COUNT; i++) {
           const child = new Monster(childLvl, this.waypoints, this.pathSegments, m.hpMult);
@@ -345,6 +345,7 @@ export class Game {
     this._stepMonsters(dt);
     if (this.state === 'DEFEAT') return;
     this._stepMonsterAttacks();
+    this._stepNecromancerRevives();
     this._cleanupDead();
     this._stepWaveCompletion();
     this._stepPopups(dt);
@@ -414,6 +415,68 @@ export class Game {
         this.damageTroop(m, target);
       }
     }
+  }
+
+  _stepNecromancerRevives() {
+    for (let i = 0; i < this.monsters.length; i++) {
+      this.monsters[i]._reviveLock = false;
+    }
+
+    for (let i = 0; i < this.monsters.length; i++) {
+      const necro = this.monsters[i];
+      if (!necro.alive || necro.level !== 'Y') continue;
+
+      const range = (necro.spec.reviveRange ?? CONFIG.MONSTER_REVIVE_RANGE) * CONFIG.TILE_SIZE;
+      const rangeSq = range * range;
+      const maxTargets = necro.spec.reviveMaxTargets ?? CONFIG.MONSTER_REVIVE_MAX_TARGETS;
+      const glowDuration = necro.spec.reviveGlowDuration ?? CONFIG.MONSTER_REVIVE_GLOW_DURATION;
+
+      while ((necro.reviveCount || 0) < maxTargets) {
+        let best = null;
+        let bestDist = Infinity;
+        for (let j = 0; j < this.monsters.length; j++) {
+          const target = this.monsters[j];
+          if (target === necro || target.alive || target.level === 'Y' || target.reachedEnd || target._reviveLock)
+            continue;
+          const dx = target.x - necro.x;
+          const dy = target.y - necro.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq <= rangeSq && distSq < bestDist) {
+            bestDist = distSq;
+            best = target;
+          }
+        }
+        if (!best) break;
+
+        const ratio = necro.spec.reviveHpRatio ?? CONFIG.MONSTER_REVIVE_HP_RATIO;
+        best.hp = Math.max(1, Math.round(best.maxHp * ratio));
+        best.alive = true;
+        best.reachedEnd = false;
+        necro.reviveCount = (necro.reviveCount || 0) + 1;
+        necro.reviveUsed = true;
+        this._resetRevivedMonster(best);
+        best._reviveGlowTimer = necro.spec.reviveGlowDuration ?? glowDuration;
+        best._reviveLock = true;
+        this._getPopup('Revived', best.x, best.y - 12, 0.9, CONFIG.COLORS.revive);
+        PARTICLES.spawn(best.x, best.y, PARTICLES.reviveBurst(CONFIG.COLORS.revive));
+      }
+    }
+  }
+
+  _resetRevivedMonster(m) {
+    m.stunTimer = 0;
+    m.slowTimer = 0;
+    m.speed = m.baseSpeed;
+    m.shatterArmed = false;
+    m.shatterBonus = 0;
+    m._slowColorTint = 0;
+    m._reviveGlowTimer = 0;
+    m.state = 'MOVING';
+    m.attackTarget = null;
+    m.attackTimer = 0;
+    m._pendingAttack = null;
+    m._lastPassTile = -1;
+    m._hitTroops = null;
   }
 
   _cleanupDead() {
@@ -1110,7 +1173,10 @@ export class Game {
   }
 
   _defaultDevCounts() {
-    return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 };
+    return MONSTER_DEV_ORDER.reduce((counts, key) => {
+      counts[key] = 0;
+      return counts;
+    }, {});
   }
 
   resetDevMonsterCounts() {

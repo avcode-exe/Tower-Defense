@@ -1,26 +1,22 @@
-Release 1.5.0: Healer support troop
+Release 1.5.1 beta 1: Necromancer monster
 
-Compare against the 1.4.1 baseline, this release focuses on milestone 2 by introducing the Healer support troop and keeping the release branch in a clean, stable state for the 1.5.0 release.
+This beta release captures the Necromancer milestone 3 work under the 1.5.1-beta.1 pre-release version. It is intended for beta validation and follow-up fixes, not as a stable public release.
 
-Healer implementation:
-- Adds the Healer as a support troop available from the shop.
-- Targets the lowest-HP damaged ally instead of spending gold on additional attacks.
-- Heals allies without spending gold, enabling sustained defense and ally preservation.
-- Adds multi-target heal upgrades so Healer support can scale beyond a single ally.
-- Adds green heal visuals and particles to make support healing clear during gameplay.
-- Adds HPS/DPS helpers and placement/shop readouts so players can evaluate Healer value and placement.
+Necromancer changes:
+- Adds monster key Y with noSplit behavior.
+- Adds Runner noSplit behavior.
+- Implements Necromancer revive behavior: up to 5 monsters within 2 blocks, skips other Necromancers and monsters that have reached the end, restores 30% HP, and adds blue glow/particles.
+- Adds normal wave support plus dev UI/dev spawn queue support.
+- Adds tests for config, wave/dev queue, no-split behavior, and revive targeting/range/limit/locks/glow.
 
-Safe release-readiness fixes:
-- Normalizes the stable release version to 1.5.0.
-- Improves persistence validation and restores cleanup for safer save/load behavior.
-- Fixes dev reset behavior so local development state resets predictably.
-- Expands and updates tests and formatting to keep the release branch validated.
-
-Swarm monster work is not included in this release and is planned for 1.5.1.
+Version metadata:
+- Updated app and package metadata to 1.5.1-beta.1.
+- Updated default update settings, save serialization, and release versioning expectations to 1.5.1-beta.1.
 
 Validation passed:
 - npm test
 - npm run lint
-- npm run format:check
+- npm test -- tests/versioning.test.js
 
-GitNexus detect_changes was run before commit and reported critical risk due to many changed files and symbols. This is expected for the release commit and was authorized by the release scope.
+Formatting note:
+- npm run format:check still reports warnings for src/gamePersistence.js, src/ui/preview.js, and src/updateManager.js. These formatting warnings were present before this beta version bump; format:check was not used as a gate for this beta commit.

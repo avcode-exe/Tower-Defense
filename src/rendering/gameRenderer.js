@@ -123,6 +123,18 @@ export function renderGame(game) {
     ctx.beginPath();
     ctx.arc(m.x, m.y + 2, shadowR, 0, Math.PI * 2);
     ctx.fill();
+    if (m._reviveGlowTimer > 0) {
+      const glowAlpha = Math.min(1, m._reviveGlowTimer / CONFIG.MONSTER_REVIVE_GLOW_DURATION);
+      const pulse = 0.75 + 0.25 * Math.sin(now * 0.012);
+      ctx.save();
+      ctx.globalAlpha = glowAlpha * pulse;
+      ctx.strokeStyle = CONFIG.COLORS.revive;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.spec.size * 0.72 + (1 - glowAlpha) * 8, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     // Shield ring.
     if (m.shield > 0) {
       const shieldRatio = m.shield / m.maxShield;

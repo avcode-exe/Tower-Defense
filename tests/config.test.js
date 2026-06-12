@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CONFIG, MONSTER_SPECS, TROOP_SPECS, WAVES, PROJECTILE_STYLES } from '../src/config.js';
+import { CONFIG, MONSTER_SPECS, TROOP_SPECS, WAVES, PROJECTILE_STYLES, MONSTER_DEV_ORDER } from '../src/config.js';
 
 describe('CONFIG', () => {
   it('has valid GRID_SIZE', () => {
@@ -38,7 +38,7 @@ describe('CONFIG', () => {
 });
 
 describe('MONSTER_SPECS', () => {
-  const levels = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
+  const levels = MONSTER_DEV_ORDER;
 
   it('has all required levels', () => {
     for (const level of levels) {
@@ -67,6 +67,20 @@ describe('MONSTER_SPECS', () => {
 
   it('boss has higher HP than grunt', () => {
     expect(MONSTER_SPECS['B'].hp).toBeGreaterThan(MONSTER_SPECS[1].hp);
+  });
+
+  it('Runner does not split', () => {
+    expect(MONSTER_SPECS[2].noSplit).toBe(true);
+  });
+
+  it('has necromancer with noSplit and revive fields', () => {
+    const necro = MONSTER_SPECS.Y;
+    expect(necro.name).toBe('Necromancer');
+    expect(necro.noSplit).toBe(true);
+    expect(necro.reviveRange).toBe(2.0);
+    expect(necro.reviveHpRatio).toBe(0.3);
+    expect(necro.reviveMaxTargets).toBe(5);
+    expect(necro.reviveGlowDuration).toBe(1.5);
   });
 });
 
@@ -130,7 +144,7 @@ describe('WAVES', () => {
   });
 
   it('all wave entries reference valid monster keys', () => {
-    const validKeys = new Set(['1', '2', '3', '4', '5', 'B', 'S', 'X']);
+    const validKeys = new Set(MONSTER_DEV_ORDER.map(String));
     for (const wave of WAVES) {
       for (const [key, count] of wave) {
         expect(validKeys.has(String(key))).toBe(true);

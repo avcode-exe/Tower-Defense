@@ -300,4 +300,19 @@ export const PARTICLES = {
   healBurst(color) {
     return this._applyCfg(this._healBurstCfg, color || '#44cc44');
   },
+
+  _reviveBurstCfg: {
+    count: 8,
+    color: CONFIG.COLORS.revive,
+    minSize: 1.5,
+    maxSize: 3.5,
+    minSpeed: 25,
+    maxSpeed: 75,
+    minLife: 0.35,
+    maxLife: 0.75,
+    gravity: false,
+  },
+  reviveBurst(color) {
+    return this._applyCfg(this._reviveBurstCfg, color || CONFIG.COLORS.revive);
+  },
 };

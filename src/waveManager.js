@@ -1,4 +1,4 @@
-import { CONFIG, WAVES } from './config.js';
+import { CONFIG, WAVES, MONSTER_DEV_ORDER } from './config.js';
 import { Monster } from './monster.js';
 
 // Wave manager: tracks current wave, the queue of monsters to spawn, and the
@@ -47,7 +47,7 @@ export class WaveManager {
     const cycle = Math.floor(this.currentWave / this.waves.length);
     const scaling = this._getScaling(cycle);
     const hpMult = scaling.hpMult;
-    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
+    const order = MONSTER_DEV_ORDER;
     let t = CONFIG.WAVE_START_DELAY;
     for (const level of order) {
       const count = counts[level] || 0;

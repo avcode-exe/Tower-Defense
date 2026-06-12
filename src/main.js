@@ -3,7 +3,7 @@ import { RENDERER } from './rendering/renderer.js';
 import { Input } from './input.js';
 import { UpdateManager } from './updateManager.js';
 import { UI_LAYOUT } from './ui/index.js';
-import { MONSTER_SPECS } from './config.js';
+import { MONSTER_SPECS, MONSTER_DEV_ORDER } from './config.js';
 import { AUDIO } from './audio.js';
 import { SaveSerializer } from './gamePersistence.js';
 import { showToast } from './ui/toast.js';
@@ -566,7 +566,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── populate monster info (unchanged) ──────────────────────────────────────
   const monsterInfoContent = document.getElementById('monster-info-content');
   if (monsterInfoContent) {
-    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
+    const order = MONSTER_DEV_ORDER;
     for (const key of order) {
       const spec = MONSTER_SPECS[key];
       if (!spec) continue;
@@ -608,7 +608,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── populate DEV popup spawn content ─────────────────────────────────────
   const devSpawnContent = document.getElementById('dev-spawn-content');
   if (devSpawnContent) {
-    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
+    const order = MONSTER_DEV_ORDER;
     const devRows = [];
     for (const key of order) {
       const spec = MONSTER_SPECS[key];

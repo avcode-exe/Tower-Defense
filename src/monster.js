@@ -30,6 +30,10 @@ export class Monster {
     this.segIdx = 0;
     this.alive = true;
     this.reachedEnd = false;
+    this.reviveUsed = false;
+    this.reviveCount = 0;
+    this._reviveLock = false;
+    this._reviveGlowTimer = 0;
     this.stunTimer = 0;
 
     // Shield mechanics (Shielded monster type).
@@ -219,6 +223,10 @@ export class Monster {
         this._slowColorTint = 0;
       }
     }
+    if (this._reviveGlowTimer > 0) {
+      this._reviveGlowTimer = Math.max(0, this._reviveGlowTimer - dt);
+    }
+
     // Stunned: count down timer but don't move.
     if (this.stunTimer > 0) {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
