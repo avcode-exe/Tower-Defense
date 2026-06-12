@@ -229,6 +229,8 @@ export class Game {
     // to prevent double-reward from the defensive kill path in step().
     if (m.hp <= 0) {
       m.alive = false;
+      m.reviveGlow = false;
+      m._reviveGlowTimer = 0;
       return true;
     }
     const r = m.takeDamage(amount);
@@ -237,9 +239,11 @@ export class Game {
       AUDIO.goldEarned();
       this._getPopup('+' + r.reward, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
       PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
+      m.reviveGlow = false;
+      m._reviveGlowTimer = 0;
       // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
       const noSplit = m.spec.noSplit === true || (m.spec.attackMode || 'stop') === 'pass';
-      if (!noSplit && typeof m.level === 'number' && m.level > 1) {
+      if (!m.reviveImmune && !noSplit && typeof m.level === 'number' && m.level > 1) {
         const childLvl = m.level - 1;
         for (let i = 0; i < CONFIG.MONSTER_SPLIT_COUNT; i++) {
           const child = new Monster(childLvl, this.waypoints, this.pathSegments, m.hpMult);
@@ -284,6 +288,9 @@ export class Game {
   // Apply monster melee damage to a troop.
   damageTroop(monster, troop) {
     let dmg = monster.spec.damage;
+    if (monster.reviveImmune) {
+      dmg = Math.max(1, Math.round(dmg * (monster.reviveDamageRatio ?? 0.5)));
+    }
     // Melee troops take reduced damage from monsters (they can block).
     if (troop.spec.type === 'melee') dmg = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
     const killed = troop.takeDamage(dmg);
@@ -436,7 +443,14 @@ export class Game {
         let bestDist = Infinity;
         for (let j = 0; j < this.monsters.length; j++) {
           const target = this.monsters[j];
-          if (target === necro || target.alive || target.level === 'Y' || target.reachedEnd || target._reviveLock)
+          if (
+            target === necro ||
+            target.alive ||
+            target.level === 'Y' ||
+            target.reachedEnd ||
+            target._reviveLock ||
+            target.reviveImmune
+          )
             continue;
           const dx = target.x - necro.x;
           const dy = target.y - necro.y;
@@ -451,10 +465,13 @@ export class Game {
         const ratio = necro.spec.reviveHpRatio ?? CONFIG.MONSTER_REVIVE_HP_RATIO;
         best.hp = Math.max(1, Math.round(best.maxHp * ratio));
         best.alive = true;
+        best.reviveImmune = true;
+        best.reviveDamageRatio = 0.5;
         best.reachedEnd = false;
         necro.reviveCount = (necro.reviveCount || 0) + 1;
         necro.reviveUsed = true;
         this._resetRevivedMonster(best);
+        best.reviveGlow = true;
         best._reviveGlowTimer = necro.spec.reviveGlowDuration ?? glowDuration;
         best._reviveLock = true;
         this._getPopup('Revived', best.x, best.y - 12, 0.9, CONFIG.COLORS.revive);

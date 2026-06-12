@@ -78,7 +78,7 @@ describe('MONSTER_SPECS', () => {
     expect(necro.name).toBe('Necromancer');
     expect(necro.noSplit).toBe(true);
     expect(necro.reviveRange).toBe(2.0);
-    expect(necro.reviveHpRatio).toBe(0.3);
+    expect(necro.reviveHpRatio).toBe(0.5);
     expect(necro.reviveMaxTargets).toBe(5);
     expect(necro.reviveGlowDuration).toBe(1.5);
   });

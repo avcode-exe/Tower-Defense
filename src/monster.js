@@ -32,7 +32,10 @@ export class Monster {
     this.reachedEnd = false;
     this.reviveUsed = false;
     this.reviveCount = 0;
+    this.reviveImmune = false;
+    this.reviveDamageRatio = 1;
     this._reviveLock = false;
+    this.reviveGlow = false;
     this._reviveGlowTimer = 0;
     this.stunTimer = 0;
 

@@ -55,7 +55,7 @@ export const CONFIG = {
   BOSS_HP_MULTIPLIER: 2,
   MONSTER_SPLIT_COUNT: 2,
   MONSTER_REVIVE_RANGE: 2.0,
-  MONSTER_REVIVE_HP_RATIO: 0.3,
+  MONSTER_REVIVE_HP_RATIO: 0.5,
   MONSTER_REVIVE_MAX_TARGETS: 5,
   MONSTER_REVIVE_GLOW_DURATION: 1.5,
   // Path generation
@@ -246,7 +246,7 @@ export const MONSTER_SPECS = {
     attackMode: 'stop',
     noSplit: true,
     reviveRange: CONFIG.MONSTER_REVIVE_RANGE,
-    reviveHpRatio: CONFIG.MONSTER_REVIVE_HP_RATIO,
+    reviveHpRatio: 0.5,
     reviveMaxTargets: CONFIG.MONSTER_REVIVE_MAX_TARGETS,
     reviveGlowDuration: CONFIG.MONSTER_REVIVE_GLOW_DURATION,
   },

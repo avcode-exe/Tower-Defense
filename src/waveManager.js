@@ -1,6 +1,43 @@
 import { CONFIG, WAVES, MONSTER_DEV_ORDER } from './config.js';
 import { Monster } from './monster.js';
 
+const NECROMANCER_LEVEL = 'Y';
+
+export function shuffleNecromancersInWave(entries, random = Math.random) {
+  const nonNecromancers = [];
+  const necromancers = [];
+
+  for (const level of entries) {
+    if (level === NECROMANCER_LEVEL) {
+      necromancers.push(level);
+    } else {
+      nonNecromancers.push(level);
+    }
+  }
+
+  if (necromancers.length === 0 || nonNecromancers.length === 0) {
+    return entries.slice();
+  }
+
+  const slots = Array.from({ length: nonNecromancers.length + 1 }, () => []);
+  for (const necromancer of necromancers) {
+    slots[Math.floor(random() * slots.length)].push(necromancer);
+  }
+
+  const shuffled = [];
+  for (let i = 0; i < nonNecromancers.length; i += 1) {
+    if (slots[i].length > 0) {
+      shuffled.push(...slots[i]);
+    }
+    shuffled.push(nonNecromancers[i]);
+  }
+  if (slots[nonNecromancers.length].length > 0) {
+    shuffled.push(...slots[nonNecromancers.length]);
+  }
+
+  return shuffled;
+}
+
 // Wave manager: tracks current wave, the queue of monsters to spawn, and the
 // elapsed time since the last spawn. Waves continue infinitely until loss.
 
@@ -29,17 +66,22 @@ export class WaveManager {
     const spec = this.currentPreview;
     const cycle = Math.floor(this.currentWave / this.waves.length);
     const hpMult = this._getScaling(cycle).hpMult;
-    let t = CONFIG.WAVE_START_DELAY;
+    const levels = [];
     for (const [level, count] of spec) {
-      for (let i = 0; i < count; i++) {
-        const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
-        this.queue.push({ level, spawnAt: t, hpMult });
-        t += interval;
+      for (let i = 0; i < count; i += 1) {
+        levels.push(level);
       }
+    }
+
+    let t = CONFIG.WAVE_START_DELAY;
+    for (const level of shuffleNecromancersInWave(levels)) {
+      const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
+      this.queue.push({ level, spawnAt: t, hpMult });
+      t += interval;
     }
   }
 
-  // Build a custom queue from a counts object {1:N, 2:N, 3:N, 4:N, 5:N, B:N, S:N}.
+  // Build a custom queue from a counts object {1:N, 2:N, 3:N, 4:N, 5:N, Y:N, B:N, S:N, X:N}.
   buildCustomFromCounts(counts) {
     this.queue = [];
     this.spawnIndex = 0;
@@ -48,14 +90,19 @@ export class WaveManager {
     const scaling = this._getScaling(cycle);
     const hpMult = scaling.hpMult;
     const order = MONSTER_DEV_ORDER;
-    let t = CONFIG.WAVE_START_DELAY;
+    const levels = [];
     for (const level of order) {
       const count = counts[level] || 0;
-      for (let i = 0; i < count; i++) {
-        const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
-        this.queue.push({ level, spawnAt: t, hpMult });
-        t += interval;
+      for (let i = 0; i < count; i += 1) {
+        levels.push(level);
       }
+    }
+
+    let t = CONFIG.WAVE_START_DELAY;
+    for (const level of shuffleNecromancersInWave(levels)) {
+      const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
+      this.queue.push({ level, spawnAt: t, hpMult });
+      t += interval;
     }
     // Update preview so UI shows accurate wave composition after custom build.
     const previewMap = {};

@@ -1,22 +1,20 @@
 Release 1.5.1 beta 1: Necromancer monster
 
-This beta release captures the Necromancer milestone 3 work under the 1.5.1-beta.1 pre-release version. It is intended for beta validation and follow-up fixes, not as a stable public release.
-
-Necromancer changes:
-- Adds monster key Y with noSplit behavior.
-- Adds Runner noSplit behavior.
-- Implements Necromancer revive behavior: up to 5 monsters within 2 blocks, skips other Necromancers and monsters that have reached the end, restores 30% HP, and adds blue glow/particles.
-- Adds normal wave support plus dev UI/dev spawn queue support.
-- Adds tests for config, wave/dev queue, no-split behavior, and revive targeting/range/limit/locks/glow.
-
-Version metadata:
-- Updated app and package metadata to 1.5.1-beta.1.
-- Updated default update settings, save serialization, and release versioning expectations to 1.5.1-beta.1.
-
-Validation passed:
-- npm test
-- npm run lint
-- npm test -- tests/versioning.test.js
-
-Formatting note:
-- npm run format:check still reports warnings for src/gamePersistence.js, src/ui/preview.js, and src/updateManager.js. These formatting warnings were present before this beta version bump; format:check was not used as a gate for this beta commit.
+- Add Necromancer monster with key Y.
+- Implement Necromancer noSplit behavior, including normal wave and dev queue support.
+- Implement Runner noSplit behavior.
+- Implement Necromancer revive behavior:
+  - Revives up to 5 non-Necromancer allied monsters within 2 blocks.
+  - Skips monsters that reached the end.
+  - Restores 50% max HP.
+  - Prevents monsters from being revived again.
+  - Applies a persistent blue glowing ring until defeated.
+  - Adds revive particles.
+- Revived monsters do not split when defeated and deal 50% original damage to defense troops.
+- Preserve non-Necromancer order when Necromancer wave shuffling occurs.
+- Keep version metadata at 1.5.1-beta.1.
+- Expand tests for revive behavior, HP ratio, glow persistence, troop damage, no-split behavior, wave shuffling, config, and versioning.
+- Validation:
+  - npm test passed with 14 files and 173 tests.
+  - npm run lint passed.
+  - npm run format:check still fails only on src/gamePersistence.js, src/ui/preview.js, and src/updateManager.js.
