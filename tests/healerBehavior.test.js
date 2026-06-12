@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { CONFIG, TROOP_SPECS } from '../src/config.js';
+import { Monster } from '../src/monster.js';
 import { Troop } from '../src/troop.js';
 import { PARTICLES } from '../src/particles.js';
 
@@ -21,12 +22,12 @@ describe('Healer Troop Behavior', () => {
 
   it('getRange returns heal range', () => {
     const healer = new Troop(healerSpec, 5, 5);
-    expect(healer.getRange()).toBe(healerSpec.range);
+    expect(healer.getRange()).toBe(2);
   });
 
   it('getAttackSpeed returns heal cadence', () => {
     const healer = new Troop(healerSpec, 5, 5);
-    expect(healer.getAttackSpeed()).toBe(healerSpec.attackSpeed);
+    expect(healer.getAttackSpeed()).toBe(0.5);
   });
 
   it('getHealAmount returns cached damage as heal', () => {
@@ -164,9 +165,27 @@ describe('Healer Troop Behavior', () => {
     expect(target).toBe(aliveAlly);
   });
 
-  function makeGame(troops) {
+  function sharedPath() {
+    return { segments: [], totalLength: 0 };
+  }
+
+  function makeMonsterAt(level, gx, gy) {
+    const monster = new Monster(level, [[gx, gy]], sharedPath());
+    monster.hp = 100;
+    monster.maxHp = 100;
+    return monster;
+  }
+
+  function makeGame(troops, monsters = []) {
     return {
       troops,
+      monsters,
+      damageCalls: [],
+      damageMonster(m, amount) {
+        this.damageCalls.push({ monster: m, amount });
+        m.hp -= amount;
+        if (m.hp <= 0) m.alive = false;
+      },
       gold: 123,
       popups: [],
       _getPopup(text, x, y, t, color) {
@@ -192,6 +211,31 @@ describe('Healer Troop Behavior', () => {
     expect(ally.healBeam).toEqual({ troop: healer, timer: 0.6 });
     expect(spawnSpy).toHaveBeenCalledWith(ally.x, ally.y, expect.any(Object));
     spawnSpy.mockRestore();
+  });
+
+  it('support update damages monsters in heal range on 0.5s cooldown', () => {
+    const healer = new Troop(healerSpec, 0, 0);
+    const near1 = makeMonsterAt(1, 1, 0);
+    const near2 = makeMonsterAt(1, 0, 1);
+    const far = makeMonsterAt(1, 3, 0);
+    const game = makeGame([healer], [near1, near2, far]);
+
+    healer.targetRefresh = 0;
+    healer.cooldown = 0;
+    healer.update(0.016, [], [], game);
+
+    expect(game.damageCalls.filter((call) => call.monster === near1)).toHaveLength(1);
+    expect(game.damageCalls.filter((call) => call.monster === near2)).toHaveLength(1);
+    expect(game.damageCalls.filter((call) => call.monster === far)).toHaveLength(0);
+    expect(game.damageCalls.every((call) => call.amount === healer.getMonsterDamage())).toBe(true);
+    expect(healer.cooldown).toBe(0.5);
+
+    const callsAfterFirstUpdate = game.damageCalls.length;
+    healer.update(0.49, [], [], game);
+    expect(game.damageCalls).toHaveLength(callsAfterFirstUpdate);
+
+    healer.update(0.011, [], [], game);
+    expect(game.damageCalls).toHaveLength(callsAfterFirstUpdate + 2);
   });
 
   it('support update skips self and other support heal targets without spending gold', () => {

@@ -52,8 +52,15 @@ export class Troop {
   getRange() {
     return this._cachedRange;
   }
+  getHealRangePxSq() {
+    const rangePx = (this._cachedRange + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE;
+    return rangePx * rangePx;
+  }
   getAttackSpeed() {
     return this._cachedAttackSpeed;
+  }
+  getMonsterDamage() {
+    return this.spec.monsterDamage || 0;
   }
   getHealAmount() {
     return this._cachedDamage;
@@ -251,9 +258,7 @@ export class Troop {
 
   pickHealTarget(troops) {
     if (this.spec.type !== 'support') return null;
-    const range = this._cachedRange;
-    const rangePx = (range + CONFIG.TILE_BUFFER) * CONFIG.TILE_SIZE;
-    const rangePxSq = rangePx * rangePx;
+    const rangePxSq = this.getHealRangePxSq();
     const maxTargets = this.healTargetLevel;
     const compareHealPriority = (a, b) => {
       const ratioDelta = a.hpRatio - b.hpRatio;
@@ -326,6 +331,54 @@ export class Troop {
     });
 
     return this.healTargets.length > 0 ? this.healTargets[0] : null;
+  }
+
+  damageMonstersInHealRange(game) {
+    if (!game) return;
+    if (!game.monsters || game.monsters.length === 0) return;
+
+    const monsterDamage = this.getMonsterDamage();
+    if (!monsterDamage) return;
+
+    const rangePxSq = this.getHealRangePxSq();
+    const txpx = this.x;
+    const typx = this.y;
+    const tileIndex = game._monsterTileIndex;
+    if (Array.isArray(tileIndex)) {
+      const tileRange = Math.ceil(this._cachedRange + CONFIG.TILE_BUFFER);
+      const G = CONFIG.GRID_SIZE;
+      const gx0 = this.gx;
+      const gy0 = this.gy;
+      for (let dy = -tileRange; dy <= tileRange; dy++) {
+        const ty = gy0 + dy;
+        if (ty < 0 || ty >= G) continue;
+        for (let dx = -tileRange; dx <= tileRange; dx++) {
+          const tx = gx0 + dx;
+          if (tx < 0 || tx >= G) continue;
+          const nearbyMonsters = tileIndex[ty * G + tx];
+          if (!nearbyMonsters) continue;
+          for (let i = 0; i < nearbyMonsters.length; i++) {
+            const m = nearbyMonsters[i];
+            if (!m.alive) continue;
+            const mx = m.x - txpx,
+              my = m.y - typx;
+            if (mx * mx + my * my <= rangePxSq) {
+              game.damageMonster(m, monsterDamage);
+            }
+          }
+        }
+      }
+      return;
+    }
+    for (let i = game.monsters.length - 1; i >= 0; i--) {
+      const m = game.monsters[i];
+      if (!m.alive) continue;
+      const dx = m.x - txpx,
+        dy = m.y - typx;
+      if (dx * dx + dy * dy <= rangePxSq) {
+        game.damageMonster(m, monsterDamage);
+      }
+    }
   }
 
   pickTarget(monsters, tileIndex) {
@@ -458,7 +511,6 @@ export class Troop {
         this.pickHealTarget(game ? game.troops : []);
         this.targetRefresh = CONFIG.TARGET_REFRESH_INTERVAL;
       }
-      if (this.healTargets.length === 0) return;
       if (this.cooldown > 0) return;
       if (!game) return;
       const healAmount = this._cachedDamage;
@@ -477,6 +529,7 @@ export class Troop {
           t.healBeam = { troop: this, timer: 0.6 };
         }
       }
+      this.damageMonstersInHealRange(game);
       this.cooldown = this._cachedAttackSpeed;
       return;
     }

@@ -413,12 +413,13 @@ export const TROOP_SPECS = [
     type: 'support',
     cost: 140,
     damage: 8,
-    range: 3,
-    attackSpeed: 1.5,
+    range: 2,
+    attackSpeed: 0.5,
     splash: 0,
     color: '#2ecc71',
     hp: 40,
-    desc: 'Support unit with 40 HP. Heals damaged allies instead of attacking. Upgrades increase healing and target count.',
+    monsterDamage: 2,
+    desc: 'Support unit with 40 HP. Heals damaged allies and damages nearby monsters. Upgrades increase healing and target count.',
   },
 ];
 
@@ -435,7 +436,8 @@ for (let i = 0; i < TROOP_SPECS.length; i++) {
       s.attackSpeed +
       's \u00B7 ' +
       s.hp +
-      'hp';
+      'hp' +
+      (s.monsterDamage ? ' \u00B7 ' + s.monsterDamage + 'dmg' : '');
   } else {
     const type = s.type.charAt(0).toUpperCase() + s.type.slice(1);
     s._statsStr =

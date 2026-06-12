@@ -160,6 +160,7 @@ describe('TROOP_SPECS', () => {
     expect(healer.damage).toBeGreaterThan(0);
     expect(healer.range).toBeGreaterThan(0);
     expect(healer.attackSpeed).toBeGreaterThan(0);
+    expect(healer.monsterDamage).toBeGreaterThan(0);
     expect(healer.hp).toBeGreaterThan(0);
     expect(healer.cost).toBeGreaterThan(0);
   });

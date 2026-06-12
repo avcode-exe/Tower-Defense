@@ -16,12 +16,16 @@ describe('Healer Troop', () => {
     expect(healerSpec.damage).toBeGreaterThan(0);
   });
 
-  it('has positive range', () => {
-    expect(healerSpec.range).toBeGreaterThan(0);
+  it('has range 2', () => {
+    expect(healerSpec.range).toBe(2);
   });
 
-  it('has positive attack speed', () => {
-    expect(healerSpec.attackSpeed).toBeGreaterThan(0);
+  it('has attack speed 0.5', () => {
+    expect(healerSpec.attackSpeed).toBe(0.5);
+  });
+
+  it('has monster damage 2', () => {
+    expect(healerSpec.monsterDamage).toBe(2);
   });
 
   it('has positive HP', () => {
@@ -61,5 +65,6 @@ describe('Healer Troop', () => {
     expect(healerSpec._statsStr).toContain('Support');
     expect(healerSpec._statsStr).toContain(String(healerSpec.damage));
     expect(healerSpec._statsStr).toContain(String(healerSpec.range));
+    expect(healerSpec._statsStr).toContain('2dmg');
   });
 });

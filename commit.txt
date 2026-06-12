@@ -1,36 +1,21 @@
-Balance and dev-mode economy updates
+Release 1.5.1-beta.2: Healer rework with monster damage
 
-- Movement speed categories:
-  - Added CONFIG.MOVEMENT_SPEED_CATEGORIES and CONFIG.MOVEMENT_SPEEDS.
-  - Mapped monsters to categories and numeric speeds:
-    - Grunt: medium, speed 1.0
-    - Runner: very fast, speed 3.0
-    - Brute: slow, speed 0.8
-    - Elite: medium, speed 1.0
-    - Champion: slow, speed 0.8
-    - Boss: very slow, speed 0.6
-    - Shielded: medium, speed 1.0
-    - Spear: fast, speed 2.0
-    - Necromancer: slow, speed 0.8
-- Economy changes:
-  - Monster defeat now awards base reward + 1 gold using _addGold.
-  - Healer troop cost reduced from 150 to 140.
-- Dev-mode economy:
-  - Dev mode placement, upgrades, heals, and shields are free and bypass gold checks.
-  - _addGold keeps dev mode gold at Infinity.
-  - Shop cards are visually affordable in dev mode.
-  - Normal mode still requires and spends gold normally.
-- Splitting change:
-  - Splitting monsters never produce Runner children.
-  - Brute splits into Grunts, skipping Runner.
-  - Elite and Champion split normally one level lower.
-  - Runner still does not split.
-- Tests:
-  - Added tests/config movement speed coverage.
-  - Added tests/devMode.test.js.
-  - Added tests/splitting.test.js.
-  - Updated Healer, Necromancer, and splitting reward expectations.
-- Validation:
-  - npm test passed with 16 files and 188 tests.
-  - npm run lint passed.
-  - npm run format:check still fails only on src/gamePersistence.js, src/ui/preview.js, and src/updateManager.js.
+Healer troop rework:
+- Reduced heal radius from 3 to 2 blocks
+- Healer now deals 2 damage to every monster in its healing range
+- Hitspeed reduced to 0.5s (from 1.5s) for faster heal/damage cadence
+- Added monsterDamage field to healer spec and stats string display
+
+Code changes:
+- src/config.js: healer range 3→2, attackSpeed 1.5→0.5, added monsterDamage: 2
+- src/troop.js: added getHealRangePxSq(), getMonsterDamage(), damageMonstersInHealRange()
+- src/troop.js: support update no longer skips monster damage when no heal targets
+- src/troop.js: uses game._monsterTileIndex when available for efficient AoE
+
+Version bump:
+- 1.5.1-beta.1 → 1.5.1-beta.2 across package.json, package-lock.json, updateManager.js, gamePersistence.js
+
+Tests:
+- Updated healer spec assertions for new range, attackSpeed, monsterDamage
+- Added behavior test for monster damage in heal range with cooldown timing
+- All 190 tests pass, lint passes
