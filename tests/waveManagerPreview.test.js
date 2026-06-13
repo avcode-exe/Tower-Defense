@@ -1,6 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { WaveManager } from '../src/waveManager.js';
-import { WAVES, CONFIG } from '../src/config.js';
+import { WAVES, CONFIG, MONSTER_SPECS } from '../src/config.js';
 
 describe('WaveManager.getNextWavePreview()', () => {
   let wave;
@@ -191,5 +191,103 @@ describe('WaveManager preview through wave lifecycle', () => {
     expect(preview[0][0]).toBe(1);
     // Count should be > 8 due to scaling
     expect(preview[0][1]).toBeGreaterThan(8);
+  });
+});
+
+describe('WaveManager.getNextWaveEstimate()', () => {
+  let wave;
+
+  beforeEach(() => {
+    wave = new WaveManager();
+  });
+
+  it('returns estimate with start time, duration, gold, and leak for wave 1', () => {
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate).toMatchObject({
+      timeUntilStart: CONFIG.WAVE_START_DELAY,
+      startsIn: CONFIG.WAVE_START_DELAY,
+      totalGold: 8 * MONSTER_SPECS[1].reward,
+      totalLeak: 8 * MONSTER_SPECS[1].leak,
+      hasNecromancer: false,
+      reviveEstimate: null,
+    });
+    expect(estimate.estimatedDuration).toBeGreaterThan(0);
+    expect(estimate.clearDuration).toBe(estimate.estimatedDuration);
+  });
+
+  it('returns 0 start time when wave is active', () => {
+    wave.startNextWave();
+
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate.timeUntilStart).toBe(0);
+    expect(estimate.startsIn).toBe(0);
+  });
+
+  it('calculates total gold from monster rewards', () => {
+    wave.currentWave = 2; // wave 3: 6 Grunts + 6 Runners
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+    const expectedGold = 6 * MONSTER_SPECS[1].reward + 6 * MONSTER_SPECS[2].reward;
+
+    expect(estimate.totalGold).toBe(expectedGold);
+    expect(estimate.gold).toBe(expectedGold);
+  });
+
+  it('calculates total leak from monster leaks', () => {
+    wave.currentWave = 8; // wave 9: includes Necromancer
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+    const expectedLeak =
+      10 * MONSTER_SPECS[4].leak +
+      4 * MONSTER_SPECS[5].leak +
+      1 * MONSTER_SPECS.Y.leak +
+      2 * MONSTER_SPECS[3].leak;
+
+    expect(estimate.totalLeak).toBe(expectedLeak);
+  });
+
+  it('includes revive estimate for waves with Necromancer', () => {
+    wave.currentWave = 8; // wave 9: 1 Necromancer + other monsters
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate.hasNecromancer).toBe(true);
+    expect(estimate.reviveEstimate).not.toBeNull();
+    expect(estimate.reviveEstimate.count).toBeGreaterThan(0);
+    expect(estimate.reviveEstimate.gold).toBeGreaterThan(0);
+    expect(estimate.reviveEstimate.additionalDuration).toBeGreaterThan(0);
+  });
+
+  it('has null revive estimate for waves without Necromancer', () => {
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate.hasNecromancer).toBe(false);
+    expect(estimate.reviveEstimate).toBeNull();
+  });
+
+  it('applies scaling to gold and leak for higher waves', () => {
+    wave.currentWave = WAVES.length; // cycle 1, wraps to wave 1
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+    const expectedCount = Math.round((8 + 1 * 2) * (1 + 1 * CONFIG.WAVE_SCALE_COUNT));
+    const clampedCount = Math.min(CONFIG.MAX_SPAWNS_PER_TYPE, expectedCount);
+    const expectedGold = clampedCount * MONSTER_SPECS[1].reward;
+
+    expect(estimate.totalGold).toBe(expectedGold);
+    expect(estimate.totalLeak).toBe(clampedCount * MONSTER_SPECS[1].leak);
+  });
+
+  it('estimates duration includes spawn timing and path traversal', () => {
+    const estimate = wave.getNextWaveEstimate();
+    const expectedSpawnDuration = 8 * CONFIG.SPAWN_INTERVAL;
+    const expectedPathDuration = CONFIG.MIN_PATH_LENGTH / CONFIG.MOVEMENT_SPEEDS[MONSTER_SPECS[1].movementSpeed];
+
+    expect(estimate.estimatedDuration).toBeCloseTo(expectedSpawnDuration + expectedPathDuration, 0);
   });
 });

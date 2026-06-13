@@ -1,17 +1,10 @@
-Comprehensive audit fixes and test coverage expansion
+Implement milestone 5 wave preview enhancements
 
-- Fix chain lightning visual source position to originate from previous target
-- Preserve troop level 0 values on persistence restore using nullish coalescing
-- Optimize particles bucket array reuse to eliminate per-frame allocations
-- Optimize dead projectile cleanup by removing intermediate array
-- Optimize healer target selection with Set lookup and hoisted comparator
-- Add 512KB response body limit to Electron requestText
-- Validate settings persistence with allowlisted schema and channel values
-- Store Input instance on window.input for future cleanup
-- Add error handling to settings sync calls
-- Remove dead standalone getPlacementInvalidReason export
-- Expand test coverage by 148 tests (317 -> 465)
-  - Game class: killTroop, spawnMonster, chainHitAt, splashAt, markPathTiles, restart, resetGame, toggleDevMode, resetDevMonsterCounts
-  - Troop class: pickTarget, getters, melee/ranged update branches
-  - Particles: full lifecycle and effect methods
-  - WaveManager: getNextWavePreview
+- Add WaveManager.getNextWaveEstimate() with start timing, clear duration, total gold, leak, and revive-aware estimates
+- Render Start/Clear/Gold/Revive estimates in the bottom wave preview panel
+- Add 8 tests covering estimate structure, active wave timing, gold/leak calculations, revive estimates, scaling, and duration
+- Expand waveManagerPreview.test.js from 16 to 24 tests
+
+Validation:
+- npm test: 473/473 passed
+- npm run lint: passed

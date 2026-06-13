@@ -1,4 +1,4 @@
-import { CONFIG, WAVES, MONSTER_DEV_ORDER } from './config.js';
+import { CONFIG, WAVES, MONSTER_DEV_ORDER, MONSTER_SPECS } from './config.js';
 import { Monster } from './monster.js';
 
 const NECROMANCER_LEVEL = 'Y';
@@ -143,6 +143,103 @@ export class WaveManager {
   // For UI: counts of each monster type in the upcoming wave.
   getNextWavePreview() {
     return this.currentPreview;
+  }
+
+  // For UI: estimates for the upcoming wave.
+  getNextWaveEstimate() {
+    if (!this.currentPreview) return null;
+
+    let totalGold = 0;
+    let totalLeak = 0;
+    let totalHp = 0;
+    let necromancerCount = 0;
+    let nonNecromancerCount = 0;
+
+    for (const [level, count] of this.currentPreview) {
+      const spec = this._getMonsterSpec(level);
+      if (!spec) continue;
+      totalGold += spec.reward * count;
+      totalLeak += spec.leak * count;
+      totalHp += spec.hp * count;
+      if (level === NECROMANCER_LEVEL) {
+        necromancerCount += count;
+      } else {
+        nonNecromancerCount += count;
+      }
+    }
+
+    const spawnDuration = this._estimateSpawnDuration(this.currentPreview);
+    const pathDuration = this._estimatePathDuration(this.currentPreview);
+    const baseDuration = spawnDuration + pathDuration;
+    const reviveEstimate = this._estimateRevives(necromancerCount, nonNecromancerCount, totalHp);
+
+    return {
+      timeUntilStart: this.waveActive ? 0 : CONFIG.WAVE_START_DELAY,
+      startsIn: this.waveActive ? 0 : CONFIG.WAVE_START_DELAY,
+      estimatedDuration: baseDuration + (reviveEstimate ? reviveEstimate.additionalDuration : 0),
+      clearDuration: baseDuration + (reviveEstimate ? reviveEstimate.additionalDuration : 0),
+      totalGold,
+      gold: totalGold,
+      totalLeak,
+      hasNecromancer: necromancerCount > 0,
+      reviveEstimate: reviveEstimate
+        ? {
+            count: reviveEstimate.revivedCount,
+            targets: reviveEstimate.revivedCount,
+            gold: reviveEstimate.additionalGold,
+            rewardGold: reviveEstimate.additionalGold,
+            additionalDuration: reviveEstimate.additionalDuration,
+          }
+        : null,
+    };
+  }
+
+  _getMonsterSpec(level) {
+    return level === 'B' ? MONSTER_SPECS.B : MONSTER_SPECS[level];
+  }
+
+  _estimateSpawnDuration(preview) {
+    let t = CONFIG.WAVE_START_DELAY;
+    for (const [level, count] of preview) {
+      const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
+      t += interval * count;
+    }
+    return t - CONFIG.WAVE_START_DELAY;
+  }
+
+  _estimatePathDuration(preview) {
+    let weightedDuration = 0;
+    let totalCount = 0;
+    for (const [level, count] of preview) {
+      const spec = this._getMonsterSpec(level);
+      if (!spec) continue;
+      const speed = CONFIG.MOVEMENT_SPEEDS[spec.movementSpeed] || spec.speed;
+      const pathTiles = CONFIG.MIN_PATH_LENGTH;
+      const duration = pathTiles / Math.max(0.1, speed);
+      weightedDuration += duration * count;
+      totalCount += count;
+    }
+    return totalCount > 0 ? weightedDuration / totalCount : 0;
+  }
+
+  _estimateRevives(necromancerCount, nonNecromancerCount, totalHp) {
+    if (necromancerCount <= 0 || nonNecromancerCount <= 0) return null;
+
+    const revivedCount = Math.min(
+      necromancerCount * CONFIG.MONSTER_REVIVE_MAX_TARGETS,
+      Math.floor(nonNecromancerCount * 0.25)
+    );
+    if (revivedCount <= 0) return null;
+
+    const avgReward = totalHp > 0 ? totalHp / Math.max(1, nonNecromancerCount) * 0.08 : 0;
+    const additionalGold = Math.round(revivedCount * avgReward);
+    const additionalDuration = revivedCount * CONFIG.SPAWN_INTERVAL * 0.5;
+
+    return {
+      revivedCount,
+      additionalGold,
+      additionalDuration,
+    };
   }
 
   _getScaling(cycle) {
