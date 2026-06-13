@@ -1,8 +1,26 @@
-fix: pre-release cleanup for v1.5.1-beta.2
+v1.5.1 — Stable release
 
-- Fix stale fallback version in main.js (1.3.0 → 1.5.1-beta.2) to
-  prevent false update notifications when getVersion() fails
-- Remove noisy console.warn on every OOB grid access in grid.js
-- Downgrade debug console.log to console.warn for filtered updates
-  in electron-main.js auto-updater
-- Remove stale v1.3.0 version reference from monster.js comment
+Version bump:
+- Bump version from 1.5.1-beta.2 to 1.5.1 across package.json,
+  package-lock.json, gamePersistence.js, main.js, updateManager.js,
+  and all test assertions
+
+Test suite expansion (190 → 305 tests):
+- Add tests/monster.test.js (24 tests): constructor, takeDamage,
+  shatter mechanic, shield immunity, regen, slow decay, findTarget,
+  position tracking
+- Add tests/troop.test.js (30 tests): constructor, stat scaling,
+  upgrade costs, upgradeStat, isMaxed, healing, shield, takeDamage,
+  getTotalInvested
+- Add tests/game.test.js (25 tests): canPlace, placeTroop, sellTroop,
+  _addGold, upgradeTroopStat, healTroop, buyTroopShield,
+  findTroopAtTile, _cleanupDead
+- Expand tests/waveManager.test.js (+15): reset, startNextWave,
+  popDueMonster, update, onAllSpawnedAndCleared, _getScaling,
+  currentMultiplier, monstersRemainingThisWave
+- Expand tests/updateManager.test.js (+9): shouldSkip, _isPrerelease,
+  getCollapsed/setCollapsed, getAnnouncedVersion, channel/settings
+- Expand tests/persistence.test.js (+5): speed validation, dead troop
+  filtering, upgrade level serialization, devMonsterCounts
+- Expand tests/devMode.test.js (+7): sellTroop refund, dev mode
+  sell, occupied tile placement, sell cooldown

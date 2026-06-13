@@ -6,13 +6,13 @@ const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.me
 const packageLockJson = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
 
 describe('beta release versioning', () => {
-  it('uses beta pre-release 1.5.1-beta.2 across release metadata', () => {
-    expect(packageJson.version).toBe('1.5.1-beta.2');
-    expect(packageLockJson.version).toBe('1.5.1-beta.2');
-    expect(packageLockJson.packages[''].version).toBe('1.5.1-beta.2');
+  it('uses stable release 1.5.1 across release metadata', () => {
+    expect(packageJson.version).toBe('1.5.1');
+    expect(packageLockJson.version).toBe('1.5.1');
+    expect(packageLockJson.packages[''].version).toBe('1.5.1');
   });
 
-  it('serializes beta pre-release 1.5.1-beta.2 saves', () => {
+  it('serializes stable 1.5.1 saves', () => {
     const data = SaveSerializer.fromGame({
       gold: 100,
       lives: 25,
@@ -24,6 +24,6 @@ describe('beta release versioning', () => {
       troops: [],
     });
 
-    expect(data.version).toBe('1.5.1-beta.2');
+    expect(data.version).toBe('1.5.1');
   });
 });

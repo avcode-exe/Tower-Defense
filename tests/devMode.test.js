@@ -1,10 +1,11 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import { Game } from '../src/game.js';
 import { CONFIG, TROOP_SPECS } from '../src/config.js';
-import { Grid } from '../src/grid.js';
+import { Grid, TILE } from '../src/grid.js';
 import { Troop } from '../src/troop.js';
 import { AUDIO } from '../src/audio.js';
 import { PARTICLES } from '../src/particles.js';
+import { RENDERER } from '../src/rendering/renderer.js';
 
 const archerSpec = TROOP_SPECS.find((spec) => spec.id === 'archer');
 
@@ -30,7 +31,9 @@ describe('dev mode economy', () => {
     vi.spyOn(AUDIO, 'upgrade').mockImplementation(() => {});
     vi.spyOn(AUDIO, 'heal').mockImplementation(() => {});
     vi.spyOn(AUDIO, 'shieldBuy').mockImplementation(() => {});
+    vi.spyOn(AUDIO, 'sell').mockImplementation(() => {});
     vi.spyOn(PARTICLES, 'spawn').mockImplementation(() => {});
+    vi.spyOn(RENDERER, 'markCacheDirty').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -104,5 +107,95 @@ describe('dev mode economy', () => {
 
     expect(devGame.gold).toBe(Infinity);
     expect(normalGame.gold).toBe(CONFIG.MAX_GOLD);
+  });
+
+  describe('sellTroop', () => {
+    it('normal mode: sets troop alive=false and clears tile', () => {
+      const game = makeGame({ devMode: false, gold: 500 });
+      const troop = new Troop(archerSpec, 2, 3);
+      game.troops.push(troop);
+      game._buildTroopTileIndex();
+
+      game.sellTroop(0);
+
+      expect(troop.alive).toBe(false);
+      expect(game.grid.get(2, 3)).toBe(TILE.EMPTY);
+    });
+
+    it('normal mode: refunds ceil(totalInvested * SELL_REFUND_RATIO) gold', () => {
+      const game = makeGame({ devMode: false, gold: 500 });
+      const troop = new Troop(archerSpec, 1, 1);
+      game.troops.push(troop);
+      game._buildTroopTileIndex();
+
+      const invested = troop.getTotalInvested();
+      const expectedRefund = Math.ceil(invested * CONFIG.SELL_REFUND_RATIO);
+      const goldBefore = game.gold;
+
+      game.sellTroop(0);
+
+      expect(game.gold).toBe(goldBefore + expectedRefund);
+    });
+
+    it('dev mode: no gold change (refund is 0)', () => {
+      const game = makeGame({ devMode: true, gold: 0 });
+      const troop = new Troop(archerSpec, 1, 1);
+      game.troops.push(troop);
+      game._buildTroopTileIndex();
+
+      game.sellTroop(0);
+
+      expect(game.gold).toBe(0);
+    });
+
+    it('sets sellCooldownTimer to CONFIG.SELL_COOLDOWN', () => {
+      const game = makeGame({ devMode: false, gold: 500 });
+      const troop = new Troop(archerSpec, 0, 0);
+      game.troops.push(troop);
+      game._buildTroopTileIndex();
+      game.sellCooldownTimer = 0;
+
+      game.sellTroop(0);
+
+      expect(game.sellCooldownTimer).toBe(CONFIG.SELL_COOLDOWN);
+    });
+  });
+
+  describe('canPlace occupied tile', () => {
+    it('returns false when an alive troop is already on the tile', () => {
+      const game = makeGame({ devMode: true, gold: 0 });
+      const troop = new Troop(archerSpec, 3, 4);
+      game.troops.push(troop);
+      game._buildTroopTileIndex();
+
+      expect(game.canPlace(3, 4, archerSpec)).toBe(false);
+    });
+
+    it('returns true when only dead troops are on the tile', () => {
+      const game = makeGame({ devMode: true, gold: 0 });
+      const troop = new Troop(archerSpec, 3, 4);
+      troop.alive = false;
+      game.troops.push(troop);
+      game._buildTroopTileIndex();
+
+      expect(game.canPlace(3, 4, archerSpec)).toBe(true);
+    });
+  });
+
+  describe('sellCooldownTimer', () => {
+    it('cannot sell again while cooldown > 0', () => {
+      const game = makeGame({ devMode: false, gold: 500 });
+      const t1 = new Troop(archerSpec, 0, 0);
+      const t2 = new Troop(archerSpec, 1, 0);
+      game.troops.push(t1, t2);
+      game._buildTroopTileIndex();
+
+      game.sellTroop(0);
+      expect(t1.alive).toBe(false);
+      expect(game.sellCooldownTimer).toBeGreaterThan(0);
+
+      game.sellTroop(1);
+      expect(t2.alive).toBe(true);
+    });
   });
 });

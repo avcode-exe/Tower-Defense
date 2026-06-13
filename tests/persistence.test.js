@@ -131,6 +131,18 @@ describe('SaveSerializer.isValid', () => {
     expect(SaveSerializer.isValid({ ...base, troops: [{ ...troop, healTargetLevel: 1.5 }] })).toBe(false);
     expect(SaveSerializer.isValid({ ...base, troops: [{ ...troop, healTargetLevel: 6 }] })).toBe(false);
   });
+
+  it('rejects negative speed', () => {
+    expect(
+      SaveSerializer.isValid({ seed: 1, troops: [], gold: 100, lives: 25, devMode: false, speed: -1, wave: { currentWave: 1 } })
+    ).toBe(false);
+  });
+
+  it('accepts positive speed', () => {
+    expect(
+      SaveSerializer.isValid({ seed: 1, troops: [], gold: 100, lives: 25, devMode: false, speed: 2, wave: { currentWave: 1 } })
+    ).toBe(true);
+  });
 });
 
 describe('SaveSerializer.fromGame', () => {
@@ -185,7 +197,7 @@ describe('SaveSerializer.fromGame', () => {
     };
     const data = SaveSerializer.fromGame(game);
 
-    expect(data.version).toBe('1.5.1-beta.2');
+    expect(data.version).toBe('1.5.1');
     expect(data.gold).toBe(500);
     expect(data.lives).toBe(20);
     expect(data.seed).toBe(42);
@@ -211,6 +223,99 @@ describe('SaveSerializer.fromGame', () => {
     const data = SaveSerializer.fromGame(game);
     expect(data.gold).toBeNull();
     expect(data.lives).toBeNull();
+  });
+
+  it('filters out dead troops from serialized data', () => {
+    const makeTroop = (alive) => ({
+      alive,
+      spec: { id: 'archer' },
+      gx: 0,
+      gy: 0,
+      hp: 50,
+      maxHp: 50,
+      dmgLevel: 1,
+      rangeLevel: 1,
+      speedLevel: 1,
+      chainLevel: 1,
+      hpLevel: 1,
+      slowLevel: 1,
+      shield: 0,
+      maxShield: 0,
+      healCount: 0,
+      healGoldSpent: 0,
+    });
+    const game = {
+      gold: 100,
+      lives: 25,
+      seed: 1,
+      speed: 1,
+      devMode: false,
+      devMonsterCounts: {},
+      wave: { currentWave: 1 },
+      troops: [makeTroop(false), makeTroop(true), makeTroop(false), makeTroop(true)],
+    };
+    const data = SaveSerializer.fromGame(game);
+    expect(data.troops).toHaveLength(2);
+    expect(data.troops.every((t) => t.specId === 'archer')).toBe(true);
+  });
+
+  it('includes all six upgrade levels in serialized troop data', () => {
+    const game = {
+      gold: 100,
+      lives: 25,
+      seed: 1,
+      speed: 1,
+      devMode: false,
+      devMonsterCounts: {},
+      wave: { currentWave: 1 },
+      troops: [
+        {
+          alive: true,
+          spec: { id: 'knight' },
+          gx: 2,
+          gy: 3,
+          hp: 100,
+          maxHp: 100,
+          dmgLevel: 3,
+          rangeLevel: 2,
+          speedLevel: 4,
+          chainLevel: 1,
+          hpLevel: 5,
+          slowLevel: 2,
+          shield: 0,
+          maxShield: 0,
+          healCount: 0,
+          healGoldSpent: 0,
+        },
+      ],
+    };
+    const data = SaveSerializer.fromGame(game);
+    const serialized = data.troops[0];
+    expect(serialized.dmgLevel).toBe(3);
+    expect(serialized.rangeLevel).toBe(2);
+    expect(serialized.speedLevel).toBe(4);
+    expect(serialized.chainLevel).toBe(1);
+    expect(serialized.hpLevel).toBe(5);
+    expect(serialized.slowLevel).toBe(2);
+  });
+
+  it('serializes devMonsterCounts correctly', () => {
+    const counts = { 1: 5, 2: 3, 3: 1, 4: 0, 5: 0, B: 2, S: 1, X: 0 };
+    const game = {
+      gold: 100,
+      lives: 25,
+      seed: 1,
+      speed: 1,
+      devMode: true,
+      devMonsterCounts: counts,
+      wave: { currentWave: 1 },
+      troops: [],
+    };
+    const data = SaveSerializer.fromGame(game);
+    expect(data.devMonsterCounts).toEqual(counts);
+    // Ensure it's a shallow copy, not a reference
+    counts[1] = 999;
+    expect(data.devMonsterCounts[1]).toBe(5);
   });
 });
 
