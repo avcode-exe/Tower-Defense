@@ -4,7 +4,7 @@ const fs = require('fs');
 const os = require('os');
 const { parseUpdateInfo } = require('electron-updater/out/providers/Provider');
 const { autoUpdater } = require('electron-updater');
-const { selectNewestNewerPrereleaseTag } = require('./src/githubReleaseFeed');
+const { selectNewestNewerPrereleaseTag, selectNewestNewerRelease, resolveDownloadTag } = require('./src/githubReleaseFeed');
 
 Menu.setApplicationMenu(null);
 
@@ -211,17 +211,18 @@ function createReleaseAssetProvider(tag) {
   };
 }
 
-async function getSelectedPrereleaseUpdateInfo(selectedRelease) {
+async function getSelectedReleaseUpdateInfo(selectedRelease, tagOverride) {
+  const downloadTag = tagOverride || selectedRelease.tag;
   const channelFileUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(
-    selectedRelease.tag
+    downloadTag
   )}/latest.yml`;
   const rawData = await fetchText(channelFileUrl);
   const updateInfo = parseUpdateInfo(rawData, 'latest.yml', channelFileUrl);
-  updateInfo.tag = selectedRelease.tag;
+  updateInfo.tag = downloadTag;
   updateInfo.releaseName = selectedRelease.title || updateInfo.releaseName;
   return {
     info: updateInfo,
-    provider: createReleaseAssetProvider(selectedRelease.tag),
+    provider: createReleaseAssetProvider(downloadTag),
   };
 }
 
@@ -236,9 +237,20 @@ function patchGitHubPrereleaseDiscovery() {
 
     try {
       const feedXml = await fetchText(GITHUB_RELEASES_ATOM_URL);
-      const selectedRelease = selectNewestNewerPrereleaseTag(feedXml, app.getVersion());
-      if (!selectedRelease) return originalGetUpdateInfoAndProvider();
-      return getSelectedPrereleaseUpdateInfo(selectedRelease);
+      const currentVersion = app.getVersion();
+      const selectedPrerelease = selectNewestNewerPrereleaseTag(feedXml, currentVersion);
+      if (selectedPrerelease) {
+        const resolved = await resolveDownloadTag(GITHUB_OWNER, GITHUB_REPO, selectedPrerelease.tag);
+        return getSelectedReleaseUpdateInfo(selectedPrerelease, resolved.tag);
+      }
+
+      const selectedStable = selectNewestNewerRelease(feedXml, currentVersion);
+      if (selectedStable) {
+        const resolved = await resolveDownloadTag(GITHUB_OWNER, GITHUB_REPO, selectedStable.tag);
+        return getSelectedReleaseUpdateInfo(selectedStable, resolved.tag);
+      }
+
+      return originalGetUpdateInfoAndProvider();
     } catch (err) {
       console.warn(
         '[auto-updater] prerelease feed scan failed; falling back to electron-updater:',
