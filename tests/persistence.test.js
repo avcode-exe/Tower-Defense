@@ -134,13 +134,29 @@ describe('SaveSerializer.isValid', () => {
 
   it('rejects negative speed', () => {
     expect(
-      SaveSerializer.isValid({ seed: 1, troops: [], gold: 100, lives: 25, devMode: false, speed: -1, wave: { currentWave: 1 } })
+      SaveSerializer.isValid({
+        seed: 1,
+        troops: [],
+        gold: 100,
+        lives: 25,
+        devMode: false,
+        speed: -1,
+        wave: { currentWave: 1 },
+      })
     ).toBe(false);
   });
 
   it('accepts positive speed', () => {
     expect(
-      SaveSerializer.isValid({ seed: 1, troops: [], gold: 100, lives: 25, devMode: false, speed: 2, wave: { currentWave: 1 } })
+      SaveSerializer.isValid({
+        seed: 1,
+        troops: [],
+        gold: 100,
+        lives: 25,
+        devMode: false,
+        speed: 2,
+        wave: { currentWave: 1 },
+      })
     ).toBe(true);
   });
 });

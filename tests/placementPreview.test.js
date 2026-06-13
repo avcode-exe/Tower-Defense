@@ -14,7 +14,9 @@ describe('getSupportHpsForPlacementPreview', () => {
   it('returns HPS for a healer placement preview', () => {
     const healer = { getHps: () => healerSpec.damage / healerSpec.attackSpeed };
 
-    expect(getSupportHpsForPlacementPreview(healerSpec, healer)).toBeCloseTo(healerSpec.damage / healerSpec.attackSpeed);
+    expect(getSupportHpsForPlacementPreview(healerSpec, healer)).toBeCloseTo(
+      healerSpec.damage / healerSpec.attackSpeed
+    );
   });
 
   it('falls back to spec HPS without an existing troop', () => {

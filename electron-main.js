@@ -2,9 +2,16 @@ const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
 const { parseUpdateInfo } = require('electron-updater/out/providers/Provider');
 const { autoUpdater } = require('electron-updater');
-const { selectNewestNewerPrereleaseTag, selectNewestNewerRelease, resolveDownloadTag } = require('./src/githubReleaseFeed');
+const {
+  selectNewestNewerPrereleaseTag,
+  selectNewestNewerRelease,
+  resolveDownloadTag,
+} = require('./src/githubReleaseFeed');
 
 Menu.setApplicationMenu(null);
 
@@ -40,6 +47,21 @@ const DEFAULT_SETTINGS = {
     settings: true,
   },
 };
+
+const MIN_CHECK_INTERVAL_MINUTES = 15;
+const FETCH_TIMEOUT_MS = 30000;
+const MAX_FETCH_REDIRECTS = 5;
+
+function normalizeCheckIntervalMinutes(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? Math.max(MIN_CHECK_INTERVAL_MINUTES, Math.floor(parsed))
+    : MIN_CHECK_INTERVAL_MINUTES;
+}
+
+function formatUpdaterError(err) {
+  return err ? err.message || String(err) : 'Unknown error';
+}
 
 let mainWindow = null;
 let updateCheckInterval = null;
@@ -155,7 +177,37 @@ function applyAutoUpdaterSettings() {
 
 function sendStatus(phase, extra = {}) {
   if (!mainWindow) return;
-  mainWindow.webContents.send('update-status', { phase, ...extra });
+  try {
+    mainWindow.webContents.send('update-status', { phase, ...extra });
+  } catch (err) {
+    console.warn('[update] status send failed:', formatUpdaterError(err));
+  }
+}
+
+function handleUpdaterError(err) {
+  sendStatus('error', { message: formatUpdaterError(err) });
+}
+
+function checkForUpdatesSafely() {
+  try {
+    const result = autoUpdater.checkForUpdates();
+    if (result && typeof result.catch === 'function') {
+      result.catch(handleUpdaterError);
+    }
+  } catch (err) {
+    handleUpdaterError(err);
+  }
+}
+
+function downloadUpdateSafely() {
+  try {
+    const result = autoUpdater.downloadUpdate();
+    if (result && typeof result.catch === 'function') {
+      result.catch(handleUpdaterError);
+    }
+  } catch (err) {
+    handleUpdaterError(err);
+  }
 }
 
 function shouldAnnounceToUser(info, settings) {
@@ -174,12 +226,68 @@ function escapeRegExp(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function requestText(url, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      reject(new Error(`Unsupported protocol: ${parsedUrl.protocol}`));
+      return;
+    }
+
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+    const req = client.get(
+      parsedUrl,
+      {
+        headers: {
+          'User-Agent': 'Tower-Defense-Updater',
+        },
+      },
+      (res) => {
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          if (redirects >= MAX_FETCH_REDIRECTS) {
+            reject(new Error(`Too many redirects for ${url}`));
+            return;
+          }
+          let redirectUrl;
+          try {
+            redirectUrl = new URL(res.headers.location, parsedUrl);
+          } catch (err) {
+            reject(err);
+            return;
+          }
+          requestText(redirectUrl, redirects + 1)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+
+        if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
+          reject(new Error(`Request failed for ${url}: ${res.statusCode} ${res.statusMessage || ''}`.trim()));
+          return;
+        }
+
+        const chunks = [];
+        res.setEncoding('utf8');
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => resolve(chunks.join('')));
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(FETCH_TIMEOUT_MS, () => req.destroy(new Error(`Request timed out for ${url}`)));
+  });
+}
+
 async function fetchText(url) {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Request failed for ${url}: ${response.status} ${response.statusText}`);
-  }
-  return response.text();
+  return requestText(url);
 }
 
 function createReleaseAssetProvider(tag) {
@@ -227,6 +335,10 @@ async function getSelectedReleaseUpdateInfo(selectedRelease, tagOverride) {
 }
 
 function patchGitHubPrereleaseDiscovery() {
+  if (typeof autoUpdater.getUpdateInfoAndProvider !== 'function') {
+    return;
+  }
+
   const originalGetUpdateInfoAndProvider = autoUpdater.getUpdateInfoAndProvider.bind(autoUpdater);
 
   autoUpdater.getUpdateInfoAndProvider = async function getUpdateInfoAndProviderWithPrereleaseScan() {
@@ -316,47 +428,65 @@ ipcMain.handle('get-version', () => {
 });
 
 ipcMain.on('check-updates', () => {
-  autoUpdater.checkForUpdates().catch((err) => {
-    sendStatus('error', { message: err?.message || String(err) });
-  });
+  checkForUpdatesSafely();
 });
 
 ipcMain.on('download-update', () => {
-  autoUpdater.downloadUpdate().catch((err) => {
-    sendStatus('error', { message: err?.message || String(err) });
-  });
+  downloadUpdateSafely();
 });
 
 ipcMain.on('skip-update', (_event, version) => {
-  if (typeof version !== 'string' || version.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(version)) return;
-  const settings = readSettings();
-  if (!settings.update) settings.update = {};
-  settings.update.skippedVersions = settings.update.skippedVersions || [];
-  if (!settings.update.skippedVersions.includes(version)) {
-    settings.update.skippedVersions.push(version);
+  try {
+    if (typeof version !== 'string' || version.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(version)) return;
+    const settings = readSettings();
+    if (!settings.update) settings.update = {};
+    settings.update.skippedVersions = settings.update.skippedVersions || [];
+    if (!settings.update.skippedVersions.includes(version)) {
+      settings.update.skippedVersions.push(version);
+    }
+    writeSettings(settings);
+  } catch (err) {
+    console.error('[update] skip failed:', formatUpdaterError(err));
   }
-  writeSettings(settings);
 });
 
 ipcMain.on('restart-to-update', () => {
-  autoUpdater.quitAndInstall();
+  try {
+    autoUpdater.quitAndInstall();
+  } catch (err) {
+    handleUpdaterError(err);
+  }
 });
 
 ipcMain.on('set-auto-download', (_event, enabled) => {
-  const val = !!enabled;
-  autoUpdater.autoDownload = val;
-  autoUpdater.autoInstallOnAppQuit = val;
+  try {
+    const val = !!enabled;
+    autoUpdater.autoDownload = val;
+    autoUpdater.autoInstallOnAppQuit = val;
+  } catch (err) {
+    console.warn('[auto-updater] set auto download failed:', formatUpdaterError(err));
+  }
 });
 
 ipcMain.on('set-update-channel', (_event, channel) => {
-  if (typeof channel !== 'string') return;
-  const allowed = ['release', 'pre-release'];
-  if (!allowed.includes(channel)) return;
-  autoUpdater.allowPrerelease = channel === 'pre-release';
+  try {
+    if (typeof channel !== 'string') return;
+    const allowed = ['release', 'pre-release'];
+    if (!allowed.includes(channel)) return;
+    autoUpdater.allowPrerelease = channel === 'pre-release';
+  } catch (err) {
+    console.warn('[auto-updater] set update channel failed:', formatUpdaterError(err));
+  }
 });
 
 ipcMain.on('cancel-update', () => {
-  // Stop any in-progress download
+  try {
+    if (typeof autoUpdater.cancelDownload === 'function') {
+      autoUpdater.cancelDownload();
+    }
+  } catch (err) {
+    console.warn('[auto-updater] cancel download failed:', formatUpdaterError(err));
+  }
   autoUpdater.autoDownload = false;
 });
 
@@ -428,20 +558,15 @@ function createWindow() {
 }
 
 function checkForUpdates() {
-  autoUpdater.checkForUpdates().catch((err) => {
-    const errMsg = err ? err.message || String(err) : 'Unknown error';
-    sendStatus('error', { message: errMsg });
-  });
+  checkForUpdatesSafely();
 }
 
 function startPeriodicUpdateCheck() {
   if (updateCheckInterval) return;
   const settings = readSettings();
-  const intervalMs = ((settings.update || {}).checkIntervalMinutes || 60) * 60 * 1000;
+  const intervalMs = normalizeCheckIntervalMinutes((settings.update || {}).checkIntervalMinutes) * 60 * 1000;
   updateCheckInterval = setInterval(() => {
-    autoUpdater.checkForUpdates().catch((err) => {
-      sendStatus('error', { message: err?.message || String(err) });
-    });
+    checkForUpdatesSafely();
   }, intervalMs);
 }
 

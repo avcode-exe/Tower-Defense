@@ -270,9 +270,11 @@ export const PARTICLES = {
 
   clear() {
     this._activeCount = 0;
-    this._nextColorIndex = 0;
+    this._buckets = [];
+    this._bucketKeys = [];
     this._colorToIndex = {};
     this._colorByIndex = [];
+    this._nextColorIndex = 0;
   },
 
   _getColorIndex(color) {

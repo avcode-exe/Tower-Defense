@@ -20,7 +20,6 @@ const EXPECTED_MONSTER_MOVEMENT_SPEEDS = {
   Necromancer: 'slow',
 };
 
-
 describe('CONFIG', () => {
   it('has valid GRID_SIZE', () => {
     expect(CONFIG.GRID_SIZE).toBeGreaterThan(0);

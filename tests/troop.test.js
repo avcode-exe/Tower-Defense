@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { Troop } from '../src/troop.js';
 import { CONFIG, TROOP_SPECS } from '../src/config.js';
 
-const archerSpec = TROOP_SPECS.find(s => s.id === 'archer');
-const swordsmanSpec = TROOP_SPECS.find(s => s.id === 'swordsman');
-const lightningSpec = TROOP_SPECS.find(s => s.id === 'lightning');
-const healerSpec = TROOP_SPECS.find(s => s.id === 'healer');
-const knightSpec = TROOP_SPECS.find(s => s.id === 'knight');
-const icewizSpec = TROOP_SPECS.find(s => s.id === 'icewiz');
+const archerSpec = TROOP_SPECS.find((s) => s.id === 'archer');
+const swordsmanSpec = TROOP_SPECS.find((s) => s.id === 'swordsman');
+const lightningSpec = TROOP_SPECS.find((s) => s.id === 'lightning');
+const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
+const knightSpec = TROOP_SPECS.find((s) => s.id === 'knight');
+const icewizSpec = TROOP_SPECS.find((s) => s.id === 'icewiz');
 
 // ---------- 1. Constructor ----------
 describe('Constructor', () => {
@@ -19,7 +19,8 @@ describe('Constructor', () => {
   });
 
   it('computes position from gx, gy and TILE_SIZE', () => {
-    const gx = 5, gy = 7;
+    const gx = 5,
+      gy = 7;
     const t = new Troop(archerSpec, gx, gy);
     expect(t.x).toBe(gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
     expect(t.y).toBe(gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);

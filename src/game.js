@@ -310,8 +310,10 @@ export class Game {
     if (monster.reviveImmune) {
       dmg = Math.max(1, Math.round(dmg * (monster.reviveDamageRatio ?? 0.5)));
     }
-    // Melee troops take reduced damage from monsters (they can block).
-    if (troop.spec.type === 'melee') dmg = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
+    if (troop.spec.type === 'melee') {
+      const reduced = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
+      dmg = dmg > 0 ? Math.max(1, reduced) : reduced;
+    }
     const killed = troop.takeDamage(dmg);
     this._getPopup('-' + dmg, troop.x + (Math.random() - 0.5) * 8, troop.y - 14, 0.8, '#ff6644');
     PARTICLES.hitSpark(troop.x, troop.y, '#ff8844');
@@ -526,12 +528,17 @@ export class Game {
     }
     this.monsters.length = mw;
     let pw = 0;
+    const deadProjectiles = [];
     for (let i = 0; i < this.projectiles.length; i++) {
-      if (this.projectiles[i].alive) this.projectiles[pw++] = this.projectiles[i];
+      const p = this.projectiles[i];
+      if (p.alive) {
+        this.projectiles[pw++] = p;
+      } else {
+        deadProjectiles.push(p);
+      }
     }
-    // Return dead projectiles to pool (they were overwritten during compaction).
-    for (let i = pw; i < this.projectiles.length; i++) {
-      this._projectilePool.push(this.projectiles[i]);
+    for (let i = 0; i < deadProjectiles.length; i++) {
+      this._projectilePool.push(deadProjectiles[i]);
     }
     this.projectiles.length = pw;
     const selRef = this.selectedTroopIndex >= 0 ? this.troops[this.selectedTroopIndex] : null;
@@ -1091,6 +1098,10 @@ export class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroop = null;
+    this.selectedSpec = null;
+    this.selectedTroopIndex = -1;
+    this.waveCompleteAnim = { active: false, waveNum: 0 };
+    this.lastTime = 0;
     this.accumulator = 0;
   }
 
@@ -1202,14 +1213,9 @@ export class Game {
 
   resetGame() {
     const wasDevMode = this.devMode;
-    this.devMode = false;
     this.devConfirmPending = false;
+    this.devMode = wasDevMode;
     this.restart();
-    if (wasDevMode) {
-      this.devMode = true;
-      const devBtn = document.getElementById('bar-dev-btn');
-      if (devBtn) devBtn.style.display = '';
-    }
   }
 
   _defaultDevCounts() {

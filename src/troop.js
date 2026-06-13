@@ -451,6 +451,8 @@ export class Troop {
   }
 
   takeDamage(amount) {
+    if (!Number.isFinite(amount) || amount <= 0) return false;
+
     // Shield absorbs damage first (mirrors Monster.takeDamage behavior).
     if (this.shield > 0 && amount > 0) {
       if (amount >= this.shield) {

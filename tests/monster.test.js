@@ -11,7 +11,11 @@ function makeMonster(level, hpMult) {
 }
 
 function makeTroop(gx, gy) {
-  return { x: gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2, y: gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2, alive: true };
+  return {
+    x: gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+    y: gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+    alive: true,
+  };
 }
 
 function buildTileIndex(troops, gs) {

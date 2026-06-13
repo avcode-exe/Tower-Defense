@@ -1,5 +1,8 @@
 'use strict';
 
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
 const semver = require('semver');
 const { parseXml } = require('builder-util-runtime');
 
@@ -113,6 +116,32 @@ function selectNewestNewerRelease(feedXml, currentVersion) {
   return candidates.length > 0 ? candidates[0] : null;
 }
 
+function headRequest(url) {
+  return new Promise((resolve, reject) => {
+    const parsedUrl = new URL(url);
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+    const req = client.request(
+      parsedUrl,
+      {
+        method: 'HEAD',
+        headers: {
+          'User-Agent': 'tower-defense-update-checker',
+        },
+      },
+      (res) => {
+        res.resume();
+        resolve(res.statusCode >= 200 && res.statusCode < 300);
+      }
+    );
+
+    req.on('error', reject);
+    req.setTimeout(10000, () => {
+      req.destroy(new Error('Request timed out'));
+    });
+    req.end();
+  });
+}
+
 // Try to resolve the correct GitHub release tag for download URLs.
 // The Atom feed tag may lack the "v" prefix while the actual release uses it.
 async function resolveDownloadTag(owner, repo, feedTag) {
@@ -125,16 +154,12 @@ async function resolveDownloadTag(owner, repo, feedTag) {
     `https://github.com/${owner}/${repo}/releases/download/${encodeURIComponent(tag)}/latest.yml`;
 
   try {
-    const response = await fetch(testUrl(tagWithV), { method: 'HEAD' });
-    if (response.ok) return { tag: tagWithV, variant: 'v-prefixed' };
-  } catch (_) {
-  }
+    if (await headRequest(testUrl(tagWithV))) return { tag: tagWithV, variant: 'v-prefixed' };
+  } catch (_) {}
 
   try {
-    const response = await fetch(testUrl(tagWithoutV), { method: 'HEAD' });
-    if (response.ok) return { tag: tagWithoutV, variant: 'bare' };
-  } catch (_) {
-  }
+    if (await headRequest(testUrl(tagWithoutV))) return { tag: tagWithoutV, variant: 'bare' };
+  } catch (_) {}
 
   return { tag: feedTag, variant: null };
 }

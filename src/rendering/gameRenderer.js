@@ -335,13 +335,14 @@ export function hitTestCursor(game, px, py) {
         py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H
       )
         return 'pointer';
-      // Sell button (below heal).
-      const sellBtnY = healBtnY - LAYOUT.SHOP.HEAL_BTN_H - 4;
+      // Sell button.
+      const sellBtnY = RENDERER.height - LAYOUT.SHOP.SELL_BTN_Y_OFFSET;
+      const sellBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
       if (
         px >= LAYOUT.SHOP.BTN_PAD &&
-        px <= LAYOUT.SHOP.BTN_PAD + healBtnW &&
+        px <= LAYOUT.SHOP.BTN_PAD + sellBtnW &&
         py >= sellBtnY &&
-        py <= sellBtnY + LAYOUT.SHOP.HEAL_BTN_H
+        py <= sellBtnY + LAYOUT.SHOP.SELL_BTN_H
       )
         return 'pointer';
     }
@@ -358,7 +359,7 @@ export function hitTestCursor(game, px, py) {
       if (tileTroops) {
         for (let i = 0; i < tileTroops.length; i++) {
           const t = tileTroops[i];
-          if (t.alive && Math.abs(px - t.x) < CONFIG.TILE_SIZE / 2 && Math.abs(py - t.y) < CONFIG.TILE_SIZE / 2)
+          if (t.alive && Math.abs(w.x - t.x) < CONFIG.TILE_SIZE / 2 && Math.abs(w.y - t.y) < CONFIG.TILE_SIZE / 2)
             return 'pointer';
         }
       }

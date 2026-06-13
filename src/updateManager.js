@@ -189,7 +189,8 @@ export class UpdateManager {
     this._persist();
   }
   setCheckInterval(m) {
-    this.settings.update.checkIntervalMinutes = m;
+    const parsed = Number(m);
+    this.settings.update.checkIntervalMinutes = Number.isFinite(parsed) ? Math.max(15, Math.floor(parsed)) : 15;
     this._persist();
   }
   getCollapsed() {

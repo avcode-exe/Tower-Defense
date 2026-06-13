@@ -114,6 +114,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       hidePopup(openKey);
       // After the close animation finishes, open the target.
       const openPopup = document.getElementById(popupFor[openKey]);
+      if (!openPopup) {
+        openTarget();
+        return;
+      }
       let fallbackTimer = null;
       const onDone = () => {
         openPopup.removeEventListener('transitionend', onDone);

@@ -84,7 +84,9 @@ describe('UpdateManager._isPrerelease', () => {
 });
 
 describe('UpdateManager getCollapsed / setCollapsed', () => {
-  afterEach(() => { delete globalThis.window; });
+  afterEach(() => {
+    delete globalThis.window;
+  });
 
   it('getCollapsed returns the collapsed state object', () => {
     const m = managerWithState('1.5.0', 'release', { collapsed: { hud: true, settings: false } });
@@ -109,7 +111,9 @@ describe('UpdateManager.getAnnouncedVersion', () => {
 });
 
 describe('UpdateManager channel and settings', () => {
-  afterEach(() => { delete globalThis.window; });
+  afterEach(() => {
+    delete globalThis.window;
+  });
 
   it('setChannel updates the channel', () => {
     globalThis.window = {};
