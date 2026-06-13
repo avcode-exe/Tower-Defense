@@ -120,7 +120,7 @@ export function drawPreview(game) {
   c.font = '10px system-ui, sans-serif';
   c.textAlign = 'left';
   c.textBaseline = 'middle';
-  c.fillText('Next Wave', UI_LAYOUT.shopWidth + 12, y + 16);
+  c.fillText('Next Wave', UI_LAYOUT.shopWidth + 12, y + 12);
 
   const preview = game.wave.getNextWavePreview();
   if (!preview) {
@@ -129,8 +129,27 @@ export function drawPreview(game) {
     c.fillText('Prepare...', UI_LAYOUT.shopWidth + 90, y + 18);
     return;
   }
-  const estimate = getWaveEstimate(game?.wave);
+  let cx = UI_LAYOUT.shopWidth + 90;
   const rightEdge = w - UI_LAYOUT.shieldShopWidth - 8;
+  for (const [level, count] of preview) {
+    if (cx + 80 > rightEdge) break;
+    const key = level === 'B' ? 'B' : level;
+    const spec = MONSTER_SPECS[key];
+    c.fillStyle = spec.color;
+    c.beginPath();
+    c.arc(cx + 8, y + 26, 6, 0, Math.PI * 2);
+    c.fill();
+    c.fillStyle = UI_COLORS.textBody;
+    c.font = '12px system-ui, sans-serif';
+    c.textAlign = 'left';
+    c.textBaseline = 'middle';
+    c.fillText('x' + count, cx + 18, y + 26);
+    c.fillStyle = UI_COLORS.textDim;
+    c.font = '9px system-ui, sans-serif';
+    c.fillText(spec.name, cx + 18, y + 42);
+    cx += 80;
+  }
+  const estimate = getWaveEstimate(game?.wave);
   if (estimate) {
     const start = formatSeconds(
       readNumber(estimate, ['startTime', 'startDelay', 'secondsUntilStart', 'timeUntilStart', 'startsIn'])
@@ -160,7 +179,7 @@ export function drawPreview(game) {
     drawEstimateLine(
       c,
       UI_LAYOUT.shopWidth + 12,
-      y + 52,
+      y + 62,
       rightEdge,
       firstLine.length ? firstLine : reviveText ? [reviveText] : []
     );

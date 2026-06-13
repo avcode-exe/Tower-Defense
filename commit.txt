@@ -1,10 +1,9 @@
-Implement milestone 5 wave preview enhancements
+Restore monster preview in wave estimate panel
 
-- Add WaveManager.getNextWaveEstimate() with start timing, clear duration, total gold, leak, and revive-aware estimates
-- Render Start/Clear/Gold/Revive estimates in the bottom wave preview panel
-- Add 8 tests covering estimate structure, active wave timing, gold/leak calculations, revive estimates, scaling, and duration
-- Expand waveManagerPreview.test.js from 16 to 24 tests
+- Add monster icons, counts, and names back to wave preview
+- Position monsters between "Next Wave" title and estimate line
+- Adjust vertical layout for cleaner spacing
 
 Validation:
-- npm test: 473/473 passed
+- npm test -- tests/waveManagerPreview.test.js: 24/24 passed
 - npm run lint: passed
