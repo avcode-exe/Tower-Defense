@@ -1,45 +1,8 @@
-refactor: code quality improvements, deduplication, and bug fixes
+fix: pre-release cleanup for v1.5.1-beta.2
 
-Troop.js:
-- Fix O(n² log n) sort comparator in pickHealTarget by pre-computing a
-  Map index, bringing sort down to O(n log n)
-- Extract monstersInRange() helper to eliminate 4x duplicated tile-index
-  scan loops across pickTarget (melee/ranged), update (melee AOE), and
-  damageMonstersInHealRange
-- Extract STAT_LEVEL_PROPS constant to remove 4x inline stat-to-level
-  mapping object literals
-
-Monster.js:
-- Decompose the 138-line update() method into 6 focused helpers:
-  _updateRegen, _updateSlowDecay, _updateReviveGlow, _updateStopMode,
-  _updateSlowMode, _updatePassMode — reducing the main method to 41 lines
-
-GameRuntime.js:
-- Extract _startRafLoop() to deduplicate the rAF loop setup that was
-  copy-pasted between startLoop() and resumeGame()
-
-WaveManager.js:
-- Extract _buildSpawnQueue() to deduplicate the nearly identical logic
-  in buildQueue() and buildCustomFromCounts()
-
-Particles.js:
-- Replace 9 repetitive effect method pairs (_xxxCfg + method) with a
-  data-driven EFFECT_DEFS table and a generic _spawnEffect() dispatcher,
-  reducing the file by 53 lines
-
-Game.js + Overlays.js:
-- Rename sellConfirmTroopIndex to sellConfirmTroop (the field stores a
-  Troop object reference, not an index — the old name was misleading)
-
-Main.js + CSS:
-- Add spaces after colons in monster info stat labels (HP:, Spd:, etc.)
-- Widen .monster-name from 60px to 100px so longer names like
-  "Necromancer" don't overlap the stats
-
-Formatting:
-- Run eslint --fix and prettier across all source files
-
-README:
-- Update test count from 131 to 190
-- Add Code Quality section documenting architectural patterns
-- Update file descriptions for refactored modules
+- Fix stale fallback version in main.js (1.3.0 → 1.5.1-beta.2) to
+  prevent false update notifications when getVersion() fails
+- Remove noisy console.warn on every OOB grid access in grid.js
+- Downgrade debug console.log to console.warn for filtered updates
+  in electron-main.js auto-updater
+- Remove stale v1.3.0 version reference from monster.js comment

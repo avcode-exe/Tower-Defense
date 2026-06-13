@@ -48,7 +48,7 @@ export class Monster {
     // Passive healing (Boss).
     this.healPerSecond = this.spec.healPerSecond || 0;
 
-    // Slow / shatter mechanics (v1.3.0)
+    // Slow / shatter mechanics
     this.slowTimer = 0;
     this.baseSpeed = this.speed;
     this.shatterArmed = false;

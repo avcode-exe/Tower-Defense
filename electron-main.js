@@ -268,7 +268,7 @@ autoUpdater.on('update-available', (info) => {
   if (shouldAnnounceToUser(info, settings)) {
     sendStatus('available', { version: info.version, type: channel });
   } else {
-    console.log('[auto-updater] filtered (channel/skipped):', info.version, channel);
+    console.warn('[auto-updater] filtered (channel/skipped):', info.version, channel);
   }
 });
 
