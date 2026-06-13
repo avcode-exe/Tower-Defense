@@ -1,20 +1,15 @@
-v1.5.2-beta.1 — Pre-release: auto-update fix for prerelease→stable
+v1.5.2-beta.1 — Placement Preview Enhancement (Milestone 4)
 
-Version bump:
-- Bump version from 1.5.1 to 1.5.2-beta.1 across package.json,
-  package-lock.json, gamePersistence.js, main.js, updateManager.js,
-  and all test assertions
+Placement preview:
+- Add DPS display for damaging troops (melee/ranged) in placement ghost
+- Add getPlacementInvalidReason() on Game class returning human-readable
+  strings: "Not enough gold", "Cannot build here", "Tile occupied"
+- Show invalid placement reason text in red below the ghost tile
+- DPS shown in gold (#f39c12), HPS shown in green (#2ecc71)
+- Preview logic branches: invalid → reason, support → HPS, damaging → DPS
 
-Auto-update fix:
-- Fix pre-release channel users unable to download newer stable releases
-  (e.g., 1.5.1-beta.1 → 1.5.1) due to Atom feed tag "v" prefix mismatch
-- Add selectNewestNewerRelease() to githubReleaseFeed.js that matches
-  both stable and prerelease entries from the Atom feed
-- Add resolveDownloadTag() that probes HEAD latest.yml with and without
-  "v" prefix to find the correct GitHub release tag for download URLs
-- Update electron-main.js patched getUpdateInfoAndProvider to try
-  stable releases after prerelease scan yields nothing
-- Always fetch latest.yml (not beta.yml) in custom update provider
-
-Cleanup:
-- Delete stale git tag 1.5.1 (no "v") that caused Atom feed duplicates
+Tests:
+- Add getDpsForPlacementPreview tests (melee, ranged, sniper, support, null)
+- Add getPlacementInvalidReason tests (valid, gold, devMode, buildable,
+  occupied, dead troops, check ordering)
+- Expand placementPreview.test.js from 3 to 15 tests

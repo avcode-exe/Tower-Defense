@@ -118,6 +118,19 @@ export class Game {
     return true;
   }
 
+  getPlacementInvalidReason(gx, gy, spec) {
+    if (!this.devMode && this.gold < spec.cost) return 'Not enough gold';
+    if (!this.grid.isBuildable(gx, gy)) return 'Cannot build here';
+    const idx = gy * CONFIG.GRID_SIZE + gx;
+    const tileTroops = this._troopTileIndex[idx];
+    if (tileTroops) {
+      for (let i = 0; i < tileTroops.length; i++) {
+        if (tileTroops[i].alive) return 'Tile occupied';
+      }
+    }
+    return null;
+  }
+
   placeTroop(spec, gx, gy) {
     if (!this.canPlace(gx, gy, spec)) return false;
     const t = new Troop(spec, gx, gy);
@@ -1209,4 +1222,17 @@ export class Game {
   resetDevMonsterCounts() {
     this.devMonsterCounts = this._defaultDevCounts();
   }
+}
+
+export function getPlacementInvalidReason(game, gx, gy, spec) {
+  if (!game.devMode && game.gold < spec.cost) return 'Not enough gold';
+  if (!game.grid.isBuildable(gx, gy)) return 'Tile not buildable';
+  const idx = gy * CONFIG.GRID_SIZE + gx;
+  const tileTroops = game._troopTileIndex[idx];
+  if (tileTroops) {
+    for (let i = 0; i < tileTroops.length; i++) {
+      if (tileTroops[i].alive) return 'Tile occupied';
+    }
+  }
+  return null;
 }
