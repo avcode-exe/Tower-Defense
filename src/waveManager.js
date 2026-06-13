@@ -59,36 +59,19 @@ export class WaveManager {
 
   // Build the spawn queue for a given 1-based wave number.
   buildQueue() {
-    this.queue = [];
-    this.spawnIndex = 0;
-    this.elapsed = 0;
     this.currentPreview = this._previewForWave(this.currentWave);
     const spec = this.currentPreview;
-    const cycle = Math.floor(this.currentWave / this.waves.length);
-    const hpMult = this._getScaling(cycle).hpMult;
     const levels = [];
     for (const [level, count] of spec) {
       for (let i = 0; i < count; i += 1) {
         levels.push(level);
       }
     }
-
-    let t = CONFIG.WAVE_START_DELAY;
-    for (const level of shuffleNecromancersInWave(levels)) {
-      const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
-      this.queue.push({ level, spawnAt: t, hpMult });
-      t += interval;
-    }
+    this._buildSpawnQueue(levels);
   }
 
   // Build a custom queue from a counts object {1:N, 2:N, 3:N, 4:N, 5:N, Y:N, B:N, S:N, X:N}.
   buildCustomFromCounts(counts) {
-    this.queue = [];
-    this.spawnIndex = 0;
-    this.elapsed = 0;
-    const cycle = Math.floor(this.currentWave / this.waves.length);
-    const scaling = this._getScaling(cycle);
-    const hpMult = scaling.hpMult;
     const order = MONSTER_DEV_ORDER;
     const levels = [];
     for (const level of order) {
@@ -97,14 +80,7 @@ export class WaveManager {
         levels.push(level);
       }
     }
-
-    let t = CONFIG.WAVE_START_DELAY;
-    for (const level of shuffleNecromancersInWave(levels)) {
-      const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
-      this.queue.push({ level, spawnAt: t, hpMult });
-      t += interval;
-    }
-    // Update preview so UI shows accurate wave composition after custom build.
+    this._buildSpawnQueue(levels);
     const previewMap = {};
     for (const entry of this.queue) {
       previewMap[entry.level] = (previewMap[entry.level] || 0) + 1;
@@ -112,6 +88,20 @@ export class WaveManager {
     this.currentPreview = [];
     for (const [level, count] of Object.entries(previewMap)) {
       this.currentPreview.push([level, Number(count)]);
+    }
+  }
+
+  _buildSpawnQueue(levels) {
+    this.queue = [];
+    this.spawnIndex = 0;
+    this.elapsed = 0;
+    const cycle = Math.floor(this.currentWave / this.waves.length);
+    const hpMult = this._getScaling(cycle).hpMult;
+    let t = CONFIG.WAVE_START_DELAY;
+    for (const level of shuffleNecromancersInWave(levels)) {
+      const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
+      this.queue.push({ level, spawnAt: t, hpMult });
+      t += interval;
     }
   }
 

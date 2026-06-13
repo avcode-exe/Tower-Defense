@@ -39,6 +39,126 @@ export class Particle {
   }
 }
 
+const EFFECT_DEFS = {
+  hitSpark: {
+    cfg: {
+      color: '#fff',
+      minSize: 1,
+      maxSize: 2.5,
+      minSpeed: 40,
+      maxSpeed: 90,
+      minLife: 0.15,
+      maxLife: 0.3,
+      gravity: false,
+    },
+    count: 4,
+  },
+  deathBurst: {
+    cfg: {
+      color: '#fff',
+      minSize: 1.5,
+      maxSize: 3.5,
+      minSpeed: 50,
+      maxSpeed: 130,
+      minLife: 0.25,
+      maxLife: 0.55,
+      gravity: false,
+    },
+    count: 10,
+  },
+  troopDeath: {
+    cfg: {
+      color: '#fff',
+      minSize: 2,
+      maxSize: 5,
+      minSpeed: 50,
+      maxSpeed: 100,
+      minLife: 0.3,
+      maxLife: 0.7,
+      gravity: false,
+    },
+    count: 15,
+  },
+  splashImpact: {
+    cfg: {
+      color: '#9b59b6',
+      minSize: 1.5,
+      maxSize: 3,
+      minSpeed: 60,
+      maxSpeed: 140,
+      minLife: 0.2,
+      maxLife: 0.45,
+      gravity: false,
+    },
+    count: 12,
+  },
+  chainSpark: {
+    cfg: {
+      color: '#f1c40f',
+      minSize: 1,
+      maxSize: 2,
+      minSpeed: 30,
+      maxSpeed: 70,
+      minLife: 0.1,
+      maxLife: 0.2,
+      gravity: false,
+    },
+    count: 3,
+  },
+  troopShieldActivate: {
+    cfg: {
+      color: '#5dade2',
+      minSize: 1.5,
+      maxSize: 3.5,
+      minSpeed: 40,
+      maxSpeed: 100,
+      minLife: 0.3,
+      maxLife: 0.6,
+      gravity: false,
+    },
+    count: 12,
+  },
+  slowApply: {
+    cfg: {
+      color: '#7fdbff',
+      minSize: 2,
+      maxSize: 4,
+      minSpeed: 20,
+      maxSpeed: 60,
+      minLife: 0.4,
+      maxLife: 0.8,
+      gravity: false,
+    },
+    count: 8,
+  },
+  healBurst: {
+    cfg: {
+      color: '#44cc44',
+      minSize: 1.5,
+      maxSize: 3,
+      minSpeed: 20,
+      maxSpeed: 50,
+      minLife: 0.3,
+      maxLife: 0.6,
+      gravity: false,
+    },
+    count: 6,
+  },
+  reviveBurst: {
+    cfg: {
+      color: CONFIG.COLORS.revive,
+      minSize: 1.5,
+      maxSize: 3.5,
+      minSpeed: 25,
+      maxSpeed: 75,
+      minLife: 0.35,
+      maxLife: 0.75,
+      gravity: false,
+    },
+    count: 8,
+  },
+};
+
 export const PARTICLES = {
   _pool: [],
   _activeCount: 0,
@@ -180,139 +300,47 @@ export const PARTICLES = {
     return dst;
   },
 
-  // Predefined effect configs (returned by copy so mutations don't cross-contaminate).
-  _hitSparkCfg: {
-    count: 4,
-    color: '#fff',
-    minSize: 1,
-    maxSize: 2.5,
-    minSpeed: 40,
-    maxSpeed: 90,
-    minLife: 0.15,
-    maxLife: 0.3,
-    gravity: false,
-  },
-  hitSpark(color) {
-    return this._applyCfg(this._hitSparkCfg, color || '#fff');
+  _spawnEffect(name, x, y, overrides) {
+    const def = EFFECT_DEFS[name];
+    const color = (overrides && overrides.color) || def.cfg.color;
+    const cfg = this._applyCfg(def.cfg, color);
+    cfg.count = def.count;
+    this.spawn(x, y, cfg);
   },
 
-  _deathBurstCfg: {
-    count: 10,
-    color: '#fff',
-    minSize: 1.5,
-    maxSize: 3.5,
-    minSpeed: 50,
-    maxSpeed: 130,
-    minLife: 0.25,
-    maxLife: 0.55,
-    gravity: false,
-  },
-  deathBurst(color) {
-    return this._applyCfg(this._deathBurstCfg, color || '#fff');
+  hitSpark(x, y, color) {
+    this._spawnEffect('hitSpark', x, y, color ? { color } : undefined);
   },
 
-  _troopDeathCfg: {
-    count: 15,
-    color: '#fff',
-    minSize: 2,
-    maxSize: 5,
-    minSpeed: 50,
-    maxSpeed: 100,
-    minLife: 0.3,
-    maxLife: 0.7,
-    gravity: false,
-  },
-  troopDeath(color) {
-    return this._applyCfg(this._troopDeathCfg, color || '#fff');
+  deathBurst(x, y, color) {
+    this._spawnEffect('deathBurst', x, y, color ? { color } : undefined);
   },
 
-  _splashImpactCfg: {
-    count: 12,
-    color: '#9b59b6',
-    minSize: 1.5,
-    maxSize: 3,
-    minSpeed: 60,
-    maxSpeed: 140,
-    minLife: 0.2,
-    maxLife: 0.45,
-    gravity: false,
-  },
-  splashImpact(color) {
-    return this._applyCfg(this._splashImpactCfg, color || '#9b59b6');
+  troopDeath(x, y, color) {
+    this._spawnEffect('troopDeath', x, y, color ? { color } : undefined);
   },
 
-  _chainSparkCfg: {
-    count: 3,
-    color: '#f1c40f',
-    minSize: 1,
-    maxSize: 2,
-    minSpeed: 30,
-    maxSpeed: 70,
-    minLife: 0.1,
-    maxLife: 0.2,
-    gravity: false,
-  },
-  chainSpark(color) {
-    return this._applyCfg(this._chainSparkCfg, color || '#f1c40f');
+  splashImpact(x, y, color) {
+    this._spawnEffect('splashImpact', x, y, color ? { color } : undefined);
   },
 
-  _shieldActivateCfg: {
-    count: 12,
-    color: '#5dade2',
-    minSize: 1.5,
-    maxSize: 3.5,
-    minSpeed: 40,
-    maxSpeed: 100,
-    minLife: 0.3,
-    maxLife: 0.6,
-    gravity: false,
-  },
-  troopShieldActivate(color) {
-    return this._applyCfg(this._shieldActivateCfg, color || '#5dade2');
+  chainSpark(x, y) {
+    this._spawnEffect('chainSpark', x, y);
   },
 
-  _slowApplyCfg: {
-    count: 8,
-    color: '#7fdbff',
-    minSize: 2,
-    maxSize: 4,
-    minSpeed: 20,
-    maxSpeed: 60,
-    minLife: 0.4,
-    maxLife: 0.8,
-    gravity: false,
-  },
-  slowApply(color) {
-    return this._applyCfg(this._slowApplyCfg, color || '#7fdbff');
+  troopShieldActivate(x, y, color) {
+    this._spawnEffect('troopShieldActivate', x, y, color ? { color } : undefined);
   },
 
-  _healBurstCfg: {
-    count: 6,
-    color: '#44cc44',
-    minSize: 1.5,
-    maxSize: 3,
-    minSpeed: 20,
-    maxSpeed: 50,
-    minLife: 0.3,
-    maxLife: 0.6,
-    gravity: false,
-  },
-  healBurst(color) {
-    return this._applyCfg(this._healBurstCfg, color || '#44cc44');
+  slowApply(x, y, color) {
+    this._spawnEffect('slowApply', x, y, color ? { color } : undefined);
   },
 
-  _reviveBurstCfg: {
-    count: 8,
-    color: CONFIG.COLORS.revive,
-    minSize: 1.5,
-    maxSize: 3.5,
-    minSpeed: 25,
-    maxSpeed: 75,
-    minLife: 0.35,
-    maxLife: 0.75,
-    gravity: false,
+  healBurst(x, y) {
+    this._spawnEffect('healBurst', x, y);
   },
-  reviveBurst(color) {
-    return this._applyCfg(this._reviveBurstCfg, color || CONFIG.COLORS.revive);
+
+  reviveBurst(x, y, color) {
+    this._spawnEffect('reviveBurst', x, y, color ? { color } : undefined);
   },
 };

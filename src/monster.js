@@ -202,21 +202,19 @@ export class Monster {
     return bestTroop;
   }
 
-  update(dt, troopTileIndex) {
-    if (!this.alive) return;
-    // Shield regeneration after delay (ticks even during stun).
+  _updateRegen(dt) {
     if (this.shield < this.maxShield) {
       this.shieldRegenTimer += dt;
       if (this.shieldRegenTimer >= this.shieldRegenDelay) {
-        // Gradual regen: 20 shield per second after delay.
         this.shield = Math.min(this.maxShield, this.shield + CONFIG.SHIELD_REGEN_RATE * dt);
       }
     }
-    // Passive healing (ticks even during stun).
     if (this.healPerSecond > 0 && this.hp < this.maxHp) {
       this.hp = Math.min(this.maxHp, this.hp + this.healPerSecond * dt);
     }
-    // Slow effect decay
+  }
+
+  _updateSlowDecay(dt) {
     if (this.slowTimer > 0) {
       this.slowTimer -= dt;
       if (this.slowTimer <= 0) {
@@ -226,21 +224,18 @@ export class Monster {
         this._slowColorTint = 0;
       }
     }
+  }
+
+  _updateReviveGlow(dt) {
     if (this._reviveGlowTimer > 0) {
       this._reviveGlowTimer = Math.max(0, this._reviveGlowTimer - dt);
     }
+  }
 
-    // Stunned: count down timer but don't move.
-    if (this.stunTimer > 0) {
-      this.stunTimer = Math.max(0, this.stunTimer - dt);
-      return;
-    }
-
-    const attackMode = this.spec.attackMode || 'stop';
+  _updateStopMode(dt, troopTileIndex) {
     const atkSpd = this.spec.attackSpeed;
     const atkRange = this.spec.attackRange;
 
-    // ATTACKING state (used by 'stop' mode).
     if (this.state === 'ATTACKING') {
       if (!this.attackTarget || !this.attackTarget.alive) {
         this.attackTarget = null;
@@ -261,82 +256,106 @@ export class Monster {
       }
     }
 
-    // MOVING state.
-    if (this.state === 'MOVING') {
-      // Slow mode: reduce speed when a troop is in range, attack while moving.
-      if (attackMode === 'slow' && troopTileIndex) {
-        const nearTarget = this.findTarget(troopTileIndex);
-        if (nearTarget) {
-          // Respect any existing slow debuff (e.g. Ice Wizard) by taking the
-          // slower of the two speeds instead of always overwriting.
-          const slowModeSpeed = this.baseSpeed * 0.5;
-          this.speed = Math.min(this.speed, slowModeSpeed);
-          this.attackTimer -= dt;
-          if (this.attackTimer <= 0) {
-            this.attackTimer = atkSpd;
-            this._pendingAttack = nearTarget;
+    if (this.state === 'MOVING' && troopTileIndex) {
+      const target = this.findTarget(troopTileIndex);
+      if (target) {
+        this.state = 'ATTACKING';
+        this.attackTarget = target;
+        this.attackTimer = atkSpd;
+        this._pendingAttack = target;
+      }
+    }
+  }
+
+  _updateSlowMode(dt, troopTileIndex) {
+    const atkSpd = this.spec.attackSpeed;
+    const nearTarget = this.findTarget(troopTileIndex);
+    if (nearTarget) {
+      const slowModeSpeed = this.baseSpeed * 0.5;
+      this.speed = Math.min(this.speed, slowModeSpeed);
+      this.attackTimer -= dt;
+      if (this.attackTimer <= 0) {
+        this.attackTimer = atkSpd;
+        this._pendingAttack = nearTarget;
+      }
+    } else if (this.slowTimer <= 0) {
+      this.speed = this.baseSpeed;
+    }
+  }
+
+  _updatePassMode(troopTileIndex) {
+    if (!this._hitTroops) this._hitTroops = new Set();
+    if (this._hitTroops.size > 16) {
+      for (const t of this._hitTroops) {
+        if (!t.alive) this._hitTroops.delete(t);
+      }
+    }
+    const gx = this._tileGx;
+    const gy = this._tileGy;
+    const gs = CONFIG.GRID_SIZE;
+    const tileIdx = gy * gs + gx;
+    if (tileIdx !== this._lastPassTile) {
+      this._lastPassTile = tileIdx;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          const tx = gx + dx;
+          const ty = gy + dy;
+          if (tx < 0 || tx >= gs || ty < 0 || ty >= gs) continue;
+          const tileTroops = troopTileIndex[ty * gs + tx];
+          if (!tileTroops) continue;
+          for (let i = 0; i < tileTroops.length; i++) {
+            const t = tileTroops[i];
+            if (t.alive && !this._hitTroops.has(t)) {
+              this._pendingAttack = t;
+              this._hitTroops.add(t);
+              break;
+            }
           }
-        } else if (this.slowTimer <= 0) {
-          this.speed = this.baseSpeed;
+          if (this._pendingAttack) break;
         }
+        if (this._pendingAttack) break;
+      }
+    }
+  }
+
+  update(dt, troopTileIndex) {
+    if (!this.alive) return;
+
+    this._updateRegen(dt);
+    this._updateSlowDecay(dt);
+    this._updateReviveGlow(dt);
+
+    if (this.stunTimer > 0) {
+      this.stunTimer = Math.max(0, this.stunTimer - dt);
+      return;
+    }
+
+    const attackMode = this.spec.attackMode || 'stop';
+
+    if (this.state === 'ATTACKING') {
+      this._updateStopMode(dt, troopTileIndex);
+    }
+
+    if (this.state === 'MOVING') {
+      if (attackMode === 'slow' && troopTileIndex) {
+        this._updateSlowMode(dt, troopTileIndex);
       }
 
       this.distance += this.speed * CONFIG.TILE_SIZE * dt;
 
-      // Clamp to path end.
       if (this.distance >= this.totalLength) {
         this.distance = this.totalLength;
         this.reachedEnd = true;
         this._updatePosition();
-        return; // reached end, no attacking
+        return;
       }
 
       this._updatePosition();
 
-      // Pass-mode penetration: deal damage to each troop at most once while moving.
-      // Prune dead troops from the Set periodically to prevent unbounded growth.
       if (attackMode === 'pass' && troopTileIndex) {
-        if (!this._hitTroops) this._hitTroops = new Set();
-        if (this._hitTroops.size > 16) {
-          for (const t of this._hitTroops) {
-            if (!t.alive) this._hitTroops.delete(t);
-          }
-        }
-        const gx = this._tileGx;
-        const gy = this._tileGy;
-        const gs = CONFIG.GRID_SIZE;
-        const tileIdx = gy * gs + gx;
-        if (tileIdx !== this._lastPassTile) {
-          this._lastPassTile = tileIdx;
-          for (let dy = -1; dy <= 1; dy++) {
-            for (let dx = -1; dx <= 1; dx++) {
-              const tx = gx + dx;
-              const ty = gy + dy;
-              if (tx < 0 || tx >= gs || ty < 0 || ty >= gs) continue;
-              const tileTroops = troopTileIndex[ty * gs + tx];
-              if (!tileTroops) continue;
-              for (let i = 0; i < tileTroops.length; i++) {
-                const t = tileTroops[i];
-                if (t.alive && !this._hitTroops.has(t)) {
-                  this._pendingAttack = t;
-                  this._hitTroops.add(t);
-                  break;
-                }
-              }
-              if (this._pendingAttack) break;
-            }
-            if (this._pendingAttack) break;
-          }
-        }
+        this._updatePassMode(troopTileIndex);
       } else if (attackMode === 'stop' && troopTileIndex) {
-        // Stop mode: check for nearby troops to attack.
-        const target = this.findTarget(troopTileIndex);
-        if (target) {
-          this.state = 'ATTACKING';
-          this.attackTarget = target;
-          this.attackTimer = atkSpd;
-          this._pendingAttack = target;
-        }
+        this._updateStopMode(dt, troopTileIndex);
       }
     }
   }

@@ -80,7 +80,7 @@ export class Game {
     this._goldClickTimer = 0;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
-    this.sellConfirmTroopIndex = null;
+    this.sellConfirmTroop = null;
     this.devMonsterCounts = this._defaultDevCounts();
   }
 
@@ -190,7 +190,7 @@ export class Game {
     t.applyShield();
     this._getPopup('SHIELD!', t.x, t.y - 12, 1.0, '#5dade2');
     if (PARTICLES && PARTICLES.troopShieldActivate) {
-      PARTICLES.spawn(t.x, t.y, PARTICLES.troopShieldActivate(t.spec.color));
+      PARTICLES.troopShieldActivate(t.x, t.y, t.spec.color);
       AUDIO.shieldBuy();
     }
     return true;
@@ -242,7 +242,7 @@ export class Game {
       this._addGold(awardedGold);
       AUDIO.goldEarned();
       this._getPopup('+' + awardedGold, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
-      PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
+      PARTICLES.deathBurst(m.x, m.y, m.spec.color);
       m.reviveGlow = false;
       m._reviveGlowTimer = 0;
       // Split monster: if level > 1, spawn 2 monsters one split tier lower at this
@@ -267,7 +267,7 @@ export class Game {
       } else {
         this._getPopup(String(Math.round(r.hpDamage)), m.x, m.y - 6, 0.6, '#fff');
       }
-      PARTICLES.spawn(m.x, m.y, PARTICLES.hitSpark('#fff'));
+      PARTICLES.hitSpark(m.x, m.y, '#fff');
     }
     return r.killed;
   }
@@ -277,7 +277,7 @@ export class Game {
     troop.alive = false;
     this.grid.set(troop.gx, troop.gy, TILE.EMPTY);
     RENDERER.markCacheDirty();
-    PARTICLES.spawn(troop.x, troop.y, PARTICLES.troopDeath(troop.spec.color));
+    PARTICLES.troopDeath(troop.x, troop.y, troop.spec.color);
     this._getPopup('\u2620 Destroyed', troop.x, troop.y - 12, 1.0, '#ff4444');
     this._buildTroopTileIndex();
     if (this.selectedTroopIndex >= 0) {
@@ -285,9 +285,9 @@ export class Game {
       if (!sel || !sel.alive) this.selectedTroopIndex = -1;
     }
     // Clear sell confirmation if the confirmed troop was killed.
-    if (this.sellConfirmPending && this.sellConfirmTroopIndex === troop) {
+    if (this.sellConfirmPending && this.sellConfirmTroop === troop) {
       this.sellConfirmPending = false;
-      this.sellConfirmTroopIndex = null;
+      this.sellConfirmTroop = null;
     }
   }
 
@@ -301,7 +301,7 @@ export class Game {
     if (troop.spec.type === 'melee') dmg = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
     const killed = troop.takeDamage(dmg);
     this._getPopup('-' + dmg, troop.x + (Math.random() - 0.5) * 8, troop.y - 14, 0.8, '#ff6644');
-    PARTICLES.spawn(troop.x, troop.y, PARTICLES.hitSpark('#ff8844'));
+    PARTICLES.hitSpark(troop.x, troop.y, '#ff8844');
     if (killed) {
       this.killTroop(troop);
     }
@@ -340,7 +340,7 @@ export class Game {
   // DRY: Apply slow effect to a monster from a troop.
   _applySlowToMonster(monster, troop) {
     if (monster.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
-      PARTICLES.spawn(monster.x, monster.y, PARTICLES.slowApply(troop.spec.color));
+      PARTICLES.slowApply(monster.x, monster.y, troop.spec.color);
     }
   }
 
@@ -485,7 +485,7 @@ export class Game {
         best._reviveGlowTimer = necro.spec.reviveGlowDuration ?? glowDuration;
         best._reviveLock = true;
         this._getPopup('Revived', best.x, best.y - 12, 0.9, CONFIG.COLORS.revive);
-        PARTICLES.spawn(best.x, best.y, PARTICLES.reviveBurst(CONFIG.COLORS.revive));
+        PARTICLES.reviveBurst(best.x, best.y, CONFIG.COLORS.revive);
       }
     }
   }
@@ -726,7 +726,7 @@ export class Game {
           this.monsters[j].stunTimer = Math.max(this.monsters[j].stunTimer, stunDuration);
         }
       }
-      PARTICLES.spawn(srcX, srcY, PARTICLES.chainSpark());
+      PARTICLES.chainSpark(srcX, srcY);
       return m;
     };
 
@@ -816,7 +816,7 @@ export class Game {
         }
       }
     }
-    PARTICLES.spawn(x, y, PARTICLES.splashImpact(troop ? troop.spec.color : '#9b59b6'));
+    PARTICLES.splashImpact(x, y, troop ? troop.spec.color : '#9b59b6');
     return hitMonsters;
   }
 
@@ -855,12 +855,12 @@ export class Game {
     if (this._hitBox(px, py, UI._devConfirmYes)) {
       if (this.sellConfirmPending) {
         this.sellConfirmPending = false;
-        const ref = this.sellConfirmTroopIndex;
+        const ref = this.sellConfirmTroop;
         if (ref && ref.alive) {
           const idx = this.troops.indexOf(ref);
           if (idx >= 0) this.sellTroop(idx);
         }
-        this.sellConfirmTroopIndex = null;
+        this.sellConfirmTroop = null;
       } else if (this.resetConfirmPending) {
         this.resetConfirmPending = false;
         this.resetGame();
@@ -874,7 +874,7 @@ export class Game {
       this.devConfirmPending = false;
       this.resetConfirmPending = false;
       this.sellConfirmPending = false;
-      this.sellConfirmTroopIndex = null;
+      this.sellConfirmTroop = null;
       return;
     }
   }
@@ -971,7 +971,7 @@ export class Game {
       if (this.devMode) {
         this.sellTroop(this.selectedTroopIndex);
       } else {
-        this.sellConfirmTroopIndex = this.troops[this.selectedTroopIndex];
+        this.sellConfirmTroop = this.troops[this.selectedTroopIndex];
         this.sellConfirmPending = true;
       }
     }
@@ -1077,7 +1077,7 @@ export class Game {
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
-    this.sellConfirmTroopIndex = null;
+    this.sellConfirmTroop = null;
     this.accumulator = 0;
   }
 
@@ -1173,7 +1173,7 @@ export class Game {
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
-    this.sellConfirmTroopIndex = null;
+    this.sellConfirmTroop = null;
     this.seed = Math.floor(Math.random() * 0xffffffff);
     GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();

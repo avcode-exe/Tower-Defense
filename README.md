@@ -162,9 +162,22 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit test suite (131 tests)
+- **Vitest** — unit test suite (190 tests)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
+
+## Code Quality
+
+The codebase follows consistent patterns for maintainability:
+
+- **Tile-index spatial lookups** — O(1) neighbor queries via `_monsterTileIndex` and `_troopTileIndex`, with a shared `monstersInRange()` helper eliminating scan duplication
+- **Data-driven particle effects** — all 9 effect types defined in a single `EFFECT_DEFS` table with identical configs, spawned via a generic `_spawnEffect()` dispatcher
+- **Config-driven design** — all game tuning constants, monster specs, troop specs, and wave definitions live in `config.js`
+- **Entity pooling** — projectiles, popups, and tile-index arrays are recycled to minimize GC pressure
+- **Offscreen canvas caching** — static grid/path layers rendered once to offscreen canvases
+- **Path2D caching** — troop rounded-rectangle paths created once and reused across frames
+- **Fixed-timestep simulation** — deterministic game logic decoupled from frame rate via accumulator
+- **Zero-allocation coordinate helpers** — `_into` variants (`tileCenterInto`, `pixelToTile`, `shopCardRectInto`) write into pre-allocated output objects
 
 ## Project Structure
 
@@ -176,11 +189,11 @@ src/
   config.js          # Game constants and tuning values
   grid.js            # 16x16 grid management
   troop.js           # Troop definitions, upgrades, and combat
-  monster.js         # Monster AI, pathfinding, and splitting
+  monster.js         # Monster AI, pathfinding, splitting, and attack modes
   projectile.js      # Projectile logic (bullets, chains, splash)
   waveManager.js     # Wave spawning and progression
   pathGenerator.js   # Procedural path generation
-  particles.js       # Particle effects
+  particles.js       # Data-driven particle effects with pooling
   audio.js           # Sound management
   input.js           # Keyboard and mouse input
   gamePersistence.js # Save/load game state
@@ -246,7 +259,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (131 tests)
+npm test             # Run test suite (190 tests)
 npm run test:watch   # Run tests in watch mode
 ```
 

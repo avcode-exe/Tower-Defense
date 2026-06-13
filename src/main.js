@@ -585,13 +585,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.textContent = t;
         return e;
       };
-      stats.appendChild(statSpan('HP:' + spec.hp));
-      stats.appendChild(statSpan('Spd:' + spec.speed));
+      stats.appendChild(statSpan('HP: ' + spec.hp));
+      stats.appendChild(statSpan('Spd: ' + spec.speed));
       stats.appendChild(statSpan('+' + spec.reward + 'g'));
-      stats.appendChild(statSpan('Dmg:' + spec.damage));
-      stats.appendChild(statSpan('Leak:' + spec.leak));
+      stats.appendChild(statSpan('Dmg: ' + spec.damage));
+      stats.appendChild(statSpan('Leak: ' + spec.leak));
       if (spec.shield)
-        stats.appendChild(statSpan('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
+        stats.appendChild(statSpan('Shield: ' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
       const mode = spec.attackMode || 'stop';
       if (mode === 'slow') {
         stats.appendChild(statSpan('Slow: slows near troops, attacks closest'));

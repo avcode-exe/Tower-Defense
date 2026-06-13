@@ -2,6 +2,34 @@ import { CONFIG, TROOP_SPECS } from './config.js';
 import { PARTICLES } from './particles.js';
 import { AUDIO } from './audio.js';
 
+const STAT_LEVEL_PROPS = {
+  dmg: 'dmgLevel',
+  range: 'rangeLevel',
+  speed: 'speedLevel',
+  chain: 'chainLevel',
+  slow: 'slowLevel',
+  hp: 'hpLevel',
+};
+
+function monstersInRange(gx, gy, range, monsterTileIndex, gridSize) {
+  const results = [];
+  const r = Math.ceil(range);
+  for (let dx = -r; dx <= r; dx++) {
+    for (let dy = -r; dy <= r; dy++) {
+      const tx = gx + dx;
+      const ty = gy + dy;
+      if (tx < 0 || tx >= gridSize || ty < 0 || ty >= gridSize) continue;
+      const tile = monsterTileIndex[ty * gridSize + tx];
+      if (tile) {
+        for (let i = 0; i < tile.length; i++) {
+          results.push(tile[i]);
+        }
+      }
+    }
+  }
+  return results;
+}
+
 // A troop is a static defender placed on a tile. It has a target, a cooldown
 // timer, and HP. Melee troops deal direct damage each swing; ranged troops
 // spawn a Projectile.
@@ -112,14 +140,11 @@ export class Troop {
 
   // Cost for next upgrade of a stat: base cost * 1.35^(level-1).
   getUpgradeCost(stat) {
-    const levelMap = {
-      dmg: this.dmgLevel,
-      range: this.rangeLevel,
-      speed: this.speedLevel,
-      chain: this.chainLevel,
-      hp: this.hpLevel,
-      slow: this.spec.type === 'support' ? this.healTargetLevel : this.slowLevel,
-    };
+    const levelMap = {};
+    for (const [key, prop] of Object.entries(STAT_LEVEL_PROPS)) {
+      levelMap[key] = this[prop];
+    }
+    if (this.spec.type === 'support') levelMap.slow = this.healTargetLevel;
     const level = levelMap[stat];
     if (level === undefined) return Infinity;
     return Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
@@ -142,14 +167,7 @@ export class Troop {
       this.healTargetLevel++;
       return true;
     }
-    const levelProp = {
-      dmg: 'dmgLevel',
-      range: 'rangeLevel',
-      speed: 'speedLevel',
-      chain: 'chainLevel',
-      hp: 'hpLevel',
-      slow: 'slowLevel',
-    }[stat];
+    const levelProp = STAT_LEVEL_PROPS[stat];
     if (!levelProp) return false;
     if (this[levelProp] >= this.maxUpgradeLevel) return false;
     this[levelProp]++;
@@ -167,14 +185,7 @@ export class Troop {
   isMaxed(stat) {
     if (!this.canUpgrade(stat)) return true;
     if (stat === 'slow' && this.spec.type === 'support') return this.healTargetLevel >= this.maxUpgradeLevel;
-    const levelProp = {
-      dmg: 'dmgLevel',
-      range: 'rangeLevel',
-      speed: 'speedLevel',
-      chain: 'chainLevel',
-      hp: 'hpLevel',
-      slow: 'slowLevel',
-    }[stat];
+    const levelProp = STAT_LEVEL_PROPS[stat];
     if (!levelProp) return false;
     return this[levelProp] >= this.maxUpgradeLevel;
   }
@@ -238,14 +249,11 @@ export class Troop {
   // Total gold invested in this troop (base cost + all upgrades).
   getTotalInvested() {
     let total = this.spec.cost;
-    const levelMap = {
-      dmg: this.dmgLevel,
-      range: this.rangeLevel,
-      speed: this.speedLevel,
-      chain: this.chainLevel,
-      hp: this.hpLevel,
-      slow: this.spec.type === 'support' ? this.healTargetLevel : this.slowLevel,
-    };
+    const levelMap = {};
+    for (const [key, prop] of Object.entries(STAT_LEVEL_PROPS)) {
+      levelMap[key] = this[prop];
+    }
+    if (this.spec.type === 'support') levelMap.slow = this.healTargetLevel;
     for (const stat of ['dmg', 'range', 'speed', 'chain', 'hp', 'slow']) {
       const level = levelMap[stat];
       for (let l = 1; l < level; l++) {
@@ -309,6 +317,7 @@ export class Troop {
       }
     }
 
+    const troopIndexMap = new Map(troops.map((t, i) => [t, i]));
     this.healTargets.sort((a, b) => {
       const dxA = a.x - this.x;
       const dyA = a.y - this.y;
@@ -319,13 +328,13 @@ export class Troop {
           hpRatio: a.getHpRatio(),
           hp: a.hp,
           distSq: dxA * dxA + dyA * dyA,
-          index: troops.indexOf(a),
+          index: troopIndexMap.get(a),
         },
         {
           hpRatio: b.getHpRatio(),
           hp: b.hp,
           distSq: dxB * dxB + dyB * dyB,
-          index: troops.indexOf(b),
+          index: troopIndexMap.get(b),
         }
       );
     });
@@ -345,27 +354,15 @@ export class Troop {
     const typx = this.y;
     const tileIndex = game._monsterTileIndex;
     if (Array.isArray(tileIndex)) {
-      const tileRange = Math.ceil(this._cachedRange + CONFIG.TILE_BUFFER);
-      const G = CONFIG.GRID_SIZE;
-      const gx0 = this.gx;
-      const gy0 = this.gy;
-      for (let dy = -tileRange; dy <= tileRange; dy++) {
-        const ty = gy0 + dy;
-        if (ty < 0 || ty >= G) continue;
-        for (let dx = -tileRange; dx <= tileRange; dx++) {
-          const tx = gx0 + dx;
-          if (tx < 0 || tx >= G) continue;
-          const nearbyMonsters = tileIndex[ty * G + tx];
-          if (!nearbyMonsters) continue;
-          for (let i = 0; i < nearbyMonsters.length; i++) {
-            const m = nearbyMonsters[i];
-            if (!m.alive) continue;
-            const mx = m.x - txpx,
-              my = m.y - typx;
-            if (mx * mx + my * my <= rangePxSq) {
-              game.damageMonster(m, monsterDamage);
-            }
-          }
+      const tileRange = this._cachedRange + CONFIG.TILE_BUFFER;
+      const candidates = monstersInRange(this.gx, this.gy, tileRange, tileIndex, CONFIG.GRID_SIZE);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
+        if (!m.alive) continue;
+        const mx = m.x - txpx,
+          my = m.y - typx;
+        if (mx * mx + my * my <= rangePxSq) {
+          game.damageMonster(m, monsterDamage);
         }
       }
       return;
@@ -391,22 +388,14 @@ export class Troop {
       let best = null;
       let bestDist = range + tileBuf + 1;
       if (tileIndex) {
-        for (let dx = -1; dx <= 1; dx++) {
-          for (let dy = -1; dy <= 1; dy++) {
-            const tx = tgx + dx;
-            const ty = tgy + dy;
-            if (tx < 0 || tx >= G || ty < 0 || ty >= G) continue;
-            const tileMonsters = tileIndex[ty * G + tx];
-            if (!tileMonsters) continue;
-            for (let i = 0; i < tileMonsters.length; i++) {
-              const m = tileMonsters[i];
-              if (!m.alive) continue;
-              const d = m.tileDistanceTo(tgx, tgy);
-              if (d <= range + tileBuf && d < bestDist) {
-                bestDist = d;
-                best = m;
-              }
-            }
+        const candidates = monstersInRange(tgx, tgy, 1, tileIndex, G);
+        for (let i = 0; i < candidates.length; i++) {
+          const m = candidates[i];
+          if (!m.alive) continue;
+          const d = m.tileDistanceTo(tgx, tgy);
+          if (d <= range + tileBuf && d < bestDist) {
+            bestDist = d;
+            best = m;
           }
         }
         return best;
@@ -429,25 +418,17 @@ export class Troop {
     const typx = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
     const rangePxSq = rangePx * rangePx;
     if (tileIndex) {
-      const tileRange = Math.ceil(range + tileBuf);
-      for (let dy = -tileRange; dy <= tileRange; dy++) {
-        for (let dx = -tileRange; dx <= tileRange; dx++) {
-          const tx = tgx + dx;
-          const ty = tgy + dy;
-          if (tx < 0 || tx >= G || ty < 0 || ty >= G) continue;
-          const tileMonsters = tileIndex[ty * CONFIG.GRID_SIZE + tx];
-          if (!tileMonsters) continue;
-          for (let i = 0; i < tileMonsters.length; i++) {
-            const m = tileMonsters[i];
-            if (!m.alive) continue;
-            const dx2 = m.x - txpx,
-              dy2 = m.y - typx;
-            if (dx2 * dx2 + dy2 * dy2 <= rangePxSq) {
-              if (m.progress > bestProgress) {
-                bestProgress = m.progress;
-                best = m;
-              }
-            }
+      const tileRange = range + tileBuf;
+      const candidates = monstersInRange(tgx, tgy, tileRange, tileIndex, G);
+      for (let i = 0; i < candidates.length; i++) {
+        const m = candidates[i];
+        if (!m.alive) continue;
+        const dx2 = m.x - txpx,
+          dy2 = m.y - typx;
+        if (dx2 * dx2 + dy2 * dy2 <= rangePxSq) {
+          if (m.progress > bestProgress) {
+            bestProgress = m.progress;
+            best = m;
           }
         }
       }
@@ -525,7 +506,7 @@ export class Troop {
         const actual = Math.ceil(t.hp - prevHp);
         if (actual > 0) {
           game._getPopup('+' + actual, t.x, t.y - 10, 0.8, '#44cc44');
-          PARTICLES.spawn(t.x, t.y, PARTICLES.healBurst());
+          PARTICLES.healBurst(t.x, t.y);
           t.healBeam = { troop: this, timer: 0.6 };
         }
       }
@@ -550,20 +531,12 @@ export class Troop {
         const rng = this._cachedRange;
         const tileIndex = game._monsterTileIndex;
         if (tileIndex) {
-          for (let dx = -1; dx <= 1; dx++) {
-            for (let dy = -1; dy <= 1; dy++) {
-              const tx = this.gx + dx;
-              const ty = this.gy + dy;
-              if (tx < 0 || tx >= CONFIG.GRID_SIZE || ty < 0 || ty >= CONFIG.GRID_SIZE) continue;
-              const tileMonsters = tileIndex[ty * CONFIG.GRID_SIZE + tx];
-              if (!tileMonsters) continue;
-              for (let i = 0; i < tileMonsters.length; i++) {
-                const m = tileMonsters[i];
-                if (!m.alive) continue;
-                if (m.tileDistanceTo(this.gx, this.gy) <= rng + CONFIG.TILE_BUFFER) {
-                  game.damageMonster(m, dmg);
-                }
-              }
+          const candidates = monstersInRange(this.gx, this.gy, 1, tileIndex, CONFIG.GRID_SIZE);
+          for (let i = 0; i < candidates.length; i++) {
+            const m = candidates[i];
+            if (!m.alive) continue;
+            if (m.tileDistanceTo(this.gx, this.gy) <= rng + CONFIG.TILE_BUFFER) {
+              game.damageMonster(m, dmg);
             }
           }
         } else {
