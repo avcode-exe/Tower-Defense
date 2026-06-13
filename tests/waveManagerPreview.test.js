@@ -51,7 +51,10 @@ describe('WaveManager.getNextWavePreview()', () => {
     const preview = wave.getNextWavePreview();
 
     // WAVES[2] = [[1, 6], [2, 6]] — wave 3 has 6 Grunts + 6 Runners
-    expect(preview).toEqual([[1, 6], [2, 6]]);
+    expect(preview).toEqual([
+      [1, 6],
+      [2, 6],
+    ]);
   });
 });
 
@@ -242,10 +245,7 @@ describe('WaveManager.getNextWaveEstimate()', () => {
 
     const estimate = wave.getNextWaveEstimate();
     const expectedLeak =
-      10 * MONSTER_SPECS[4].leak +
-      4 * MONSTER_SPECS[5].leak +
-      1 * MONSTER_SPECS.Y.leak +
-      2 * MONSTER_SPECS[3].leak;
+      10 * MONSTER_SPECS[4].leak + 4 * MONSTER_SPECS[5].leak + 1 * MONSTER_SPECS.Y.leak + 2 * MONSTER_SPECS[3].leak;
 
     expect(estimate.totalLeak).toBe(expectedLeak);
   });

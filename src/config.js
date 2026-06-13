@@ -418,7 +418,7 @@ export const TROOP_SPECS = [
     splash: 0,
     color: '#2ecc71',
     hp: 40,
-    monsterDamage: 2,
+    monsterDamage: 3,
     desc: 'Support unit with 40 HP. Heals damaged allies and damages nearby monsters. Upgrades increase healing and target count.',
   },
 ];

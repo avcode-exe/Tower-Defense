@@ -231,7 +231,7 @@ export class WaveManager {
     );
     if (revivedCount <= 0) return null;
 
-    const avgReward = totalHp > 0 ? totalHp / Math.max(1, nonNecromancerCount) * 0.08 : 0;
+    const avgReward = totalHp > 0 ? (totalHp / Math.max(1, nonNecromancerCount)) * 0.08 : 0;
     const additionalGold = Math.round(revivedCount * avgReward);
     const additionalDuration = revivedCount * CONFIG.SPAWN_INTERVAL * 0.5;
 

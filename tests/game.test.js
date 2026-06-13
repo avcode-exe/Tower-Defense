@@ -496,8 +496,15 @@ describe('spawnMonster', () => {
   let game;
   beforeEach(() => {
     game = makeGame();
-    game.waypoints = [[0, 0], [5, 0], [5, 5]];
-    game.pathSegments = { segments: [{ ax: 0, ay: 0, bx: 5 * CONFIG.TILE_SIZE, by: 0, len: 5 * CONFIG.TILE_SIZE, cumStart: 0 }], totalLength: 5 * CONFIG.TILE_SIZE };
+    game.waypoints = [
+      [0, 0],
+      [5, 0],
+      [5, 5],
+    ];
+    game.pathSegments = {
+      segments: [{ ax: 0, ay: 0, bx: 5 * CONFIG.TILE_SIZE, by: 0, len: 5 * CONFIG.TILE_SIZE, cumStart: 0 }],
+      totalLength: 5 * CONFIG.TILE_SIZE,
+    };
   });
 
   afterEach(() => {
@@ -542,7 +549,11 @@ describe('markPathTiles', () => {
   });
 
   it('marks waypoint tiles as PATH on the grid', () => {
-    game.waypoints = [[2, 3], [4, 5], [7, 8]];
+    game.waypoints = [
+      [2, 3],
+      [4, 5],
+      [7, 8],
+    ];
     game.grid.set(2, 3, TILE.EMPTY);
     game.grid.set(4, 5, TILE.EMPTY);
     game.grid.set(7, 8, TILE.EMPTY);
@@ -574,8 +585,15 @@ describe('chainHitAt', () => {
   let lightningSpec;
   beforeEach(() => {
     game = makeGame();
-    game.waypoints = [[0, 0], [5, 0], [5, 5]];
-    game.pathSegments = { segments: [{ ax: 0, ay: 0, bx: 5 * CONFIG.TILE_SIZE, by: 0, len: 5 * CONFIG.TILE_SIZE, cumStart: 0 }], totalLength: 5 * CONFIG.TILE_SIZE };
+    game.waypoints = [
+      [0, 0],
+      [5, 0],
+      [5, 5],
+    ];
+    game.pathSegments = {
+      segments: [{ ax: 0, ay: 0, bx: 5 * CONFIG.TILE_SIZE, by: 0, len: 5 * CONFIG.TILE_SIZE, cumStart: 0 }],
+      totalLength: 5 * CONFIG.TILE_SIZE,
+    };
     game._chainBuf = [];
     game._tileIndexPool = [];
     lightningSpec = TROOP_SPECS.find((s) => s.id === 'lightning');
@@ -660,8 +678,15 @@ describe('splashAt', () => {
   let mortarSpec;
   beforeEach(() => {
     game = makeGame();
-    game.waypoints = [[0, 0], [5, 0], [5, 5]];
-    game.pathSegments = { segments: [{ ax: 0, ay: 0, bx: 5 * CONFIG.TILE_SIZE, by: 0, len: 5 * CONFIG.TILE_SIZE, cumStart: 0 }], totalLength: 5 * CONFIG.TILE_SIZE };
+    game.waypoints = [
+      [0, 0],
+      [5, 0],
+      [5, 5],
+    ];
+    game.pathSegments = {
+      segments: [{ ax: 0, ay: 0, bx: 5 * CONFIG.TILE_SIZE, by: 0, len: 5 * CONFIG.TILE_SIZE, cumStart: 0 }],
+      totalLength: 5 * CONFIG.TILE_SIZE,
+    };
     game._splashHitBuf = [];
     game._tileIndexPool = [];
     mortarSpec = TROOP_SPECS.find((s) => s.id === 'mortar');
@@ -751,8 +776,18 @@ describe('restart', () => {
   beforeEach(() => {
     globalThis.window = { electron: undefined };
     game = makeGame({ devMode: false, gold: 500 });
-    game.runtime = { stopLoop: vi.fn(), startLoop: vi.fn(), installResize: vi.fn(), applyDefeat: vi.fn(), togglePause: vi.fn(), startWave: vi.fn() };
-    game.waypoints = [[0, 0], [5, 5]];
+    game.runtime = {
+      stopLoop: vi.fn(),
+      startLoop: vi.fn(),
+      installResize: vi.fn(),
+      applyDefeat: vi.fn(),
+      togglePause: vi.fn(),
+      startWave: vi.fn(),
+    };
+    game.waypoints = [
+      [0, 0],
+      [5, 5],
+    ];
     game.pathSegments = { segments: [], totalLength: 100 };
     game.wave = { currentWave: 0, spawnIndex: 0, queue: [], onAllSpawnedAndCleared: vi.fn() };
     vi.spyOn(RENDERER, 'markCacheDirty').mockImplementation(() => {});
@@ -855,8 +890,18 @@ describe('resetGame', () => {
   beforeEach(() => {
     globalThis.window = { electron: undefined };
     game = makeGame({ devMode: false, gold: 500 });
-    game.runtime = { stopLoop: vi.fn(), startLoop: vi.fn(), installResize: vi.fn(), applyDefeat: vi.fn(), togglePause: vi.fn(), startWave: vi.fn() };
-    game.waypoints = [[0, 0], [5, 5]];
+    game.runtime = {
+      stopLoop: vi.fn(),
+      startLoop: vi.fn(),
+      installResize: vi.fn(),
+      applyDefeat: vi.fn(),
+      togglePause: vi.fn(),
+      startWave: vi.fn(),
+    };
+    game.waypoints = [
+      [0, 0],
+      [5, 5],
+    ];
     game.pathSegments = { segments: [], totalLength: 100 };
     game.wave = { currentWave: 0, spawnIndex: 0, queue: [], onAllSpawnedAndCleared: vi.fn() };
     vi.spyOn(RENDERER, 'markCacheDirty').mockImplementation(() => {});
@@ -907,8 +952,18 @@ describe('toggleDevMode', () => {
     globalThis.window = { electron: undefined };
     globalThis.document = { getElementById: vi.fn() };
     game = makeGame({ devMode: false, gold: 500 });
-    game.runtime = { stopLoop: vi.fn(), startLoop: vi.fn(), installResize: vi.fn(), applyDefeat: vi.fn(), togglePause: vi.fn(), startWave: vi.fn() };
-    game.waypoints = [[0, 0], [5, 5]];
+    game.runtime = {
+      stopLoop: vi.fn(),
+      startLoop: vi.fn(),
+      installResize: vi.fn(),
+      applyDefeat: vi.fn(),
+      togglePause: vi.fn(),
+      startWave: vi.fn(),
+    };
+    game.waypoints = [
+      [0, 0],
+      [5, 5],
+    ];
     game.pathSegments = { segments: [], totalLength: 100 };
     game.wave = { currentWave: 0, spawnIndex: 0, queue: [], onAllSpawnedAndCleared: vi.fn() };
     vi.spyOn(RENDERER, 'markCacheDirty').mockImplementation(() => {});

@@ -1,9 +1,0 @@
-Restore monster preview in wave estimate panel
-
-- Add monster icons, counts, and names back to wave preview
-- Position monsters between "Next Wave" title and estimate line
-- Adjust vertical layout for cleaner spacing
-
-Validation:
-- npm test -- tests/waveManagerPreview.test.js: 24/24 passed
-- npm run lint: passed
