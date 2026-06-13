@@ -59,6 +59,58 @@ function normalizeCheckIntervalMinutes(value) {
     : MIN_CHECK_INTERVAL_MINUTES;
 }
 
+function sanitizeSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null;
+
+  const sanitized = {
+    update: { ...DEFAULT_SETTINGS.update },
+    collapsed: { ...DEFAULT_SETTINGS.collapsed },
+  };
+
+  if (settings.update && typeof settings.update === 'object' && !Array.isArray(settings.update)) {
+    if (typeof settings.update.channel === 'string' && ['release', 'pre-release'].includes(settings.update.channel)) {
+      sanitized.update.channel = settings.update.channel;
+    }
+    if (typeof settings.update.autoDownload === 'boolean') sanitized.update.autoDownload = settings.update.autoDownload;
+    if (typeof settings.update.checkOnStartup === 'boolean') {
+      sanitized.update.checkOnStartup = settings.update.checkOnStartup;
+    }
+    if (typeof settings.update.checkIntervalMinutes === 'number') {
+      sanitized.update.checkIntervalMinutes = normalizeCheckIntervalMinutes(settings.update.checkIntervalMinutes);
+    }
+    if (Array.isArray(settings.update.skippedVersions)) {
+      sanitized.update.skippedVersions = settings.update.skippedVersions.filter(
+        (v) => typeof v === 'string' && v.length <= 50 && /^[a-zA-Z0-9._-]+$/.test(v)
+      );
+    }
+    if (typeof settings.update.showProgressBar === 'boolean') {
+      sanitized.update.showProgressBar = settings.update.showProgressBar;
+    }
+    if (
+      typeof settings.update.availableVersion === 'string' &&
+      settings.update.availableVersion.length <= 50 &&
+      /^[a-zA-Z0-9._-]+$/.test(settings.update.availableVersion)
+    ) {
+      sanitized.update.availableVersion = settings.update.availableVersion;
+    }
+    if (
+      typeof settings.update.releaseType === 'string' &&
+      settings.update.releaseType.length <= 50 &&
+      /^[a-zA-Z0-9._-]+$/.test(settings.update.releaseType)
+    ) {
+      sanitized.update.releaseType = settings.update.releaseType;
+    }
+  }
+
+  if (settings.collapsed && typeof settings.collapsed === 'object' && !Array.isArray(settings.collapsed)) {
+    for (const key of Object.keys(DEFAULT_SETTINGS.collapsed)) {
+      if (typeof settings.collapsed[key] === 'boolean') sanitized.collapsed[key] = settings.collapsed[key];
+    }
+  }
+
+  return sanitized;
+}
+
 function formatUpdaterError(err) {
   return err ? err.message || String(err) : 'Unknown error';
 }
@@ -276,8 +328,15 @@ function requestText(url, redirects = 0) {
         }
 
         const chunks = [];
-        res.setEncoding('utf8');
-        res.on('data', (chunk) => chunks.push(chunk));
+        let totalSize = 0;
+        res.on('data', (chunk) => {
+          totalSize += Buffer.byteLength(chunk);
+          if (totalSize > 1024 * 512) {
+            res.destroy(new Error(`Response body too large for ${url}`));
+            return;
+          }
+          chunks.push(chunk);
+        });
         res.on('end', () => resolve(chunks.join('')));
       }
     );
@@ -418,9 +477,10 @@ ipcMain.handle('get-settings', () => {
 });
 
 ipcMain.handle('save-settings', (_event, settings) => {
-  if (!settings || typeof settings !== 'object') return false;
-  if (JSON.stringify(settings, null, 2).length > 1024 * 100) return false; // 100KB limit
-  return writeSettings(settings);
+  const sanitized = sanitizeSettings(settings);
+  if (!sanitized) return false;
+  if (JSON.stringify(sanitized, null, 2).length > 1024 * 100) return false; // 100KB limit
+  return writeSettings(sanitized);
 });
 
 ipcMain.handle('get-version', () => {

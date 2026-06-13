@@ -528,17 +528,13 @@ export class Game {
     }
     this.monsters.length = mw;
     let pw = 0;
-    const deadProjectiles = [];
     for (let i = 0; i < this.projectiles.length; i++) {
       const p = this.projectiles[i];
       if (p.alive) {
         this.projectiles[pw++] = p;
       } else {
-        deadProjectiles.push(p);
+        this._projectilePool.push(p);
       }
-    }
-    for (let i = 0; i < deadProjectiles.length; i++) {
-      this._projectilePool.push(deadProjectiles[i]);
     }
     this.projectiles.length = pw;
     const selRef = this.selectedTroopIndex >= 0 ? this.troops[this.selectedTroopIndex] : null;
@@ -788,9 +784,11 @@ export class Game {
         }
       }
       if (!best || bestDist > maxChainDist * maxChainDist) break; // too far, stop chaining
+      const srcX = lastX;
+      const srcY = lastY;
       lastX = best.x;
       lastY = best.y;
-      applyHit(best, best.x, best.y);
+      applyHit(best, srcX, srcY);
       // Remove hit monster from buffer to prevent re-hitting the same target.
       if (bestIdx >= 0) {
         const last = buf.length - 1;
@@ -1228,17 +1226,4 @@ export class Game {
   resetDevMonsterCounts() {
     this.devMonsterCounts = this._defaultDevCounts();
   }
-}
-
-export function getPlacementInvalidReason(game, gx, gy, spec) {
-  if (!game.devMode && game.gold < spec.cost) return 'Not enough gold';
-  if (!game.grid.isBuildable(gx, gy)) return 'Tile not buildable';
-  const idx = gy * CONFIG.GRID_SIZE + gx;
-  const tileTroops = game._troopTileIndex[idx];
-  if (tileTroops) {
-    for (let i = 0; i < tileTroops.length; i++) {
-      if (tileTroops[i].alive) return 'Tile occupied';
-    }
-  }
-  return null;
 }

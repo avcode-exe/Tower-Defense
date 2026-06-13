@@ -165,12 +165,12 @@ export const GameSnapshotRestorer = {
       const spec = TROOP_SPECS.find((s) => s.id === tData.specId);
       if (!spec) continue;
       const t = new Troop(spec, tData.gx, tData.gy);
-      t.hpLevel = tData.hpLevel || 1;
-      t.dmgLevel = tData.dmgLevel || 1;
-      t.rangeLevel = tData.rangeLevel || 1;
-      t.speedLevel = tData.speedLevel || 1;
-      t.chainLevel = tData.chainLevel || 1;
-      t.slowLevel = tData.slowLevel || 1;
+      t.hpLevel = tData.hpLevel ?? 1;
+      t.dmgLevel = tData.dmgLevel ?? 1;
+      t.rangeLevel = tData.rangeLevel ?? 1;
+      t.speedLevel = tData.speedLevel ?? 1;
+      t.chainLevel = tData.chainLevel ?? 1;
+      t.slowLevel = tData.slowLevel ?? 1;
       t.healTargetLevel = normalizeHealTargetLevel(tData.healTargetLevel);
       t._recomputeStats();
       t.maxHp = t._cachedMaxHp;

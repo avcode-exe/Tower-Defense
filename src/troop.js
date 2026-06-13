@@ -11,6 +11,16 @@ const STAT_LEVEL_PROPS = {
   hp: 'hpLevel',
 };
 
+function compareHealPriority(a, b) {
+  const ratioDelta = a.hpRatio - b.hpRatio;
+  if (ratioDelta !== 0) return ratioDelta;
+  const hpDelta = a.hp - b.hp;
+  if (hpDelta !== 0) return hpDelta;
+  const distDelta = a.distSq - b.distSq;
+  if (distDelta !== 0) return distDelta;
+  return a.index - b.index;
+}
+
 function monstersInRange(gx, gy, range, monsterTileIndex, gridSize) {
   const results = [];
   const r = Math.ceil(range);
@@ -268,15 +278,6 @@ export class Troop {
     if (this.spec.type !== 'support') return null;
     const rangePxSq = this.getHealRangePxSq();
     const maxTargets = this.healTargetLevel;
-    const compareHealPriority = (a, b) => {
-      const ratioDelta = a.hpRatio - b.hpRatio;
-      if (ratioDelta !== 0) return ratioDelta;
-      const hpDelta = a.hp - b.hp;
-      if (hpDelta !== 0) return hpDelta;
-      const distDelta = a.distSq - b.distSq;
-      if (distDelta !== 0) return distDelta;
-      return a.index - b.index;
-    };
 
     for (let i = this.healTargets.length - 1; i >= 0; i--) {
       const t = this.healTargets[i];
@@ -293,10 +294,11 @@ export class Troop {
 
     if (this.healTargets.length < maxTargets) {
       const candidates = [];
+      const healTargetSet = new Set(this.healTargets);
       for (let i = 0; i < troops.length; i++) {
         const t = troops[i];
         if (!t.alive || t === this || t.hp >= t.maxHp || t.spec.type === 'support') continue;
-        if (this.healTargets.includes(t)) continue;
+        if (healTargetSet.has(t)) continue;
         const dx = t.x - this.x;
         const dy = t.y - this.y;
         const distSq = dx * dx + dy * dy;
@@ -318,26 +320,19 @@ export class Troop {
     }
 
     const troopIndexMap = new Map(troops.map((t, i) => [t, i]));
-    this.healTargets.sort((a, b) => {
+    const sorted = this.healTargets.map((a) => {
       const dxA = a.x - this.x;
       const dyA = a.y - this.y;
-      const dxB = b.x - this.x;
-      const dyB = b.y - this.y;
-      return compareHealPriority(
-        {
-          hpRatio: a.getHpRatio(),
-          hp: a.hp,
-          distSq: dxA * dxA + dyA * dyA,
-          index: troopIndexMap.get(a),
-        },
-        {
-          hpRatio: b.getHpRatio(),
-          hp: b.hp,
-          distSq: dxB * dxB + dyB * dyB,
-          index: troopIndexMap.get(b),
-        }
-      );
+      return {
+        troop: a,
+        hpRatio: a.getHpRatio(),
+        hp: a.hp,
+        distSq: dxA * dxA + dyA * dyA,
+        index: troopIndexMap.get(a),
+      };
     });
+    sorted.sort(compareHealPriority);
+    this.healTargets = sorted.map((entry) => entry.troop);
 
     return this.healTargets.length > 0 ? this.healTargets[0] : null;
   }

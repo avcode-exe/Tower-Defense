@@ -1,87 +1,17 @@
-Stabilize runtime cleanup, UI hit-testing, muted audio, and update checks
+Comprehensive audit fixes and test coverage expansion
 
-Summary
--------
-This commit addresses several stability and correctness issues identified during code
-review, focusing on defensive behavior and edge-case handling without affecting
-game balance, build output, or dependency versions.
-
-Core Gameplay & Runtime Fixes (src/game.js)
------------------------------------------
-- _cleanupDead(): Fixed projectile pooling to only return dead projectiles to
-  _projectilePool. Previously, live projectiles could be incorrectly returned
-  during array compaction and later reused with stale target/state.
-- resetGame(): Preserved the original devMode value before calling restart(),
-  preventing dev-mode resets from temporarily reverting to normal gold/lives
-  values during the reset sequence.
-- restore(): Added cleanup of selectedSpec, selectedTroopIndex, waveCompleteAnim,
-  and lastTime after applying a save snapshot to prevent stale UI state and
-  animation timing from carrying into a restored game.
-- damageTroop(): Ensured positive melee monster damage remains at least 1 after
-  CONFIG.MELEE_DAMAGE_REDUCTION, preventing zero-damage popups and ineffective
-  hits for low-damage monsters.
-
-Entity State Safety (src/troop.js)
-----------------------------------
-- takeDamage(): Added guard to ignore NaN, non-finite, zero, or negative damage
-  values. This prevents troop state corruption from invalid damage inputs and
-  avoids accidental healing behavior.
-
-Audio Resilience (src/audio.js)
------------------------------
-- Added _canPlay() method to centralize enabled, muted, and AudioContext
-  availability checks.
-- Updated _tone(), _toneRamp(), _noise(), rangedAttack(), and defeat() to return
-  early when muted or unavailable, preventing exponential ramp errors when the
-  starting gain would be zero.
-
-UI Cursor Hit-Testing (src/rendering/gameRenderer.js)
----------------------------------------------------
-- Fixed sell-button cursor hitbox: changed height calculation to use
-  RENDERER.height - LAYOUT.SHOP.SELL_BTN_Y_OFFSET and LAYOUT.SHOP.SELL_BTN_H,
-  matching the drawn shop button dimensions.
-- Fixed troop cursor hit-testing to compare world hover coordinates (w.x/w.y)
-  against troop world coordinates (t.x/t.y) instead of comparing screen
-  coordinates to world coordinates.
-
-Electron Auto-Updater Robustness (electron-main.js)
---------------------------------------------------
-- Replaced global fetch usage with Node http/https requestText() for updater
-  text fetching, ensuring lint-clean code in the Electron main process.
-- Added checkForUpdatesSafely() wrapper that catches both synchronous throws
-  and rejected promises from electron-updater checkForUpdates() calls.
-- Added downloadUpdateSafely() wrapper for safe download handling.
-- Normalized check interval to a finite value with 15-minute minimum before
-  scheduling periodic update checks, preventing immediate or excessive check
-  loops.
-- Guarded patchGitHubPrereleaseDiscovery() to only patch when
-  autoUpdater.getUpdateInfoAndProvider is available as a function.
-- Guarded cancel-update handler: calls autoUpdater.cancelDownload() only when
-  it exists as a function before disabling autoDownload.
-
-Renderer Update Check Hygiene (src/updateManager.js)
---------------------------------------------------
-- Normalized setCheckInterval() to coerce input to a finite integer with the
-  same 15-minute minimum used by the main process.
-
-GitHub Release Feed (src/githubReleaseFeed.js)
---------------------------------------------
-- Replaced global fetch in resolveDownloadTag() with Node http/https HEAD
-  requests, ensuring release-tag resolution remains lint-clean when running
-  in Node/Electron environment.
-
-Popup Lifecycle (src/main.js)
----------------------------
-- Fixed showPopup() to guard against missing popup element before attaching
-  transitionend listeners, preventing potential null reference errors.
-
-Script Hygiene (package.json)
----------------------------
-- Updated format and format:check scripts to include tests/**/*.js so test
-  formatting is covered alongside source files.
-
-Validation
-----------
-- No build artifacts were generated or changed for this commit.
-- Performed static review of modified files for syntax and behavior regressions.
-- Verified no global fetch() usage remains in edited JavaScript files.
+- Fix chain lightning visual source position to originate from previous target
+- Preserve troop level 0 values on persistence restore using nullish coalescing
+- Optimize particles bucket array reuse to eliminate per-frame allocations
+- Optimize dead projectile cleanup by removing intermediate array
+- Optimize healer target selection with Set lookup and hoisted comparator
+- Add 512KB response body limit to Electron requestText
+- Validate settings persistence with allowlisted schema and channel values
+- Store Input instance on window.input for future cleanup
+- Add error handling to settings sync calls
+- Remove dead standalone getPlacementInvalidReason export
+- Expand test coverage by 148 tests (317 -> 465)
+  - Game class: killTroop, spawnMonster, chainHitAt, splashAt, markPathTiles, restart, resetGame, toggleDevMode, resetDevMonsterCounts
+  - Troop class: pickTarget, getters, melee/ranged update branches
+  - Particles: full lifecycle and effect methods
+  - WaveManager: getNextWavePreview

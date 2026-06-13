@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!canvas) return;
   game = new Game(canvas);
   window.game = game;
-  new Input(canvas, game);
+  const input = new Input(canvas, game);
+  window.input = input;
   let updateDevSpawnCounts = () => {};
 
   // ── Load progress dialog ─────────────────────────────────────────────────────
@@ -248,7 +249,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveStatus = document.getElementById('settings-save-status');
   if (saveBtn) {
     saveBtn.addEventListener('click', async () => {
-      await syncSettingsToMainProcess();
+      await syncSettingsToMainProcess().catch((err) => {
+        console.warn('[settings] failed to save settings', err);
+      });
       // Visual feedback: flash "✓ Saved" text
       if (saveStatus) {
         saveStatus.style.opacity = '1';
@@ -276,7 +279,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const checkNowBtn = document.getElementById('settings-check-now-btn');
   if (checkNowBtn) {
     checkNowBtn.addEventListener('click', async () => {
-      await syncSettingsToMainProcess();
+      await syncSettingsToMainProcess().catch((err) => {
+        console.warn('[settings] failed to sync settings before update check', err);
+      });
       // Small delay to let main process apply the settings
       setTimeout(() => {
         if (window.electron && window.electron.sendManualCheck) {
@@ -287,7 +292,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Sync update channel on startup
-  syncSettingsToMainProcess();
+  syncSettingsToMainProcess().catch((err) => {
+    console.warn('[settings] failed to sync settings to main process', err);
+  });
 
   // ── settings accordion ──────────────────────────────────────────────────────
   document.querySelectorAll('.settings-section-header').forEach((header) => {
