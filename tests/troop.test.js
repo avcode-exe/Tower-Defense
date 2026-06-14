@@ -123,7 +123,8 @@ describe('Constructor', () => {
   });
 
   it('computes position from gx, gy and TILE_SIZE', () => {
-    const gx = 5, gy = 7;
+    const gx = 5,
+      gy = 7;
     const t = new Troop(archerSpec, gx, gy);
     expect(t.x).toBe(gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
     expect(t.y).toBe(gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
@@ -994,9 +995,7 @@ describe('_recomputeStats edge cases', () => {
     const baseFactor = t.getSlowFactor();
     t.slowLevel = 3;
     t._recomputeStats();
-    const expected = Math.round(
-      icewizSpec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, 2) * 1000
-    ) / 1000;
+    const expected = Math.round(icewizSpec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, 2) * 1000) / 1000;
     expect(t.getSlowFactor()).toBe(expected);
   });
 
@@ -1004,9 +1003,7 @@ describe('_recomputeStats edge cases', () => {
     const t = new Troop(icewizSpec, 0, 0);
     t.slowLevel = 3;
     t._recomputeStats();
-    const expected = Math.round(
-      icewizSpec.slowDuration * Math.pow(CONFIG.SLOW_DURATION_SCALE_PER_LEVEL, 2) * 10
-    ) / 10;
+    const expected = Math.round(icewizSpec.slowDuration * Math.pow(CONFIG.SLOW_DURATION_SCALE_PER_LEVEL, 2) * 10) / 10;
     expect(t.getSlowDuration()).toBe(expected);
   });
 
@@ -1014,9 +1011,8 @@ describe('_recomputeStats edge cases', () => {
     const t = new Troop(icewizSpec, 0, 0);
     t.slowLevel = 3;
     t._recomputeStats();
-    const expected = Math.round(
-      icewizSpec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, 2) * 1000
-    ) / 1000;
+    const expected =
+      Math.round(icewizSpec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, 2) * 1000) / 1000;
     expect(t._cachedShatterBonus).toBe(expected);
   });
 

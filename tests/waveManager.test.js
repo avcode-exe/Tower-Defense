@@ -149,7 +149,7 @@ describe('buildCustomFromCounts', () => {
 
   it('sets currentPreview from built queue', () => {
     const wave = new WaveManager();
-    wave.buildCustomFromCounts({ 1: 2, 'B': 1 });
+    wave.buildCustomFromCounts({ 1: 2, B: 1 });
     expect(wave.currentPreview).toBeDefined();
     expect(Array.isArray(wave.currentPreview)).toBe(true);
   });
@@ -781,7 +781,10 @@ describe('_estimateSpawnDuration', () => {
 
   it('mixes runner and non-runner intervals', () => {
     const wave = new WaveManager();
-    const preview = [[1, 2], [2, 3]];
+    const preview = [
+      [1, 2],
+      [2, 3],
+    ];
     const result = wave._estimateSpawnDuration(preview);
     expect(result).toBeCloseTo(2 * CONFIG.SPAWN_INTERVAL + 3 * CONFIG.RUNNER_SPAWN_INTERVAL);
   });
@@ -820,7 +823,10 @@ describe('_estimatePathDuration', () => {
 
   it('skips levels with no monster spec', () => {
     const wave = new WaveManager();
-    const preview = [['Z', 5], [1, 2]];
+    const preview = [
+      ['Z', 5],
+      [1, 2],
+    ];
     // 'Z' has no spec, so it's skipped; only the level-1 monsters count
     const spec = MONSTER_SPECS[1];
     const speed = CONFIG.MOVEMENT_SPEEDS[spec.movementSpeed] || spec.speed;
@@ -830,7 +836,10 @@ describe('_estimatePathDuration', () => {
 
   it('weights multiple monster types correctly', () => {
     const wave = new WaveManager();
-    const preview = [[1, 1], [5, 1]];
+    const preview = [
+      [1, 1],
+      [5, 1],
+    ];
     const spec1 = MONSTER_SPECS[1];
     const spec5 = MONSTER_SPECS[5];
     const speed1 = CONFIG.MOVEMENT_SPEEDS[spec1.movementSpeed] || spec1.speed;
@@ -905,7 +914,7 @@ describe('getNextWaveEstimate edge cases', () => {
 
   it('handles Boss monsters in preview (level B)', () => {
     const wave = new WaveManager();
-    wave.buildCustomFromCounts({ 'B': 1 });
+    wave.buildCustomFromCounts({ B: 1 });
     const estimate = wave.getNextWaveEstimate();
     expect(estimate.totalGold).toBe(MONSTER_SPECS.B.reward);
     expect(estimate.totalLeak).toBe(MONSTER_SPECS.B.leak);
@@ -913,14 +922,14 @@ describe('getNextWaveEstimate edge cases', () => {
 
   it('handles Shielded monsters in preview (level S)', () => {
     const wave = new WaveManager();
-    wave.buildCustomFromCounts({ 'S': 2 });
+    wave.buildCustomFromCounts({ S: 2 });
     const estimate = wave.getNextWaveEstimate();
     expect(estimate.totalGold).toBe(2 * MONSTER_SPECS.S.reward);
   });
 
   it('handles Spear monsters in preview (level X)', () => {
     const wave = new WaveManager();
-    wave.buildCustomFromCounts({ 'X': 3 });
+    wave.buildCustomFromCounts({ X: 3 });
     const estimate = wave.getNextWaveEstimate();
     expect(estimate.totalGold).toBe(3 * MONSTER_SPECS.X.reward);
   });

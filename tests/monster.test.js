@@ -379,9 +379,7 @@ describe('_updatePosition', () => {
 
   it('caches tile coordinates', () => {
     const T = CONFIG.TILE_SIZE;
-    const segments = [
-      { ax: 0, ay: 0, bx: 3 * T, by: 0, len: 3 * T, cumStart: 0 },
-    ];
+    const segments = [{ ax: 0, ay: 0, bx: 3 * T, by: 0, len: 3 * T, cumStart: 0 }];
     const sp = { segments, totalLength: 3 * T };
     const m = new Monster(1, [[0, 0]], sp, 1);
     m.distance = T;
@@ -703,7 +701,19 @@ describe('Monster splitting', () => {
     '$parentName splits into two $expectedName monsters and never Runners',
     ({ parentLevel, expectedLevel, expectedName }) => {
       const parent = makeMonster(parentLevel);
-      const game = { monsters: [parent], popups: [], waypoints: [[0, 0]], pathSegments: sharedPath(), gold: 0, _addGold(amount) { this.gold += amount; }, _getPopup(text, x, y, t, color) { this.popups.push({ text, x, y, t, color }); } };
+      const game = {
+        monsters: [parent],
+        popups: [],
+        waypoints: [[0, 0]],
+        pathSegments: sharedPath(),
+        gold: 0,
+        _addGold(amount) {
+          this.gold += amount;
+        },
+        _getPopup(text, x, y, t, color) {
+          this.popups.push({ text, x, y, t, color });
+        },
+      };
       vi.spyOn(AUDIO, 'goldEarned');
       vi.spyOn(PARTICLES, 'spawn');
 
@@ -721,7 +731,19 @@ describe('Monster splitting', () => {
 
   it('Runner does not split because it has noSplit and pass-mode behavior', () => {
     const runner = makeMonster(2);
-    const game = { monsters: [runner], popups: [], waypoints: [[0, 0]], pathSegments: sharedPath(), gold: 0, _addGold(amount) { this.gold += amount; }, _getPopup(text, x, y, t, color) { this.popups.push({ text, x, y, t, color }); } };
+    const game = {
+      monsters: [runner],
+      popups: [],
+      waypoints: [[0, 0]],
+      pathSegments: sharedPath(),
+      gold: 0,
+      _addGold(amount) {
+        this.gold += amount;
+      },
+      _getPopup(text, x, y, t, color) {
+        this.popups.push({ text, x, y, t, color });
+      },
+    };
     vi.spyOn(AUDIO, 'goldEarned');
     vi.spyOn(PARTICLES, 'spawn');
 
@@ -1302,11 +1324,20 @@ describe('Necromancer milestone 3 acceptance', () => {
       y: 0,
       takeDamage(damage) {
         this.hp -= damage;
-        if (this.hp <= 0) { this.alive = false; return true; }
+        if (this.hp <= 0) {
+          this.alive = false;
+          return true;
+        }
         return false;
       },
     };
-    const game = { popups: [], killTroop: vi.fn(), _getPopup(text, x, y, t, color) { this.popups.push({ text, x, y, t, color }); } };
+    const game = {
+      popups: [],
+      killTroop: vi.fn(),
+      _getPopup(text, x, y, t, color) {
+        this.popups.push({ text, x, y, t, color });
+      },
+    };
 
     Game.prototype.damageTroop.call(game, monster, troop);
 

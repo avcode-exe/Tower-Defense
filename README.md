@@ -32,6 +32,17 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **Monster splitting** — non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
 - **Sell confirmation** — 30% refund with 3-second global cooldown
 
+## Release: v1.5.2 Beta 1
+
+v1.5.2 Beta 1 focuses on UI clarity, wave planning, runtime stability, and expanded validation coverage.
+
+- Placement preview now shows DPS for damaging troops, HPS for support troops, and specific invalid-placement reasons.
+- Wave preview now shows start timing, estimated clear duration, total gold, and revive-aware estimates for Necromancer waves.
+- Runtime cleanup, UI hit-testing, muted audio, update checks, and Electron updater behavior were stabilized.
+- Healer balance is live with 3 monster damage in healing range.
+- Test suite expanded to **1,360 tests across 24 Vitest test files**.
+- Coverage thresholds were added for `src/game.js`, `src/monster.js`, and `src/troop.js`.
+
 ## Troops
 
 | #   | Name        | Type    | Cost | HP  | Damage | Range | Speed | Special                                          |
@@ -164,7 +175,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit + integration test suite (1,263 tests, 24 files)
+- **Vitest** — unit + integration test suite (1,360 tests, 24 files)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -224,6 +235,7 @@ tests/
   projectile.test.js      # Projectile logic
   particles.test.js       # Particle effects
   game.test.js            # Core game: canPlace, placeTroop, sellTroop, upgrades, combat
+  gameRuntime.test.js     # Runtime loop, pause render loop, resize, and state transitions
   monster.test.js         # Monster constructor, AI, combat, splitting, necromancer, shatter
   monsterIntegration.test.js # Monster spawning, movement, lifecycle, mixed interactions
   troop.test.js           # Troop stats, upgrades, healing, shield, healer, chain lightning
@@ -277,7 +289,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (1,263 tests)
+npm test             # Run test suite (1,360 tests)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with code coverage report
 ```

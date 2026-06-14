@@ -42,16 +42,12 @@ describe('getSupportHpsForPlacementPreview', () => {
 
   it('falls back to spec when troop exists but has no getHps', () => {
     const troop = { hp: 40 };
-    expect(getSupportHpsForPlacementPreview(healerSpec, troop)).toBeCloseTo(
-      healerSpec.damage / healerSpec.attackSpeed
-    );
+    expect(getSupportHpsForPlacementPreview(healerSpec, troop)).toBeCloseTo(healerSpec.damage / healerSpec.attackSpeed);
   });
 
   it('falls back to spec when troop.getHps is not a function', () => {
     const troop = { getHps: 'not a function' };
-    expect(getSupportHpsForPlacementPreview(healerSpec, troop)).toBeCloseTo(
-      healerSpec.damage / healerSpec.attackSpeed
-    );
+    expect(getSupportHpsForPlacementPreview(healerSpec, troop)).toBeCloseTo(healerSpec.damage / healerSpec.attackSpeed);
   });
 
   it('returns zero for swordsman (melee non-support)', () => {

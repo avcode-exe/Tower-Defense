@@ -8,15 +8,33 @@ import { UpdateManager } from '../src/updateManager.js';
 const _elStore = {};
 const _makeEl = (tag) => {
   const el = {
-    tagName: tag, id: '', className: '', textContent: '', innerHTML: '',
+    tagName: tag,
+    id: '',
+    className: '',
+    textContent: '',
+    innerHTML: '',
     style: { display: '', width: '', cssText: '' },
     children: [],
     _parent: null,
     addEventListener() {},
-    remove() { if (el._parent) { el._parent.children = el._parent.children.filter((c) => c !== el); el._parent = null; } },
-    appendChild(child) { el.children.push(child); child._parent = el; },
-    querySelector(sel) { const cls = sel.replace('.', ''); return el.children.find((c) => c.className === cls) || null; },
-    querySelectorAll(sel) { const cls = sel.replace('.', ''); return el.children.filter((c) => c.className === cls); },
+    remove() {
+      if (el._parent) {
+        el._parent.children = el._parent.children.filter((c) => c !== el);
+        el._parent = null;
+      }
+    },
+    appendChild(child) {
+      el.children.push(child);
+      child._parent = el;
+    },
+    querySelector(sel) {
+      const cls = sel.replace('.', '');
+      return el.children.find((c) => c.className === cls) || null;
+    },
+    querySelectorAll(sel) {
+      const cls = sel.replace('.', '');
+      return el.children.filter((c) => c.className === cls);
+    },
     setAttribute() {},
   };
   return el;
@@ -49,11 +67,21 @@ beforeEach(() => _ensureDOM());
 function mockElectron(overrides = {}) {
   const calls = { saveSettings: [], sendManualCheck: 0, downloadUpdate: 0, skipUpdate: [], requestRestartToUpdate: 0 };
   window.electron = {
-    saveSettings: vi.fn((s) => { calls.saveSettings.push(s); }),
-    sendManualCheck: vi.fn(() => { calls.sendManualCheck++; }),
-    downloadUpdate: vi.fn(() => { calls.downloadUpdate++; }),
-    requestRestartToUpdate: vi.fn(() => { calls.requestRestartToUpdate++; }),
-    skipUpdate: vi.fn((v) => { calls.skipUpdate.push(v); }),
+    saveSettings: vi.fn((s) => {
+      calls.saveSettings.push(s);
+    }),
+    sendManualCheck: vi.fn(() => {
+      calls.sendManualCheck++;
+    }),
+    downloadUpdate: vi.fn(() => {
+      calls.downloadUpdate++;
+    }),
+    requestRestartToUpdate: vi.fn(() => {
+      calls.requestRestartToUpdate++;
+    }),
+    skipUpdate: vi.fn((v) => {
+      calls.skipUpdate.push(v);
+    }),
     onUpdateStatus: vi.fn(),
     ...overrides,
   };
@@ -161,7 +189,9 @@ describe('UpdateManager._isPrerelease (base)', () => {
 // ─── getCollapsed / setCollapsed (base) ────────────────────────────────────
 
 describe('UpdateManager getCollapsed / setCollapsed (base)', () => {
-  afterEach(() => { delete globalThis.window; });
+  afterEach(() => {
+    delete globalThis.window;
+  });
 
   it('getCollapsed returns the collapsed state object', () => {
     const m = managerWithState('1.5.0', 'release', { collapsed: { hud: true, settings: false } });
@@ -190,7 +220,9 @@ describe('UpdateManager.getAnnouncedVersion (base)', () => {
 // ─── channel and settings (base) ──────────────────────────────────────────
 
 describe('UpdateManager channel and settings (base)', () => {
-  afterEach(() => { delete globalThis.window; });
+  afterEach(() => {
+    delete globalThis.window;
+  });
 
   it('setChannel updates the channel', () => {
     globalThis.window = {};
@@ -210,8 +242,12 @@ describe('UpdateManager channel and settings (base)', () => {
 // ─── Constructor ───────────────────────────────────────────────────────────
 
 describe('UpdateManager constructor', () => {
-  beforeEach(() => { mockElectron(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('applies default settings when none provided', () => {
     const m = new UpdateManager();
@@ -253,8 +289,13 @@ describe('UpdateManager constructor', () => {
 
 describe('UpdateManager._isPrerelease (extended)', () => {
   let m;
-  beforeEach(() => { mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('detects beta versions', () => {
     expect(m._isPrerelease('1.5.0-beta.1')).toBe(true);
@@ -285,8 +326,12 @@ describe('UpdateManager._isPrerelease (extended)', () => {
 
 describe('UpdateManager.passesFilter (extended)', () => {
   let m;
-  beforeEach(() => { mockElectron(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   describe('release channel', () => {
     it('accepts newer stable version', () => {
@@ -404,8 +449,13 @@ describe('UpdateManager.passesFilter (extended)', () => {
 
 describe('UpdateManager.shouldSkip (extended)', () => {
   let m;
-  beforeEach(() => { mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('returns false when no versions are skipped', () => {
     expect(m.shouldSkip('1.5.0')).toBe(false);
@@ -434,8 +484,13 @@ describe('UpdateManager.shouldSkip (extended)', () => {
 
 describe('UpdateManager settings management (extended)', () => {
   let m, calls;
-  beforeEach(() => { calls = mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    calls = mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('setChannel updates channel and persists', () => {
     m.setChannel('pre-release');
@@ -503,8 +558,13 @@ describe('UpdateManager settings management (extended)', () => {
 
 describe('UpdateManager.skip', () => {
   let m, calls;
-  beforeEach(() => { calls = mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    calls = mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('adds version to skipped list and persists', () => {
     m.skip('1.5.0');
@@ -529,8 +589,13 @@ describe('UpdateManager.skip', () => {
 
 describe('UpdateManager._onStatus', () => {
   let m;
-  beforeEach(() => { mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('handles progress phase without crashing', () => {
     expect(() => m._onStatus({ phase: 'progress', percent: 50 })).not.toThrow();
@@ -557,8 +622,13 @@ describe('UpdateManager._onStatus', () => {
 
 describe('UpdateManager._handleDownloaded', () => {
   let m;
-  beforeEach(() => { mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('shows progress and creates restart button', () => {
     m._handleDownloaded({ version: '1.5.0' });
@@ -588,8 +658,13 @@ describe('UpdateManager._handleDownloaded', () => {
 
 describe('UpdateManager download and restart', () => {
   let m, calls;
-  beforeEach(() => { calls = mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    calls = mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('download calls electron.downloadUpdate', () => {
     m.download();
@@ -637,8 +712,13 @@ describe('UpdateManager without window.electron', () => {
 
 describe('UpdateManager.getAnnouncedVersion (extended)', () => {
   let m;
-  beforeEach(() => { mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('returns null by default', () => {
     expect(m.getAnnouncedVersion()).toBeNull();
@@ -654,8 +734,13 @@ describe('UpdateManager.getAnnouncedVersion (extended)', () => {
 
 describe('UpdateManager progress bar', () => {
   let m;
-  beforeEach(() => { mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('shows progress bar on progress status', () => {
     m._onStatus({ phase: 'progress', percent: 42, version: '1.5.0' });
@@ -692,8 +777,13 @@ describe('UpdateManager progress bar', () => {
 
 describe('UpdateManager settings persistence', () => {
   let m, calls;
-  beforeEach(() => { calls = mockElectron(); m = makeManager(); });
-  afterEach(() => { delete window.electron; });
+  beforeEach(() => {
+    calls = mockElectron();
+    m = makeManager();
+  });
+  afterEach(() => {
+    delete window.electron;
+  });
 
   it('persists a deep copy, not a reference', () => {
     m.setAutoDownload(true);

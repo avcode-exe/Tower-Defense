@@ -9,36 +9,58 @@ import { WaveManager } from '../src/waveManager.js';
 // Mock external modules
 vi.mock('../src/audio.js', () => ({
   AUDIO: {
-    troopPlace: vi.fn(), goldEarned: vi.fn(), sell: vi.fn(), upgrade: vi.fn(),
-    heal: vi.fn(), shieldBuy: vi.fn(), waveComplete: vi.fn(), monsterLeak: vi.fn(),
-    troopDeath: vi.fn(), toggleMute: vi.fn(),
+    troopPlace: vi.fn(),
+    goldEarned: vi.fn(),
+    sell: vi.fn(),
+    upgrade: vi.fn(),
+    heal: vi.fn(),
+    shieldBuy: vi.fn(),
+    waveComplete: vi.fn(),
+    monsterLeak: vi.fn(),
+    troopDeath: vi.fn(),
+    toggleMute: vi.fn(),
   },
 }));
 
 vi.mock('../src/particles.js', () => ({
   PARTICLES: {
-    update: vi.fn(), deathBurst: vi.fn(), hitSpark: vi.fn(), chainSpark: vi.fn(),
-    slowApply: vi.fn(), healBurst: vi.fn(), troopDeath: vi.fn(),
-    troopShieldActivate: vi.fn(), reviveBurst: vi.fn(), splashImpact: vi.fn(),
+    update: vi.fn(),
+    deathBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    chainSpark: vi.fn(),
+    slowApply: vi.fn(),
+    healBurst: vi.fn(),
+    troopDeath: vi.fn(),
+    troopShieldActivate: vi.fn(),
+    reviveBurst: vi.fn(),
+    splashImpact: vi.fn(),
     spawnTrail: vi.fn(),
   },
 }));
 
 vi.mock('../src/rendering/renderer.js', () => ({
   RENDERER: {
-    init: vi.fn(), markCacheDirty: vi.fn(), toWorldInto: vi.fn(),
-    width: 800, height: 600,
+    init: vi.fn(),
+    markCacheDirty: vi.fn(),
+    toWorldInto: vi.fn(),
+    width: 800,
+    height: 600,
   },
 }));
 
 vi.mock('../src/rendering/gameRenderer.js', () => ({
-  renderGame: vi.fn(), updateCursor: vi.fn(),
+  renderGame: vi.fn(),
+  updateCursor: vi.fn(),
 }));
 
 vi.mock('../src/gameRuntime.js', () => ({
   GameRuntimeController: vi.fn().mockImplementation(() => ({
-    installResize: vi.fn(), startLoop: vi.fn(), stopLoop: vi.fn(),
-    applyDefeat: vi.fn(), startWave: vi.fn(), togglePause: vi.fn(),
+    installResize: vi.fn(),
+    startLoop: vi.fn(),
+    stopLoop: vi.fn(),
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
   })),
 }));
 
@@ -47,7 +69,14 @@ vi.mock('../src/gamePersistence.js', () => ({
   GameWorldFactory: {
     createFresh: vi.fn((seed) => ({
       grid: new Grid(),
-      waypoints: [[0, 0], [5, 0], [5, 5], [10, 5], [10, 10], [15, 10]],
+      waypoints: [
+        [0, 0],
+        [5, 0],
+        [5, 5],
+        [10, 5],
+        [10, 10],
+        [15, 10],
+      ],
       pathSegments: {
         segments: [
           { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
@@ -65,12 +94,19 @@ vi.mock('../src/gamePersistence.js', () => ({
 
 vi.mock('../src/ui/index.js', () => ({
   UI: {
-    handleToggleClick: vi.fn(() => false), hitShop: vi.fn(() => -1),
-    _devConfirmYes: null, _devConfirmNo: null, _shieldBuyBtn: null,
+    handleToggleClick: vi.fn(() => false),
+    hitShop: vi.fn(() => -1),
+    _devConfirmYes: null,
+    _devConfirmNo: null,
+    _shieldBuyBtn: null,
   },
   UI_LAYOUT: {
     collapsed: { hud: false, shop: false, shieldShop: false },
-    shopWidth: 120, hudHeight: 50, previewHeight: 80, shieldShopWidth: 20, SHOP_WIDTH: 120,
+    shopWidth: 120,
+    hudHeight: 50,
+    previewHeight: 80,
+    shieldShopWidth: 20,
+    SHOP_WIDTH: 120,
   },
 }));
 
@@ -104,8 +140,12 @@ function sellAndReset(game, index) {
 
 describe('Memory: monster array lifecycle', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('monster count stays bounded after spawning 50 waves of 20 grunts', () => {
     const peakCounts = [];
@@ -149,8 +189,12 @@ describe('Memory: monster array lifecycle', () => {
 
 describe('Memory: troop array lifecycle', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('troop count stays bounded after place-sell cycles', () => {
     for (let cycle = 0; cycle < 50; cycle++) {
@@ -197,8 +241,12 @@ describe('Memory: troop array lifecycle', () => {
 
 describe('Memory: projectile pool recycling', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('projectiles are recycled after hitting targets', () => {
     game.placeTroop(archerSpec, 4, 0);
@@ -242,8 +290,12 @@ describe('Memory: projectile pool recycling', () => {
 
 describe('Memory: popup pool recycling', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('popups are recycled after expiring', () => {
     for (let cycle = 0; cycle < 20; cycle++) {
@@ -272,8 +324,12 @@ describe('Memory: popup pool recycling', () => {
 
 describe('Memory: tile index array pooling', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('monster tile index arrays are recycled via pool', () => {
     // Need multiple cycles: first cycle creates arrays in the tile index,
@@ -317,8 +373,12 @@ describe('Memory: tile index array pooling', () => {
 
 describe('Memory: troop tile index consistency', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('_troopTileIndex stays consistent after many place-sell cycles', () => {
     for (let cycle = 0; cycle < 50; cycle++) {
@@ -344,8 +404,12 @@ describe('Memory: troop tile index consistency', () => {
 
 describe('Memory: long session simulation', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('simulated 100-wave game does not leak entities', () => {
     game.gold = 100000;

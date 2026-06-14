@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SaveSerializer, GameWorldFactory, GameSnapshotRestorer } from '../src/gamePersistence.js';
 import { CONFIG } from '../src/config.js';
 import { RENDERER } from '../src/rendering/renderer.js';
@@ -62,7 +62,9 @@ describe('SaveSerializer.isValid', () => {
         wave: { currentWave: Infinity },
       })
     ).toBe(false);
-    expect(SaveSerializer.isValid({ seed: 1, troops: [], gold: 100, lives: 25, devMode: false, wave: { currentWave: -1 } })).toBe(false);
+    expect(
+      SaveSerializer.isValid({ seed: 1, troops: [], gold: 100, lives: 25, devMode: false, wave: { currentWave: -1 } })
+    ).toBe(false);
   });
 
   it('returns true for valid non-dev save', () => {
@@ -249,8 +251,44 @@ describe('SaveSerializer.fromGame roundtrip', () => {
       devMonsterCounts: {},
       wave: { currentWave: 0 },
       troops: [
-        { alive: true, spec: { id: 'archer' }, gx: 0, gy: 0, hp: 30, maxHp: 30, dmgLevel: 1, rangeLevel: 1, speedLevel: 1, chainLevel: 1, hpLevel: 1, slowLevel: 1, healTargetLevel: 1, shield: 0, maxShield: 0, healCount: 0, healGoldSpent: 0 },
-        { alive: false, spec: { id: 'knight' }, gx: 1, gy: 1, hp: 0, maxHp: 120, dmgLevel: 1, rangeLevel: 1, speedLevel: 1, chainLevel: 1, hpLevel: 1, slowLevel: 1, healTargetLevel: 1, shield: 0, maxShield: 0, healCount: 0, healGoldSpent: 0 },
+        {
+          alive: true,
+          spec: { id: 'archer' },
+          gx: 0,
+          gy: 0,
+          hp: 30,
+          maxHp: 30,
+          dmgLevel: 1,
+          rangeLevel: 1,
+          speedLevel: 1,
+          chainLevel: 1,
+          hpLevel: 1,
+          slowLevel: 1,
+          healTargetLevel: 1,
+          shield: 0,
+          maxShield: 0,
+          healCount: 0,
+          healGoldSpent: 0,
+        },
+        {
+          alive: false,
+          spec: { id: 'knight' },
+          gx: 1,
+          gy: 1,
+          hp: 0,
+          maxHp: 120,
+          dmgLevel: 1,
+          rangeLevel: 1,
+          speedLevel: 1,
+          chainLevel: 1,
+          hpLevel: 1,
+          slowLevel: 1,
+          healTargetLevel: 1,
+          shield: 0,
+          maxShield: 0,
+          healCount: 0,
+          healGoldSpent: 0,
+        },
       ],
     };
     const data = SaveSerializer.fromGame(game);
@@ -464,19 +502,49 @@ describe('SaveSerializer.isValid edge cases', () => {
 
   it('rejects troop with healTargetLevel=0', () => {
     const base = { seed: 1, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
-    const troop = { specId: 'healer', gx: 0, gy: 0, hp: 40, maxHp: 40, shield: 0, maxShield: 0, healGoldSpent: 0, healTargetLevel: 0 };
+    const troop = {
+      specId: 'healer',
+      gx: 0,
+      gy: 0,
+      hp: 40,
+      maxHp: 40,
+      shield: 0,
+      maxShield: 0,
+      healGoldSpent: 0,
+      healTargetLevel: 0,
+    };
     expect(SaveSerializer.isValid({ ...base, troops: [troop] })).toBe(false);
   });
 
   it('accepts healTargetLevel=1 (minimum valid)', () => {
     const base = { seed: 1, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
-    const troop = { specId: 'healer', gx: 0, gy: 0, hp: 40, maxHp: 40, shield: 0, maxShield: 0, healGoldSpent: 0, healTargetLevel: 1 };
+    const troop = {
+      specId: 'healer',
+      gx: 0,
+      gy: 0,
+      hp: 40,
+      maxHp: 40,
+      shield: 0,
+      maxShield: 0,
+      healGoldSpent: 0,
+      healTargetLevel: 1,
+    };
     expect(SaveSerializer.isValid({ ...base, troops: [troop] })).toBe(true);
   });
 
   it('accepts healTargetLevel=MAX_UPGRADE_LEVEL', () => {
     const base = { seed: 1, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
-    const troop = { specId: 'healer', gx: 0, gy: 0, hp: 40, maxHp: 40, shield: 0, maxShield: 0, healGoldSpent: 0, healTargetLevel: CONFIG.MAX_UPGRADE_LEVEL };
+    const troop = {
+      specId: 'healer',
+      gx: 0,
+      gy: 0,
+      hp: 40,
+      maxHp: 40,
+      shield: 0,
+      maxShield: 0,
+      healGoldSpent: 0,
+      healTargetLevel: CONFIG.MAX_UPGRADE_LEVEL,
+    };
     expect(SaveSerializer.isValid({ ...base, troops: [troop] })).toBe(true);
   });
 
@@ -500,13 +568,31 @@ describe('SaveSerializer.isValid edge cases', () => {
 
   it('rejects troop with gx = GRID_SIZE (out of bounds)', () => {
     const base = { seed: 1, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
-    const troop = { specId: 'archer', gx: CONFIG.GRID_SIZE, gy: 0, hp: 30, maxHp: 30, shield: 0, maxShield: 0, healGoldSpent: 0 };
+    const troop = {
+      specId: 'archer',
+      gx: CONFIG.GRID_SIZE,
+      gy: 0,
+      hp: 30,
+      maxHp: 30,
+      shield: 0,
+      maxShield: 0,
+      healGoldSpent: 0,
+    };
     expect(SaveSerializer.isValid({ ...base, troops: [troop] })).toBe(false);
   });
 
   it('accepts troop at gx=GRID_SIZE-1 (max valid)', () => {
     const base = { seed: 1, gold: 100, lives: 25, devMode: false, wave: { currentWave: 1 } };
-    const troop = { specId: 'archer', gx: CONFIG.GRID_SIZE - 1, gy: CONFIG.GRID_SIZE - 1, hp: 30, maxHp: 30, shield: 0, maxShield: 0, healGoldSpent: 0 };
+    const troop = {
+      specId: 'archer',
+      gx: CONFIG.GRID_SIZE - 1,
+      gy: CONFIG.GRID_SIZE - 1,
+      hp: 30,
+      maxHp: 30,
+      shield: 0,
+      maxShield: 0,
+      healGoldSpent: 0,
+    };
     expect(SaveSerializer.isValid({ ...base, troops: [troop] })).toBe(true);
   });
 
@@ -930,9 +1016,7 @@ describe('GameWorldFactory.createFresh (extended)', () => {
   it('cumStart values are monotonically increasing', () => {
     const world = GameWorldFactory.createFresh(42);
     for (let i = 1; i < world.pathSegments.segments.length; i++) {
-      expect(world.pathSegments.segments[i].cumStart).toBeGreaterThan(
-        world.pathSegments.segments[i - 1].cumStart
-      );
+      expect(world.pathSegments.segments[i].cumStart).toBeGreaterThan(world.pathSegments.segments[i - 1].cumStart);
     }
   });
 

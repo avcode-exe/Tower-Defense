@@ -8,36 +8,58 @@ import { WaveManager } from '../src/waveManager.js';
 // Mock external modules
 vi.mock('../src/audio.js', () => ({
   AUDIO: {
-    troopPlace: vi.fn(), goldEarned: vi.fn(), sell: vi.fn(), upgrade: vi.fn(),
-    heal: vi.fn(), shieldBuy: vi.fn(), waveComplete: vi.fn(), monsterLeak: vi.fn(),
-    troopDeath: vi.fn(), toggleMute: vi.fn(),
+    troopPlace: vi.fn(),
+    goldEarned: vi.fn(),
+    sell: vi.fn(),
+    upgrade: vi.fn(),
+    heal: vi.fn(),
+    shieldBuy: vi.fn(),
+    waveComplete: vi.fn(),
+    monsterLeak: vi.fn(),
+    troopDeath: vi.fn(),
+    toggleMute: vi.fn(),
   },
 }));
 
 vi.mock('../src/particles.js', () => ({
   PARTICLES: {
-    update: vi.fn(), deathBurst: vi.fn(), hitSpark: vi.fn(), chainSpark: vi.fn(),
-    slowApply: vi.fn(), healBurst: vi.fn(), troopDeath: vi.fn(),
-    troopShieldActivate: vi.fn(), reviveBurst: vi.fn(), splashImpact: vi.fn(),
+    update: vi.fn(),
+    deathBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    chainSpark: vi.fn(),
+    slowApply: vi.fn(),
+    healBurst: vi.fn(),
+    troopDeath: vi.fn(),
+    troopShieldActivate: vi.fn(),
+    reviveBurst: vi.fn(),
+    splashImpact: vi.fn(),
     spawnTrail: vi.fn(),
   },
 }));
 
 vi.mock('../src/rendering/renderer.js', () => ({
   RENDERER: {
-    init: vi.fn(), markCacheDirty: vi.fn(), toWorldInto: vi.fn(),
-    width: 800, height: 600,
+    init: vi.fn(),
+    markCacheDirty: vi.fn(),
+    toWorldInto: vi.fn(),
+    width: 800,
+    height: 600,
   },
 }));
 
 vi.mock('../src/rendering/gameRenderer.js', () => ({
-  renderGame: vi.fn(), updateCursor: vi.fn(),
+  renderGame: vi.fn(),
+  updateCursor: vi.fn(),
 }));
 
 vi.mock('../src/gameRuntime.js', () => ({
   GameRuntimeController: vi.fn().mockImplementation(() => ({
-    installResize: vi.fn(), startLoop: vi.fn(), stopLoop: vi.fn(),
-    applyDefeat: vi.fn(), startWave: vi.fn(), togglePause: vi.fn(),
+    installResize: vi.fn(),
+    startLoop: vi.fn(),
+    stopLoop: vi.fn(),
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
   })),
 }));
 
@@ -46,7 +68,14 @@ vi.mock('../src/gamePersistence.js', () => ({
   GameWorldFactory: {
     createFresh: vi.fn((seed) => ({
       grid: new Grid(),
-      waypoints: [[0, 0], [5, 0], [5, 5], [10, 5], [10, 10], [15, 10]],
+      waypoints: [
+        [0, 0],
+        [5, 0],
+        [5, 5],
+        [10, 5],
+        [10, 10],
+        [15, 10],
+      ],
       pathSegments: {
         segments: [
           { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
@@ -64,12 +93,19 @@ vi.mock('../src/gamePersistence.js', () => ({
 
 vi.mock('../src/ui/index.js', () => ({
   UI: {
-    handleToggleClick: vi.fn(() => false), hitShop: vi.fn(() => -1),
-    _devConfirmYes: null, _devConfirmNo: null, _shieldBuyBtn: null,
+    handleToggleClick: vi.fn(() => false),
+    hitShop: vi.fn(() => -1),
+    _devConfirmYes: null,
+    _devConfirmNo: null,
+    _shieldBuyBtn: null,
   },
   UI_LAYOUT: {
     collapsed: { hud: false, shop: false, shieldShop: false },
-    shopWidth: 120, hudHeight: 50, previewHeight: 80, shieldShopWidth: 20, SHOP_WIDTH: 120,
+    shopWidth: 120,
+    hudHeight: 50,
+    previewHeight: 80,
+    shieldShopWidth: 20,
+    SHOP_WIDTH: 120,
   },
 }));
 
@@ -126,8 +162,12 @@ describe('Gold Economy: config constants', () => {
 
 describe('Gold Economy: placing troops', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('placing a swordsman costs 70 gold', () => {
     game.placeTroop(swordsmanSpec, 3, 3);
@@ -184,8 +224,12 @@ describe('Gold Economy: placing troops', () => {
 
 describe('Gold Economy: selling refunds', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('selling refunds 30% of base cost', () => {
     game.placeTroop(swordsmanSpec, 3, 3);
@@ -255,8 +299,12 @@ describe('Gold Economy: selling refunds', () => {
 
 describe('Gold Economy: upgrade costs', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('first upgrade costs base cost', () => {
     game.placeTroop(archerSpec, 3, 3);
@@ -340,8 +388,12 @@ describe('Gold Economy: upgrade costs', () => {
 
 describe('Gold Economy: shield purchasing', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('shield cost is 50% of troop cost', () => {
     game.placeTroop(archerSpec, 3, 3);
@@ -428,8 +480,12 @@ describe('Gold Economy: shield purchasing', () => {
 
 describe('Gold Economy: heal costs', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('heal cost is 10% of base troop price', () => {
     game.placeTroop(archerSpec, 3, 3);
@@ -501,8 +557,12 @@ describe('Gold Economy: heal costs', () => {
 
 describe('Gold Economy: monster kill rewards', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('killing a grunt awards reward+1 gold', () => {
     game.spawnMonster(1);
@@ -568,8 +628,12 @@ describe('Gold Economy: monster kill rewards', () => {
 
 describe('Gold Economy: full cycle simulation', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 1000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 1000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('earn gold from kills, spend on upgrades, recover via sell', () => {
     game.placeTroop(archerSpec, 3, 3);

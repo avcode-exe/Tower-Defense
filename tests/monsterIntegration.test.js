@@ -9,36 +9,58 @@ import { WaveManager } from '../src/waveManager.js';
 // Mock external modules
 vi.mock('../src/audio.js', () => ({
   AUDIO: {
-    troopPlace: vi.fn(), goldEarned: vi.fn(), sell: vi.fn(), upgrade: vi.fn(),
-    heal: vi.fn(), shieldBuy: vi.fn(), waveComplete: vi.fn(), monsterLeak: vi.fn(),
-    troopDeath: vi.fn(), toggleMute: vi.fn(),
+    troopPlace: vi.fn(),
+    goldEarned: vi.fn(),
+    sell: vi.fn(),
+    upgrade: vi.fn(),
+    heal: vi.fn(),
+    shieldBuy: vi.fn(),
+    waveComplete: vi.fn(),
+    monsterLeak: vi.fn(),
+    troopDeath: vi.fn(),
+    toggleMute: vi.fn(),
   },
 }));
 
 vi.mock('../src/particles.js', () => ({
   PARTICLES: {
-    update: vi.fn(), deathBurst: vi.fn(), hitSpark: vi.fn(), chainSpark: vi.fn(),
-    slowApply: vi.fn(), healBurst: vi.fn(), troopDeath: vi.fn(),
-    troopShieldActivate: vi.fn(), reviveBurst: vi.fn(), splashImpact: vi.fn(),
+    update: vi.fn(),
+    deathBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    chainSpark: vi.fn(),
+    slowApply: vi.fn(),
+    healBurst: vi.fn(),
+    troopDeath: vi.fn(),
+    troopShieldActivate: vi.fn(),
+    reviveBurst: vi.fn(),
+    splashImpact: vi.fn(),
     spawnTrail: vi.fn(),
   },
 }));
 
 vi.mock('../src/rendering/renderer.js', () => ({
   RENDERER: {
-    init: vi.fn(), markCacheDirty: vi.fn(), toWorldInto: vi.fn(),
-    width: 800, height: 600,
+    init: vi.fn(),
+    markCacheDirty: vi.fn(),
+    toWorldInto: vi.fn(),
+    width: 800,
+    height: 600,
   },
 }));
 
 vi.mock('../src/rendering/gameRenderer.js', () => ({
-  renderGame: vi.fn(), updateCursor: vi.fn(),
+  renderGame: vi.fn(),
+  updateCursor: vi.fn(),
 }));
 
 vi.mock('../src/gameRuntime.js', () => ({
   GameRuntimeController: vi.fn().mockImplementation(() => ({
-    installResize: vi.fn(), startLoop: vi.fn(), stopLoop: vi.fn(),
-    applyDefeat: vi.fn(), startWave: vi.fn(), togglePause: vi.fn(),
+    installResize: vi.fn(),
+    startLoop: vi.fn(),
+    stopLoop: vi.fn(),
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
   })),
 }));
 
@@ -47,7 +69,14 @@ vi.mock('../src/gamePersistence.js', () => ({
   GameWorldFactory: {
     createFresh: vi.fn((seed) => ({
       grid: new Grid(),
-      waypoints: [[0, 0], [5, 0], [5, 5], [10, 5], [10, 10], [15, 10]],
+      waypoints: [
+        [0, 0],
+        [5, 0],
+        [5, 5],
+        [10, 5],
+        [10, 10],
+        [15, 10],
+      ],
       pathSegments: {
         segments: [
           { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
@@ -65,12 +94,19 @@ vi.mock('../src/gamePersistence.js', () => ({
 
 vi.mock('../src/ui/index.js', () => ({
   UI: {
-    handleToggleClick: vi.fn(() => false), hitShop: vi.fn(() => -1),
-    _devConfirmYes: null, _devConfirmNo: null, _shieldBuyBtn: null,
+    handleToggleClick: vi.fn(() => false),
+    hitShop: vi.fn(() => -1),
+    _devConfirmYes: null,
+    _devConfirmNo: null,
+    _shieldBuyBtn: null,
   },
   UI_LAYOUT: {
     collapsed: { hud: false, shop: false, shieldShop: false },
-    shopWidth: 120, hudHeight: 50, previewHeight: 80, shieldShopWidth: 20, SHOP_WIDTH: 120,
+    shopWidth: 120,
+    hudHeight: 50,
+    previewHeight: 80,
+    shieldShopWidth: 20,
+    SHOP_WIDTH: 120,
   },
 }));
 
@@ -82,13 +118,23 @@ const knightSpec = TROOP_SPECS.find((s) => s.id === 'knight');
 const mageSpec = TROOP_SPECS.find((s) => s.id === 'mage');
 const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
 
-
-
 // ─── Monster specs verification ────────────────────────────────────────────
 
 describe('Monster: spec verification', () => {
   it('all monster levels have required properties', () => {
-    const required = ['name', 'hp', 'speed', 'reward', 'leak', 'color', 'size', 'damage', 'attackSpeed', 'attackRange', 'attackMode'];
+    const required = [
+      'name',
+      'hp',
+      'speed',
+      'reward',
+      'leak',
+      'color',
+      'size',
+      'damage',
+      'attackSpeed',
+      'attackRange',
+      'attackMode',
+    ];
     for (const key of Object.keys(MONSTER_SPECS)) {
       const spec = MONSTER_SPECS[key];
       for (const prop of required) {
@@ -170,8 +216,12 @@ describe('Monster: spec verification', () => {
 
 describe('Monster: spawning', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spawnMonster creates a monster with correct level', () => {
     game.spawnMonster(1);
@@ -213,8 +263,12 @@ describe('Monster: spawning', () => {
 
 describe('Monster: movement', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('monster moves along path after step()', () => {
     game.spawnMonster(1);
@@ -264,8 +318,12 @@ describe('Monster: movement', () => {
 
 describe('Monster: combat', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('damageMonster reduces monster HP', () => {
     game.spawnMonster(1);
@@ -358,8 +416,12 @@ describe('Monster: combat', () => {
 
 describe('Monster: splitting', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('killing a Brute spawns 2 Grunts', () => {
     const sp = longPath();
@@ -436,8 +498,12 @@ describe('Monster: splitting', () => {
 
 describe('Monster: necromancer revive', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('necromancer revives a nearby dead grunt', () => {
     game.spawnMonster('Y');
@@ -506,8 +572,12 @@ describe('Monster: necromancer revive', () => {
 
 describe('Monster: boss mechanics', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('boss has doubled HP', () => {
     game.spawnMonster('B');
@@ -536,8 +606,12 @@ describe('Monster: boss mechanics', () => {
 
 describe('Monster: shielded mechanics', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('shielded monster has initial shield', () => {
     game.spawnMonster('S');
@@ -565,8 +639,12 @@ describe('Monster: shielded mechanics', () => {
 
 describe('Monster: spear mechanics', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spear has ranged attack (2.5 tiles)', () => {
     game.spawnMonster('X');
@@ -581,7 +659,10 @@ describe('Monster: spear mechanics', () => {
     let slowed = false;
     for (let s = 0; s < 120; s++) {
       game.step(CONFIG.FIXED_TIMESTEP);
-      if (spear.speed < baseSpeed) { slowed = true; break; }
+      if (spear.speed < baseSpeed) {
+        slowed = true;
+        break;
+      }
     }
     expect(slowed).toBe(true);
   });
@@ -591,8 +672,12 @@ describe('Monster: spear mechanics', () => {
 
 describe('Monster: mixed interactions', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('different monster types coexist', () => {
     const sp = longPath();
@@ -662,8 +747,12 @@ describe('Monster: leak damage', () => {
 
 describe('Monster: lifecycle', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('dead monsters are cleaned up by step()', () => {
     for (let i = 0; i < 10; i++) game.spawnMonster(1);

@@ -7,7 +7,14 @@ import { WaveManager } from '../src/waveManager.js';
 
 // ─── Path data (shared across all integration tests) ──────────────────────
 
-export const TEST_WAYPOINTS = [[0, 0], [5, 0], [5, 5], [10, 5], [10, 10], [15, 10]];
+export const TEST_WAYPOINTS = [
+  [0, 0],
+  [5, 0],
+  [5, 5],
+  [10, 5],
+  [10, 10],
+  [15, 10],
+];
 
 export const TEST_PATH_SEGMENTS = {
   segments: [
@@ -129,9 +136,15 @@ export function placeMonsterAt(game, level, gx, gy) {
  * but monsters must stay at their placed positions for distance checks.
  */
 export function setProgressKeepPosition(m, progress) {
-  const x = m.x, y = m.y, gx = m._tileGx, gy = m._tileGy;
+  const x = m.x,
+    y = m.y,
+    gx = m._tileGx,
+    gy = m._tileGy;
   m.distance = progress * m.totalLength;
-  m.x = x; m.y = y; m._tileGx = gx; m._tileGy = gy;
+  m.x = x;
+  m.y = y;
+  m._tileGx = gx;
+  m._tileGy = gy;
 }
 
 // ─── Helper: makeTroop ────────────────────────────────────────────────────

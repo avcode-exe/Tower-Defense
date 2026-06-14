@@ -11,36 +11,58 @@ import { makeGame, longPath } from './helpers.js';
 // Mock external modules that step() depends on
 vi.mock('../src/audio.js', () => ({
   AUDIO: {
-    troopPlace: vi.fn(), goldEarned: vi.fn(), sell: vi.fn(), upgrade: vi.fn(),
-    heal: vi.fn(), shieldBuy: vi.fn(), waveComplete: vi.fn(), monsterLeak: vi.fn(),
-    troopDeath: vi.fn(), toggleMute: vi.fn(),
+    troopPlace: vi.fn(),
+    goldEarned: vi.fn(),
+    sell: vi.fn(),
+    upgrade: vi.fn(),
+    heal: vi.fn(),
+    shieldBuy: vi.fn(),
+    waveComplete: vi.fn(),
+    monsterLeak: vi.fn(),
+    troopDeath: vi.fn(),
+    toggleMute: vi.fn(),
   },
 }));
 
 vi.mock('../src/particles.js', () => ({
   PARTICLES: {
-    update: vi.fn(), deathBurst: vi.fn(), hitSpark: vi.fn(), chainSpark: vi.fn(),
-    slowApply: vi.fn(), healBurst: vi.fn(), troopDeath: vi.fn(),
-    troopShieldActivate: vi.fn(), reviveBurst: vi.fn(), splashImpact: vi.fn(),
+    update: vi.fn(),
+    deathBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    chainSpark: vi.fn(),
+    slowApply: vi.fn(),
+    healBurst: vi.fn(),
+    troopDeath: vi.fn(),
+    troopShieldActivate: vi.fn(),
+    reviveBurst: vi.fn(),
+    splashImpact: vi.fn(),
     spawnTrail: vi.fn(),
   },
 }));
 
 vi.mock('../src/rendering/renderer.js', () => ({
   RENDERER: {
-    init: vi.fn(), markCacheDirty: vi.fn(), toWorldInto: vi.fn(),
-    width: 800, height: 600,
+    init: vi.fn(),
+    markCacheDirty: vi.fn(),
+    toWorldInto: vi.fn(),
+    width: 800,
+    height: 600,
   },
 }));
 
 vi.mock('../src/rendering/gameRenderer.js', () => ({
-  renderGame: vi.fn(), updateCursor: vi.fn(),
+  renderGame: vi.fn(),
+  updateCursor: vi.fn(),
 }));
 
 vi.mock('../src/gameRuntime.js', () => ({
   GameRuntimeController: vi.fn().mockImplementation(() => ({
-    installResize: vi.fn(), startLoop: vi.fn(), stopLoop: vi.fn(),
-    applyDefeat: vi.fn(), startWave: vi.fn(), togglePause: vi.fn(),
+    installResize: vi.fn(),
+    startLoop: vi.fn(),
+    stopLoop: vi.fn(),
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
   })),
 }));
 
@@ -49,7 +71,14 @@ vi.mock('../src/gamePersistence.js', () => ({
   GameWorldFactory: {
     createFresh: vi.fn((seed) => ({
       grid: new Grid(),
-      waypoints: [[0, 0], [5, 0], [5, 5], [10, 5], [10, 10], [15, 10]],
+      waypoints: [
+        [0, 0],
+        [5, 0],
+        [5, 5],
+        [10, 5],
+        [10, 10],
+        [15, 10],
+      ],
       pathSegments: {
         segments: [
           { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
@@ -63,18 +92,26 @@ vi.mock('../src/gamePersistence.js', () => ({
     })),
   },
   GameSnapshotRestorer: {
-    apply: vi.fn(), applyFresh: vi.fn(),
+    apply: vi.fn(),
+    applyFresh: vi.fn(),
   },
 }));
 
 vi.mock('../src/ui/index.js', () => ({
   UI: {
-    handleToggleClick: vi.fn(() => false), hitShop: vi.fn(() => -1),
-    _devConfirmYes: null, _devConfirmNo: null, _shieldBuyBtn: null,
+    handleToggleClick: vi.fn(() => false),
+    hitShop: vi.fn(() => -1),
+    _devConfirmYes: null,
+    _devConfirmNo: null,
+    _shieldBuyBtn: null,
   },
   UI_LAYOUT: {
     collapsed: { hud: false, shop: false, shieldShop: false },
-    shopWidth: 120, hudHeight: 50, previewHeight: 80, shieldShopWidth: 20, SHOP_WIDTH: 120,
+    shopWidth: 120,
+    hudHeight: 50,
+    previewHeight: 80,
+    shieldShopWidth: 20,
+    SHOP_WIDTH: 120,
   },
 }));
 
@@ -88,16 +125,20 @@ const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
 const sniperSpec = TROOP_SPECS.find((s) => s.id === 'sniper');
 const valkyrieSpec = TROOP_SPECS.find((s) => s.id === 'valkyrie');
 
-
 // ─── Melee troop attacks and kills a monster ───────────────────────────────
 
 describe('Integration: melee troop vs monster', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('swordsman kills a grunt over multiple steps', () => {
-    const gx = 2, gy = 0;
+    const gx = 2,
+      gy = 0;
     game.placeTroop(swordsmanSpec, gx, gy);
     expect(game.troops).toHaveLength(1);
     const swordsman = game.troops[0];
@@ -124,8 +165,12 @@ describe('Integration: melee troop vs monster', () => {
 
 describe('Integration: ranged troop projectile', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('archer fires projectile that kills a grunt', () => {
     game.placeTroop(archerSpec, 3, 0);
@@ -149,8 +194,12 @@ describe('Integration: ranged troop projectile', () => {
 
 describe('Integration: monster leak', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('grunt with no troops leaks and reduces lives', () => {
     const livesBefore = game.lives;
@@ -185,8 +234,12 @@ describe('Integration: monster leak', () => {
 
 describe('Integration: monster kills troop', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('grunt stops and kills an archer on the path', () => {
     game.placeTroop(archerSpec, 1, 0);
@@ -209,8 +262,12 @@ describe('Integration: monster kills troop', () => {
 
 describe('Integration: Necromancer revive', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('necromancer revives a nearby dead grunt', () => {
     game.spawnMonster('Y');
@@ -252,8 +309,12 @@ describe('Integration: Necromancer revive', () => {
 
 describe('Integration: Healer support', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('healer heals damaged allies in range', () => {
     game.placeTroop(healerSpec, 5, 3);
@@ -295,8 +356,12 @@ describe('Integration: Healer support', () => {
 
 describe('Integration: monster splitting', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('killing a Brute spawns 2 Grunts', () => {
     const sp = longPath();
@@ -347,8 +412,12 @@ describe('Integration: monster splitting', () => {
 
 describe('Integration: Ice Wizard slow and shatter', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('ice wizard slows monster and shatter deals bonus damage', () => {
     game.placeTroop(icewizSpec, 3, 0);
@@ -371,8 +440,12 @@ describe('Integration: Ice Wizard slow and shatter', () => {
 
 describe('Integration: Shielded monster', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('shielded monster absorbs damage with its shield', () => {
     game.spawnMonster('S');
@@ -401,8 +474,12 @@ describe('Integration: Shielded monster', () => {
 
 describe('Integration: sell and refund', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('selling a troop refunds 30% of total invested', () => {
     game.placeTroop(swordsmanSpec, 3, 3);
@@ -432,8 +509,12 @@ describe('Integration: sell and refund', () => {
 
 describe('Integration: upgrade troop', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('upgrading damage increases troop DPS', () => {
     game.placeTroop(archerSpec, 3, 0);
@@ -475,8 +556,12 @@ describe('Integration: upgrade troop', () => {
 
 describe('Integration: step() stability', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('step() runs without error with empty entities', () => {
     expect(() => game.step(CONFIG.FIXED_TIMESTEP)).not.toThrow();
@@ -524,8 +609,12 @@ describe('Integration: step() stability', () => {
 
 describe('Integration: wave spawning', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('wave spawns monsters when wave is active', () => {
     game.wave.buildCustomFromCounts({ 1: 1 });
@@ -558,8 +647,12 @@ describe('Integration: wave spawning', () => {
 
 describe('Integration: dev mode economy', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true, gold: 0 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true, gold: 0 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('placing troops is free in dev mode', () => {
     game.placeTroop(swordsmanSpec, 3, 3);
@@ -579,8 +672,12 @@ describe('Integration: dev mode economy', () => {
 
 describe('Integration: chain lightning', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('lightning troop stuns monsters', () => {
     game.placeTroop(lightningSpec, 3, 0);
@@ -602,8 +699,12 @@ describe('Integration: chain lightning', () => {
 
 describe('Integration: sell cooldown', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('sell cooldown decreases over steps', () => {
     game.placeTroop(swordsmanSpec, 3, 3);
@@ -632,8 +733,12 @@ describe('Integration: sell cooldown', () => {
 
 describe('Integration: mixed wave', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('different monster types can coexist and be damaged', () => {
     const sp = longPath();
@@ -662,8 +767,12 @@ describe('Integration: mixed wave', () => {
 
 describe('Integration: Boss mechanics', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('boss has doubled HP (3336 effective)', () => {
     game.spawnMonster('B');
@@ -703,8 +812,12 @@ describe('Integration: Boss mechanics', () => {
 
 describe('Integration: troop death', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('troop is killed and removed when HP reaches 0', () => {
     game.placeTroop(archerSpec, 1, 0);
@@ -755,8 +868,12 @@ describe('Integration: troop death', () => {
 
 describe('Integration: max gold cap', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('gold does not exceed MAX_GOLD', () => {
     game.gold = CONFIG.MAX_GOLD - 5;
@@ -788,8 +905,12 @@ describe('Integration: max gold cap', () => {
 
 describe('Integration: gold earning', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('killing a grunt awards reward+1 gold', () => {
     game.spawnMonster(1);
@@ -826,8 +947,12 @@ describe('Integration: gold earning', () => {
 
 describe('Integration: troop shield', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('buying shield sets shield to maxHp', () => {
     game.placeTroop(archerSpec, 3, 3);
@@ -883,8 +1008,12 @@ describe('Integration: troop shield', () => {
 
 describe('Integration: revived monster damage', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('revived grunt deals 50% damage to troops', () => {
     game.placeTroop(archerSpec, 1, 0);
@@ -913,8 +1042,12 @@ describe('Integration: revived monster damage', () => {
 
 describe('Integration: slow decay', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('monster speed restores after slow expires', () => {
     const grunt = new Monster(1, game.waypoints, game.pathSegments);
@@ -946,8 +1079,12 @@ describe('Integration: slow decay', () => {
 
 describe('Integration: Spear slow mode', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spear slows to half speed when near troops', () => {
     game.placeTroop(swordsmanSpec, 1, 0);
@@ -975,8 +1112,12 @@ describe('Integration: Spear slow mode', () => {
 
 describe('Integration: Runner pass mode', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('runner does not split on death (noSplit)', () => {
     const sp = longPath();
@@ -1001,8 +1142,12 @@ describe('Integration: Runner pass mode', () => {
 
 describe('Integration: placement validation', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('cannot place on path tile', () => {
     expect(game.grid.isBuildable(5, 0)).toBe(false);
@@ -1042,8 +1187,12 @@ describe('Integration: placement validation', () => {
 
 describe('Integration: game over', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('defeat triggers when lives reach 0', () => {
     game.lives = 1;
@@ -1083,8 +1232,12 @@ describe('Integration: game over', () => {
 
 describe('Integration: upgrade edge cases', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('upgrading range increases archer range', () => {
     game.placeTroop(archerSpec, 3, 3);
@@ -1167,8 +1320,12 @@ describe('Integration: upgrade edge cases', () => {
 
 describe('Integration: troop gold heal', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('healing a troop costs gold and restores HP', () => {
     game.placeTroop(archerSpec, 3, 3);
@@ -1200,8 +1357,12 @@ describe('Integration: troop gold heal', () => {
 
 describe('Integration: popup recycling', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('expired popups are recycled to the pool', () => {
     game._getPopup('test1', 0, 0, 0.5, '#fff');
@@ -1235,8 +1396,12 @@ describe('Integration: popup recycling', () => {
 
 describe('Integration: Shielded monster regen', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('shield regenerates after delay', () => {
     game.spawnMonster('S');
@@ -1271,8 +1436,12 @@ describe('Integration: Shielded monster regen', () => {
 
 describe('Integration: findTroopAtTile', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('returns troop index at the given tile', () => {
     game.placeTroop(swordsmanSpec, 3, 3);
@@ -1302,8 +1471,12 @@ describe('Integration: findTroopAtTile', () => {
 
 describe('Integration: Necromancer edge cases', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('necromancer does not revive itself', () => {
     game.spawnMonster('Y');
@@ -1353,8 +1526,12 @@ describe('Integration: Necromancer edge cases', () => {
 
 describe('Integration: multi-troop defense', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('melee, ranged, and support troops all function in one step cycle', () => {
     game.placeTroop(swordsmanSpec, 2, 0);
@@ -1379,8 +1556,12 @@ describe('Integration: multi-troop defense', () => {
 
 describe('Integration: game speed', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('step() runs without error at different speeds', () => {
     game.placeTroop(swordsmanSpec, 3, 3);
@@ -1401,8 +1582,12 @@ describe('Integration: game speed', () => {
 
 describe('Integration: leak damage values', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('boss leaks 5 lives', () => {
     expect(MONSTER_SPECS.B.leak).toBe(5);

@@ -5,41 +5,79 @@ import { Grid, TILE } from '../src/grid.js';
 import { Troop } from '../src/troop.js';
 import { Monster } from '../src/monster.js';
 import { WaveManager } from '../src/waveManager.js';
-import { makeGame, placeMonsterAt, setProgressKeepPosition, makeTroop, mortarSpec, valkyrieSpec, mageSpec, icewizSpec, lightningSpec, sniperSpec, machinegunSpec, knightSpec, swordsmanSpec, archerSpec, healerSpec } from './helpers.js';
+import {
+  makeGame,
+  placeMonsterAt,
+  setProgressKeepPosition,
+  makeTroop,
+  mortarSpec,
+  valkyrieSpec,
+  mageSpec,
+  icewizSpec,
+  lightningSpec,
+  sniperSpec,
+  machinegunSpec,
+  knightSpec,
+  swordsmanSpec,
+  archerSpec,
+  healerSpec,
+} from './helpers.js';
 
 // Mock external modules
 vi.mock('../src/audio.js', () => ({
   AUDIO: {
-    troopPlace: vi.fn(), goldEarned: vi.fn(), sell: vi.fn(), upgrade: vi.fn(),
-    heal: vi.fn(), shieldBuy: vi.fn(), waveComplete: vi.fn(), monsterLeak: vi.fn(),
-    troopDeath: vi.fn(), toggleMute: vi.fn(),
+    troopPlace: vi.fn(),
+    goldEarned: vi.fn(),
+    sell: vi.fn(),
+    upgrade: vi.fn(),
+    heal: vi.fn(),
+    shieldBuy: vi.fn(),
+    waveComplete: vi.fn(),
+    monsterLeak: vi.fn(),
+    troopDeath: vi.fn(),
+    toggleMute: vi.fn(),
   },
 }));
 
 vi.mock('../src/particles.js', () => ({
   PARTICLES: {
-    update: vi.fn(), deathBurst: vi.fn(), hitSpark: vi.fn(), chainSpark: vi.fn(),
-    slowApply: vi.fn(), healBurst: vi.fn(), troopDeath: vi.fn(),
-    troopShieldActivate: vi.fn(), reviveBurst: vi.fn(), splashImpact: vi.fn(),
+    update: vi.fn(),
+    deathBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    chainSpark: vi.fn(),
+    slowApply: vi.fn(),
+    healBurst: vi.fn(),
+    troopDeath: vi.fn(),
+    troopShieldActivate: vi.fn(),
+    reviveBurst: vi.fn(),
+    splashImpact: vi.fn(),
     spawnTrail: vi.fn(),
   },
 }));
 
 vi.mock('../src/rendering/renderer.js', () => ({
   RENDERER: {
-    init: vi.fn(), markCacheDirty: vi.fn(), toWorldInto: vi.fn(),
-    width: 800, height: 600,
+    init: vi.fn(),
+    markCacheDirty: vi.fn(),
+    toWorldInto: vi.fn(),
+    width: 800,
+    height: 600,
   },
 }));
 
 vi.mock('../src/rendering/gameRenderer.js', () => ({
-  renderGame: vi.fn(), updateCursor: vi.fn(),
+  renderGame: vi.fn(),
+  updateCursor: vi.fn(),
 }));
 
 vi.mock('../src/gameRuntime.js', () => ({
   GameRuntimeController: vi.fn().mockImplementation(() => ({
-    installResize: vi.fn(), startLoop: vi.fn(), stopLoop: vi.fn(),
-    applyDefeat: vi.fn(), startWave: vi.fn(), togglePause: vi.fn(),
+    installResize: vi.fn(),
+    startLoop: vi.fn(),
+    stopLoop: vi.fn(),
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
   })),
 }));
 
@@ -48,7 +86,14 @@ vi.mock('../src/gamePersistence.js', () => ({
   GameWorldFactory: {
     createFresh: vi.fn(() => ({
       grid: new Grid(),
-      waypoints: [[0, 0], [5, 0], [5, 5], [10, 5], [10, 10], [15, 10]],
+      waypoints: [
+        [0, 0],
+        [5, 0],
+        [5, 5],
+        [10, 5],
+        [10, 10],
+        [15, 10],
+      ],
       pathSegments: {
         segments: [
           { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
@@ -66,12 +111,19 @@ vi.mock('../src/gamePersistence.js', () => ({
 
 vi.mock('../src/ui/index.js', () => ({
   UI: {
-    handleToggleClick: vi.fn(() => false), hitShop: vi.fn(() => -1),
-    _devConfirmYes: null, _devConfirmNo: null, _shieldBuyBtn: null,
+    handleToggleClick: vi.fn(() => false),
+    hitShop: vi.fn(() => -1),
+    _devConfirmYes: null,
+    _devConfirmNo: null,
+    _shieldBuyBtn: null,
   },
   UI_LAYOUT: {
     collapsed: { hud: false, shop: false, shieldShop: false },
-    shopWidth: 120, hudHeight: 50, previewHeight: 80, shieldShopWidth: 20, SHOP_WIDTH: 120,
+    shopWidth: 120,
+    hudHeight: 50,
+    previewHeight: 80,
+    shieldShopWidth: 20,
+    SHOP_WIDTH: 120,
   },
 }));
 
@@ -83,8 +135,12 @@ for (const s of TROOP_SPECS) specs[s.id] = s;
 
 describe('Integration: Mortar splash damage', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('mortar has splash radius of 2.5 tiles', () => {
     expect(mortarSpec.splash).toBe(2.5);
@@ -124,8 +180,12 @@ describe('Integration: Mortar splash damage', () => {
 
 describe('Integration: Valkyrie AoE attacks', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('valkyrie has aoe property set to true', () => {
     expect(valkyrieSpec.aoe).toBe(true);
@@ -163,8 +223,12 @@ describe('Integration: Valkyrie AoE attacks', () => {
 
 describe('Integration: Mage splash damage', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('mage splash radius is 2.0 tiles', () => {
     expect(mageSpec.splash).toBe(2.0);
@@ -197,8 +261,12 @@ describe('Integration: Mage splash damage', () => {
 
 describe('Integration: Ice Wizard splash slow', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('ice wizard has splash radius 1.5 and slow mechanics', () => {
     expect(icewizSpec.splash).toBe(1.5);
@@ -253,8 +321,12 @@ describe('Integration: Ice Wizard splash slow', () => {
 
 describe('Integration: Chain lightning', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('lightning troop has chain 2 and stun 0.5', () => {
     expect(lightningSpec.chain).toBe(2);
@@ -291,8 +363,12 @@ describe('Integration: Chain lightning', () => {
 
 describe('Integration: splash damage falloff', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('monsters closer to splash center take more damage', () => {
     const T = CONFIG.TILE_SIZE;
@@ -372,8 +448,12 @@ describe('Integration: splash damage falloff', () => {
 
 describe('Integration: Swordsman', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: melee, 9 damage, range 1, 0.67s, 50 HP, 70 cost', () => {
     expect(specs.swordsman.type).toBe('melee');
@@ -462,8 +542,12 @@ describe('Integration: Swordsman', () => {
 
 describe('Integration: Knight', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: melee, 18 damage, range 1, 0.9s, 120 HP, 120 cost', () => {
     expect(specs.knight.type).toBe('melee');
@@ -526,8 +610,12 @@ describe('Integration: Knight', () => {
 
 describe('Integration: Archer', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: ranged, 12 damage, range 3, 1.2s, 30 HP, 70 cost', () => {
     expect(specs.archer.type).toBe('ranged');
@@ -596,8 +684,12 @@ describe('Integration: Archer', () => {
 
 describe('Integration: Machine Gun', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: ranged, 6 damage, range 4, 0.25s, 40 HP, 150 cost', () => {
     expect(specs.machinegun.type).toBe('ranged');
@@ -664,8 +756,12 @@ describe('Integration: Machine Gun', () => {
 
 describe('Integration: Mage', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: ranged, 32 damage, range 3, 1.3s, splash 2.0, 35 HP, 180 cost', () => {
     expect(specs.mage.type).toBe('ranged');
@@ -721,8 +817,12 @@ describe('Integration: Mage', () => {
 
 describe('Integration: Sniper', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: ranged, 100 damage, range 10, 2.5s, 25 HP, 250 cost', () => {
     expect(specs.sniper.type).toBe('ranged');
@@ -789,8 +889,12 @@ describe('Integration: Sniper', () => {
 
 describe('Integration: Valkyrie', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: melee, 22 damage, range 1, 1.2s, 80 HP, aoe, 150 cost', () => {
     expect(specs.valkyrie.type).toBe('melee');
@@ -848,8 +952,12 @@ describe('Integration: Valkyrie', () => {
 
 describe('Integration: Lightning', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: ranged, 100 damage, range 2, 3s, chain 2, stun 0.5, 40 HP, 300 cost', () => {
     expect(specs.lightning.type).toBe('ranged');
@@ -902,8 +1010,12 @@ describe('Integration: Lightning', () => {
 
 describe('Integration: Mortar', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: ranged, 65 damage, range 8, 3s, splash 2.5, 30 HP, 200 cost', () => {
     expect(specs.mortar.type).toBe('ranged');
@@ -965,8 +1077,12 @@ describe('Integration: Mortar', () => {
 
 describe('Integration: Ice Wizard', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: ranged, 6 damage, range 3, 1.4s, splash 1.5, slow 0.5, slowDur 2.5s, shatter 0.5, 60 HP, 200 cost', () => {
     expect(specs.icewiz.type).toBe('ranged');
@@ -1043,8 +1159,12 @@ describe('Integration: Ice Wizard', () => {
 
 describe('Integration: Healer', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spec: support, 8 heal, range 2, 0.5s, monsterDamage 3, 40 HP, 140 cost', () => {
     expect(specs.healer.type).toBe('support');
@@ -1196,8 +1316,12 @@ describe('Integration: Troop comparisons', () => {
 
 describe('Integration: Troop lifecycle', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('place, select, sell cycle works', () => {
     game.placeTroop(specs.swordsman, 5, 3);
@@ -1287,8 +1411,12 @@ describe('Integration: Healer spec', () => {
 
 describe('Integration: Healer heal prioritization', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('healer prioritizes lowest HP ratio first', () => {
     game.placeTroop(healerSpec, 5, 3);
@@ -1404,8 +1532,12 @@ describe('Integration: Healer heal prioritization', () => {
 
 describe('Integration: Healer monster damage', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('healer deals 3 damage to monsters in heal range', () => {
     game.placeTroop(healerSpec, 5, 3);
@@ -1454,8 +1586,12 @@ describe('Integration: Healer monster damage', () => {
 
 describe('Integration: Healer upgrades', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000, devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000, devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('upgrade slow stat increases heal target count', () => {
     game.placeTroop(healerSpec, 5, 3);
@@ -1547,8 +1683,12 @@ describe('Integration: Chain Lightning spec', () => {
 
 describe('Integration: Chain Lightning bounce mechanics', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('chain lightning damages primary target', () => {
     const T = CONFIG.TILE_SIZE;
@@ -1703,8 +1843,12 @@ describe('Integration: Chain Lightning bounce mechanics', () => {
 
 describe('Integration: Healer + Lightning combo', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('healer keeps lightning troop alive while it stuns monsters', () => {
     for (let s = 0; s < 10; s++) game.step(CONFIG.FIXED_TIMESTEP);
@@ -1781,8 +1925,12 @@ describe('Integration: Mortar spec', () => {
 
 describe('Integration: Mortar long-range siege', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('mortar fires at Brutes far from its position', () => {
     for (let s = 0; s < 10; s++) game.step(CONFIG.FIXED_TIMESTEP);
@@ -1916,8 +2064,12 @@ describe('Integration: Knight spec', () => {
 
 describe('Integration: Knight tank mechanics', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('knight survives multiple grunt attacks due to high HP + damage reduction', () => {
     for (let s = 0; s < 10; s++) game.step(CONFIG.FIXED_TIMESTEP);
@@ -1996,8 +2148,12 @@ describe('Integration: Knight tank mechanics', () => {
 
 describe('Integration: Knight upgrades', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('upgrading damage increases knight DPS', () => {
     game.placeTroop(knightSpec, 3, 3);
@@ -2111,8 +2267,12 @@ describe('Integration: Sniper spec', () => {
 
 describe('Integration: Sniper long-range targeting', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('sniper can target monsters far from its position', () => {
     game.placeTroop(sniperSpec, 2, 8);
@@ -2167,8 +2327,12 @@ describe('Integration: Sniper long-range targeting', () => {
 
 describe('Integration: Sniper upgrades', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('upgrading sniper damage increases DPS significantly', () => {
     game.placeTroop(sniperSpec, 3, 3);
@@ -2252,8 +2416,12 @@ describe('Integration: Machine Gun spec', () => {
 
 describe('Integration: Machine Gun rapid-fire', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('machine gun fires many projectiles in quick succession', () => {
     game.placeTroop(machinegunSpec, 5, 1);
@@ -2308,8 +2476,12 @@ describe('Integration: Machine Gun rapid-fire', () => {
 
 describe('Integration: Machine Gun upgrades', () => {
   let game;
-  beforeEach(() => { game = makeGame({ gold: 10000 }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ gold: 10000 });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('upgrading damage increases DPS significantly', () => {
     game.placeTroop(machinegunSpec, 3, 3);

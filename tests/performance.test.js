@@ -9,36 +9,58 @@ import { WaveManager } from '../src/waveManager.js';
 // Mock external modules
 vi.mock('../src/audio.js', () => ({
   AUDIO: {
-    troopPlace: vi.fn(), goldEarned: vi.fn(), sell: vi.fn(), upgrade: vi.fn(),
-    heal: vi.fn(), shieldBuy: vi.fn(), waveComplete: vi.fn(), monsterLeak: vi.fn(),
-    troopDeath: vi.fn(), toggleMute: vi.fn(),
+    troopPlace: vi.fn(),
+    goldEarned: vi.fn(),
+    sell: vi.fn(),
+    upgrade: vi.fn(),
+    heal: vi.fn(),
+    shieldBuy: vi.fn(),
+    waveComplete: vi.fn(),
+    monsterLeak: vi.fn(),
+    troopDeath: vi.fn(),
+    toggleMute: vi.fn(),
   },
 }));
 
 vi.mock('../src/particles.js', () => ({
   PARTICLES: {
-    update: vi.fn(), deathBurst: vi.fn(), hitSpark: vi.fn(), chainSpark: vi.fn(),
-    slowApply: vi.fn(), healBurst: vi.fn(), troopDeath: vi.fn(),
-    troopShieldActivate: vi.fn(), reviveBurst: vi.fn(), splashImpact: vi.fn(),
+    update: vi.fn(),
+    deathBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    chainSpark: vi.fn(),
+    slowApply: vi.fn(),
+    healBurst: vi.fn(),
+    troopDeath: vi.fn(),
+    troopShieldActivate: vi.fn(),
+    reviveBurst: vi.fn(),
+    splashImpact: vi.fn(),
     spawnTrail: vi.fn(),
   },
 }));
 
 vi.mock('../src/rendering/renderer.js', () => ({
   RENDERER: {
-    init: vi.fn(), markCacheDirty: vi.fn(), toWorldInto: vi.fn(),
-    width: 800, height: 600,
+    init: vi.fn(),
+    markCacheDirty: vi.fn(),
+    toWorldInto: vi.fn(),
+    width: 800,
+    height: 600,
   },
 }));
 
 vi.mock('../src/rendering/gameRenderer.js', () => ({
-  renderGame: vi.fn(), updateCursor: vi.fn(),
+  renderGame: vi.fn(),
+  updateCursor: vi.fn(),
 }));
 
 vi.mock('../src/gameRuntime.js', () => ({
   GameRuntimeController: vi.fn().mockImplementation(() => ({
-    installResize: vi.fn(), startLoop: vi.fn(), stopLoop: vi.fn(),
-    applyDefeat: vi.fn(), startWave: vi.fn(), togglePause: vi.fn(),
+    installResize: vi.fn(),
+    startLoop: vi.fn(),
+    stopLoop: vi.fn(),
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
   })),
 }));
 
@@ -47,7 +69,14 @@ vi.mock('../src/gamePersistence.js', () => ({
   GameWorldFactory: {
     createFresh: vi.fn((seed) => ({
       grid: new Grid(),
-      waypoints: [[0, 0], [5, 0], [5, 5], [10, 5], [10, 10], [15, 10]],
+      waypoints: [
+        [0, 0],
+        [5, 0],
+        [5, 5],
+        [10, 5],
+        [10, 10],
+        [15, 10],
+      ],
       pathSegments: {
         segments: [
           { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
@@ -65,12 +94,19 @@ vi.mock('../src/gamePersistence.js', () => ({
 
 vi.mock('../src/ui/index.js', () => ({
   UI: {
-    handleToggleClick: vi.fn(() => false), hitShop: vi.fn(() => -1),
-    _devConfirmYes: null, _devConfirmNo: null, _shieldBuyBtn: null,
+    handleToggleClick: vi.fn(() => false),
+    hitShop: vi.fn(() => -1),
+    _devConfirmYes: null,
+    _devConfirmNo: null,
+    _shieldBuyBtn: null,
   },
   UI_LAYOUT: {
     collapsed: { hud: false, shop: false, shieldShop: false },
-    shopWidth: 120, hudHeight: 50, previewHeight: 80, shieldShopWidth: 20, SHOP_WIDTH: 120,
+    shopWidth: 120,
+    hudHeight: 50,
+    previewHeight: 80,
+    shieldShopWidth: 20,
+    SHOP_WIDTH: 120,
   },
 }));
 
@@ -81,14 +117,16 @@ const archerSpec = TROOP_SPECS.find((s) => s.id === 'archer');
 const knightSpec = TROOP_SPECS.find((s) => s.id === 'knight');
 const mageSpec = TROOP_SPECS.find((s) => s.id === 'mage');
 
-
-
 // ─── Empty step throughput ─────────────────────────────────────────────────
 
 describe('Performance: empty step', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('step() with no entities runs within budget (5ms per step)', () => {
     const start = performance.now();
@@ -111,8 +149,12 @@ describe('Performance: empty step', () => {
 
 describe('Performance: troop placement', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('placing 50 troops completes within 100ms', () => {
     const start = performance.now();
@@ -142,8 +184,12 @@ describe('Performance: troop placement', () => {
 
 describe('Performance: monster spawning', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('spawning 100 monsters completes within 50ms', () => {
     const start = performance.now();
@@ -167,8 +213,12 @@ describe('Performance: monster spawning', () => {
 
 describe('Performance: step with entities', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('step with 20 troops + 20 monsters runs within budget (10ms per step)', () => {
     for (let i = 0; i < 20; i++) {
@@ -205,12 +255,18 @@ describe('Performance: step with entities', () => {
 
 describe('Performance: cleanup', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('cleanupDead with 200 monsters (most dead) completes within 5ms', () => {
     for (let i = 0; i < 200; i++) game.spawnMonster(1);
-    for (const m of game.monsters) { m.alive = false; }
+    for (const m of game.monsters) {
+      m.alive = false;
+    }
 
     const start = performance.now();
     game._cleanupDead();
@@ -238,8 +294,12 @@ describe('Performance: cleanup', () => {
 
 describe('Performance: splash and chain at scale', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('splashAt with 50 monsters nearby completes within 5ms', () => {
     const T = CONFIG.TILE_SIZE;
@@ -261,8 +321,12 @@ describe('Performance: splash and chain at scale', () => {
 
 describe('Performance: projectile management', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('projectile pool does not grow unbounded under heavy fire', () => {
     game.placeTroop(archerSpec, 5, 1);
@@ -279,8 +343,12 @@ describe('Performance: projectile management', () => {
 
 describe('Performance: scaling', () => {
   let game;
-  beforeEach(() => { game = makeGame({ devMode: true }); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('step time scales roughly linearly with entity count', () => {
     const measureSteps = (troopCount, monsterCount) => {
@@ -308,8 +376,12 @@ describe('Performance: scaling', () => {
 
 describe('Performance: memory stability', () => {
   let game;
-  beforeEach(() => { game = makeGame(); });
-  afterEach(() => { vi.restoreAllMocks(); });
+  beforeEach(() => {
+    game = makeGame();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
   it('monster array does not grow after 30 wave cycles', () => {
     for (let wave = 0; wave < 30; wave++) {
