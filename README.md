@@ -11,8 +11,8 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **ES modules** — source organized in `src/` with clean module boundaries
 - **Canvas 2D rendering** — game world drawn on HTML5 Canvas, with canvas overlays plus DOM panels for settings/help
 - **Electron desktop app** — packaged with electron-builder (NSIS), auto-updates via GitHub Releases
-- **11 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), and **Healer** (support healing)
-- **8 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss, **Spear** (slow-attack hybrid)
+- **11 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), and **Healer** (support healing + monster damage)
+- **9 monster types** — Grunt, Runner, Brute, Elite, Champion, Necromancer, Shielded, Boss, Spear
 - **Modernized icon** — redesigned tower icon with glowing beacon and vibrant gradients
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
 - **Three monster attack modes** — **stop** (default, pauses to attack), **slow** (slows near troops, attacks while moving), **pass** (penetration, hits each troop once)
@@ -28,6 +28,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **Animated tray windows** — smooth roll-up/down transitions, only one tray window open at a time
 - **Smart cursor** — standard arrow by default, hand pointer on clickable elements (shop, buttons, troops, grid)
 - **16x16 grid** with procedurally generated winding paths
+- **Necromancer** — revives dead allied monsters within range (up to 4 per Necromancer); revived monsters take 50% reduced damage
 - **Monster splitting** — non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
 - **Sell confirmation** — 30% refund with 3-second global cooldown
 
@@ -45,13 +46,13 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 | 8   | Lightning   | Ranged  | 300  | 40  | 100    | 2     | 3s    | Chain 2 (+1/level) + stun 0.5s                   |
 | 9   | Mortar      | Ranged  | 200  | 30  | 65     | 8     | 3.0s  | Splash 2.5 tiles                                 |
 | 0   | Ice Wizard  | Ranged  | 200  | 60  | 6      | 3     | 1.4s  | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50% |
-| 11  | Healer      | Support | 150  | 40  | 8 heal | 3     | 1.5s  | Heals damaged allies; can be healed with gold; TGT increases target count |
+| 11  | Healer      | Support | 150  | 40  | 8 heal | 3     | 0.5s  | Heals damaged allies; 3 dmg to monsters in range; TGT increases targets |
 
 **Upgradeable stats per troop:**
 
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
 - Lightning: also **CHN** (+1 chain target per level)
-- **Healer**: also **TGT** (more simultaneous heal targets)
+- **Healer**: also **TGT** (more simultaneous heal targets); deals 3 damage to monsters in heal range
 - **Ice Wizard**: also **SLW** (stronger slow, longer duration, bigger shatter per level)
 - **Melee troops take 70% reduced damage from monster attacks**
 
@@ -64,11 +65,12 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 | 3     | Brute    | 133  | 0.7   | 14     | 11g    | 1        | Tanky                                                               |
 | 4     | Elite    | 245  | 1.0   | 18     | 17g    | 2        | Splits into 2 Brutes on death                                       |
 | 5     | Champion | 667  | 0.9   | 32     | 36g    | 3        | Very tanky                                                          |
+| Y     | Necromancer | 220 | 0.8  | 18     | 18g    | 2        | Revives up to 4 dead allies (50% HP), revived take 50% less dmg     |
 | B     | Boss     | 1668 | 0.6   | 45     | 200g   | 5        | 2x HP, appears wave 10/20/30, heals 15 HP/s                         |
 | S     | Shielded | 173  | 0.8   | 16     | 15g    | 1        | Regenerating shield (69 HP, overheals to 104)                       |
 | X     | Spear    | 50   | 2.0   | 3      | 5g     | 1        | Slows to half speed near troops, attacks closest in 2.5 tile radius |
 
-Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
+Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Necromancers revive dead allies within 2-tile range (up to 4 per Necromancer); revived monsters become `reviveImmune` and take 50% reduced damage. Non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 
 Monsters have three attack modes:
 
@@ -162,7 +164,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit test suite (305 tests)
+- **Vitest** — unit test suite (700 tests, 27 files)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -222,6 +224,25 @@ tests/
   persistence.test.js
   updateManager.test.js
   waveManager.test.js
+  game.test.js
+  gameExtended.test.js
+  monster.test.js
+  monsterExtended.test.js
+  troop.test.js
+  troopExtended.test.js
+  waveManagerExtended.test.js
+  waveManagerPreview.test.js
+  persistenceExtended.test.js
+  necromancer.test.js
+  healer.test.js
+  healerBehavior.test.js
+  splitting.test.js
+  devMode.test.js
+  placementPreview.test.js
+  versioning.test.js
+  githubReleaseFeed.test.js
+  smoke.test.js
+  particles.test.js
 electron-main.js     # Electron main process
 preload.js          # Electron preload script
 index.html          # Single-page canvas host
@@ -259,7 +280,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (305 tests)
+npm test             # Run test suite (700 tests)
 npm run test:watch   # Run tests in watch mode
 ```
 

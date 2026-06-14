@@ -77,7 +77,7 @@ describe('getPlacementInvalidReason', () => {
 
   it('returns reason when not enough gold', () => {
     game.gold = 5;
-    expect(game.getPlacementInvalidReason(0, 0, archerSpec)).toBe('Not enough gold');
+    expect(game.getPlacementInvalidReason(0, 0, archerSpec)).toBe('Need 70g');
   });
 
   it('returns null in devMode regardless of gold', () => {
@@ -106,6 +106,6 @@ describe('getPlacementInvalidReason', () => {
   it('checks gold before tile buildability', () => {
     game.gold = 0;
     game.grid.set(0, 0, 1);
-    expect(game.getPlacementInvalidReason(0, 0, archerSpec)).toBe('Not enough gold');
+    expect(game.getPlacementInvalidReason(0, 0, archerSpec)).toBe('Need 70g');
   });
 });

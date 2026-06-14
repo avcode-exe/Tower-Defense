@@ -119,7 +119,7 @@ export class Game {
   }
 
   getPlacementInvalidReason(gx, gy, spec) {
-    if (!this.devMode && this.gold < spec.cost) return 'Not enough gold';
+    if (!this.devMode && this.gold < spec.cost) return 'Need ' + spec.cost + 'g';
     if (!this.grid.isBuildable(gx, gy)) return 'Cannot build here';
     const idx = gy * CONFIG.GRID_SIZE + gx;
     const tileTroops = this._troopTileIndex[idx];
@@ -1052,8 +1052,9 @@ export class Game {
       if (this.placeTroop(this.selectedSpec, tile.gx, tile.gy)) {
         // Keep selected for repeat placement.
       } else {
+        const reason = this.getPlacementInvalidReason(tile.gx, tile.gy, this.selectedSpec) || 'Invalid!';
         tileCenterInto(tile.gx, tile.gy, this._centerScratch);
-        this._getPopup('Invalid!', this._centerScratch.x, this._centerScratch.y, 1.0, '#da3633');
+        this._getPopup(reason, this._centerScratch.x, this._centerScratch.y, 1.0, '#da3633');
         this.selectedTroopIndex = -1;
       }
       return;

@@ -96,7 +96,7 @@ describe('Necromancer milestone 3 acceptance', () => {
     expect(necro.noSplit).toBe(true);
     expect(necro.reviveRange).toBe(2.0);
     expect(necro.reviveHpRatio).toBe(0.5);
-    expect(necro.reviveMaxTargets).toBe(5);
+    expect(necro.reviveMaxTargets).toBe(4);
     expect(necro.reviveGlowDuration).toBe(1.5);
   });
 
@@ -256,9 +256,9 @@ describe('Necromancer milestone 3 acceptance', () => {
     expect(game.popups).toHaveLength(0);
   });
 
-  it('revives up to five eligible monsters per Necromancer in the same step', () => {
+  it('revives up to four eligible monsters per Necromancer in the same step', () => {
     const necro = fakeMonster('Y', 0, 0);
-    const targets = Array.from({ length: 5 }, (_, index) =>
+    const targets = Array.from({ length: 4 }, (_, index) =>
       fakeMonster(index + 1, CONFIG.TILE_SIZE * (0.25 + index * 0.25), 0, { alive: false, maxHp: 100 })
     );
     const game = makeReviveGame([necro, ...targets]);
@@ -272,10 +272,10 @@ describe('Necromancer milestone 3 acceptance', () => {
     expect(targets.every((target) => target.reviveGlow === true)).toBe(true);
 
     expect(targets.every((target) => target.reviveDamageRatio === 0.5)).toBe(true);
-    expect(necro.reviveCount).toBe(5);
+    expect(necro.reviveCount).toBe(4);
     expect(necro.reviveUsed).toBe(true);
-    expect(game.popups).toHaveLength(5);
-    expect(spawnSpy).toHaveBeenCalledTimes(5);
+    expect(game.popups).toHaveLength(4);
+    expect(spawnSpy).toHaveBeenCalledTimes(4);
   });
 
   it('prevents another Necromancer from re-reviving the same monster in the same step', () => {
@@ -347,9 +347,9 @@ describe('Necromancer milestone 3 acceptance', () => {
     expect(necro.reviveCount).toBe(1);
   });
 
-  it('does not revive a sixth in-range target in the same pass', () => {
+  it('does not revive a fifth in-range target in the same pass', () => {
     const necro = fakeMonster('Y', 0, 0);
-    const targets = Array.from({ length: 6 }, (_, index) =>
+    const targets = Array.from({ length: 5 }, (_, index) =>
       fakeMonster(index + 1, CONFIG.TILE_SIZE * (0.25 + index * 0.25), 0, { alive: false, maxHp: 100 })
     );
     const game = makeReviveGame([necro, ...targets]);
@@ -357,13 +357,13 @@ describe('Necromancer milestone 3 acceptance', () => {
 
     Game.prototype._stepNecromancerRevives.call(game);
 
-    expect(targets.slice(0, 5).every((target) => target.alive)).toBe(true);
-    expect(targets[5].alive).toBe(false);
-    expect(targets[5]._reviveLock).toBe(false);
-    expect(necro.reviveCount).toBe(5);
+    expect(targets.slice(0, 4).every((target) => target.alive)).toBe(true);
+    expect(targets[4].alive).toBe(false);
+    expect(targets[4]._reviveLock).toBe(false);
+    expect(necro.reviveCount).toBe(4);
     expect(necro.reviveUsed).toBe(true);
-    expect(game.popups).toHaveLength(5);
-    expect(spawnSpy).toHaveBeenCalledTimes(5);
+    expect(game.popups).toHaveLength(4);
+    expect(spawnSpy).toHaveBeenCalledTimes(4);
   });
 
   it('default dev monster counts include Necromancer', () => {
