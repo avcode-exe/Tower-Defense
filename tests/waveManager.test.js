@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { shuffleNecromancersInWave, WaveManager } from '../src/waveManager.js';
+import { CONFIG, WAVES, MONSTER_SPECS } from '../src/config.js';
+
+// ─── buildQueue ────────────────────────────────────────────────────────────
 
 describe('WaveManager.buildQueue', () => {
   it('matches the scaled preview when queuing spawns', () => {
@@ -10,7 +13,42 @@ describe('WaveManager.buildQueue', () => {
     const firstEntry = wave.currentPreview[0];
     expect(wave.queue.filter((entry) => entry.level === firstEntry[0])).toHaveLength(firstEntry[1]);
   });
+
+  it('queues Necromancers while preserving other monster order', () => {
+    const wave = new WaveManager();
+    wave.currentWave = 8;
+    wave.buildQueue();
+
+    const queueLevels = wave.queue.map((entry) => entry.level);
+    expect(queueLevels.filter((level) => level === 'Y')).toHaveLength(1);
+    expect(queueLevels.filter((level) => level !== 'Y')).toEqual([4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 3, 3]);
+  });
+
+  it('builds queue for wave 1', () => {
+    const wave = new WaveManager();
+    expect(wave.queue.length).toBeGreaterThan(0);
+  });
+
+  it('builds scaled queue for wave 11 (cycle 1)', () => {
+    const wave = new WaveManager();
+    wave.currentWave = 10;
+    wave.buildQueue();
+    const preview = wave.currentPreview;
+    expect(preview).toBeDefined();
+    expect(preview.length).toBeGreaterThan(0);
+  });
+
+  it('builds scaled queue for wave 21 (cycle 2)', () => {
+    const wave = new WaveManager();
+    wave.currentWave = 20;
+    wave.buildQueue();
+    const preview = wave.currentPreview;
+    expect(preview).toBeDefined();
+    expect(preview.length).toBeGreaterThan(0);
+  });
 });
+
+// ─── shuffleNecromancersInWave ──────────────────────────────────────────────
 
 describe('shuffleNecromancersInWave', () => {
   it('preserves non-Necromancer order', () => {
@@ -31,21 +69,54 @@ describe('shuffleNecromancersInWave', () => {
 
     expect(result).toEqual(['Y', 1, 2, 3]);
   });
-});
 
-describe('WaveManager.buildQueue', () => {
-  it('queues Necromancers while preserving other monster order', () => {
-    const wave = new WaveManager();
-    wave.currentWave = 8;
-    wave.buildQueue();
+  it('preserves total count of all entries', () => {
+    const input = [1, 2, 'Y', 3, 'Y', 4, 'Y'];
+    const result = shuffleNecromancersInWave(input, () => 0.5);
+    expect(result.length).toBe(input.length);
+  });
 
-    const queueLevels = wave.queue.map((entry) => entry.level);
-    expect(queueLevels.filter((level) => level === 'Y')).toHaveLength(1);
-    expect(queueLevels.filter((level) => level !== 'Y')).toEqual([4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 3, 3]);
+  it('does not change non-Necromancer order', () => {
+    const input = [1, 2, 3, 4, 'Y'];
+    const result = shuffleNecromancersInWave(input, () => 0.5);
+    const nonNecros = result.filter((x) => x !== 'Y');
+    expect(nonNecros).toEqual([1, 2, 3, 4]);
+  });
+
+  it('handles all-Necromancer input (no change)', () => {
+    const input = ['Y', 'Y', 'Y'];
+    const result = shuffleNecromancersInWave(input, () => 0.5);
+    expect(result).toEqual(['Y', 'Y', 'Y']);
+  });
+
+  it('handles all-non-Necromancer input (no change)', () => {
+    const input = [1, 2, 3];
+    const result = shuffleNecromancersInWave(input, () => 0.5);
+    expect(result).toEqual([1, 2, 3]);
+  });
+
+  it('handles empty input', () => {
+    const result = shuffleNecromancersInWave([], () => 0.5);
+    expect(result).toEqual([]);
+  });
+
+  it('handles single Necromancer', () => {
+    const result = shuffleNecromancersInWave(['Y'], () => 0.5);
+    expect(result).toEqual(['Y']);
+  });
+
+  it('deterministic with same random function', () => {
+    const input = [1, 2, 'Y', 3, 'Y'];
+    const rng = () => 0.3;
+    const r1 = shuffleNecromancersInWave(input, rng);
+    const r2 = shuffleNecromancersInWave(input, rng);
+    expect(r1).toEqual(r2);
   });
 });
 
-describe('WaveManager.buildCustomFromCounts', () => {
+// ─── buildCustomFromCounts ──────────────────────────────────────────────────
+
+describe('buildCustomFromCounts', () => {
   it('queues Necromancers and preserves non-Necromancer order', () => {
     const wave = new WaveManager();
 
@@ -55,7 +126,64 @@ describe('WaveManager.buildCustomFromCounts', () => {
     expect(queueLevels.filter((level) => level === 'Y')).toHaveLength(1);
     expect(queueLevels.filter((level) => level !== 'Y')).toEqual([1, 1, 2, 3, 3]);
   });
+
+  it('builds queue from counts object', () => {
+    const wave = new WaveManager();
+    wave.buildCustomFromCounts({ 1: 3, 2: 2 });
+    expect(wave.queue.length).toBe(5);
+    const levelCounts = {};
+    for (const entry of wave.queue) {
+      levelCounts[entry.level] = (levelCounts[entry.level] || 0) + 1;
+    }
+    expect(levelCounts[1]).toBe(3);
+    expect(levelCounts[2]).toBe(2);
+  });
+
+  it('includes Necromancer from custom counts', () => {
+    const wave = new WaveManager();
+    wave.buildCustomFromCounts({ Y: 1, 1: 2 });
+    expect(wave.queue.length).toBe(3);
+    const necroCount = wave.queue.filter((e) => e.level === 'Y').length;
+    expect(necroCount).toBe(1);
+  });
+
+  it('sets currentPreview from built queue', () => {
+    const wave = new WaveManager();
+    wave.buildCustomFromCounts({ 1: 2, 'B': 1 });
+    expect(wave.currentPreview).toBeDefined();
+    expect(Array.isArray(wave.currentPreview)).toBe(true);
+  });
+
+  it('resets spawnIndex and elapsed', () => {
+    const wave = new WaveManager();
+    wave.spawnIndex = 5;
+    wave.elapsed = 10;
+    wave.buildCustomFromCounts({ 1: 1 });
+    expect(wave.spawnIndex).toBe(0);
+    expect(wave.elapsed).toBe(0);
+  });
+
+  it('applies hpMult to spawned monsters', () => {
+    const wave = new WaveManager();
+    wave.buildCustomFromCounts({ 1: 1 });
+    expect(wave.queue[0].hpMult).toBeGreaterThan(0);
+  });
+
+  it('handles empty counts', () => {
+    const wave = new WaveManager();
+    wave.buildCustomFromCounts({});
+    expect(wave.queue.length).toBe(0);
+  });
+
+  it('handles all monster types', () => {
+    const wave = new WaveManager();
+    const counts = { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, Y: 1, B: 1, S: 1, X: 1 };
+    wave.buildCustomFromCounts(counts);
+    expect(wave.queue.length).toBe(9);
+  });
 });
+
+// ─── reset ─────────────────────────────────────────────────────────────────
 
 describe('WaveManager.reset', () => {
   it('sets currentWave=0, waveActive=false, elapsed=0', () => {
@@ -84,7 +212,9 @@ describe('WaveManager.reset', () => {
   });
 });
 
-describe('WaveManager.startNextWave', () => {
+// ─── startNextWave ─────────────────────────────────────────────────────────
+
+describe('startNextWave', () => {
   it('returns true and sets waveActive=true when not already active', () => {
     const wave = new WaveManager();
     const result = wave.startNextWave();
@@ -103,7 +233,9 @@ describe('WaveManager.startNextWave', () => {
   });
 });
 
-describe('WaveManager.popDueMonster', () => {
+// ─── popDueMonster ─────────────────────────────────────────────────────────
+
+describe('popDueMonster', () => {
   it('returns null when not active', () => {
     const wave = new WaveManager();
     wave.buildCustomFromCounts({ 1: 2 });
@@ -134,9 +266,18 @@ describe('WaveManager.popDueMonster', () => {
     expect(monster.level).toBe(1);
     expect(typeof monster.hpMult).toBe('number');
   });
+
+  it('returns null when spawn time has not elapsed', () => {
+    const wave = new WaveManager();
+    wave.startNextWave();
+    wave.elapsed = 0;
+    expect(wave.popDueMonster()).toBeNull();
+  });
 });
 
-describe('WaveManager.update(dt)', () => {
+// ─── update ────────────────────────────────────────────────────────────────
+
+describe('update', () => {
   it('increments elapsed when active', () => {
     const wave = new WaveManager();
     wave.startNextWave();
@@ -153,7 +294,9 @@ describe('WaveManager.update(dt)', () => {
   });
 });
 
-describe('WaveManager.onAllSpawnedAndCleared', () => {
+// ─── onAllSpawnedAndCleared ─────────────────────────────────────────────────
+
+describe('onAllSpawnedAndCleared', () => {
   it('increments currentWave and rebuilds queue', () => {
     const wave = new WaveManager();
     wave.startNextWave();
@@ -171,9 +314,28 @@ describe('WaveManager.onAllSpawnedAndCleared', () => {
 
     expect(wave.currentWave).toBe(prevWave);
   });
+
+  it('does nothing when wave is not active even with spawnIndex < queue.length', () => {
+    const wave = new WaveManager();
+    wave.waveActive = false;
+    wave.spawnIndex = 0;
+    wave.onAllSpawnedAndCleared();
+    expect(wave.currentWave).toBe(0);
+  });
+
+  it('rebuilds queue for next wave after incrementing', () => {
+    const wave = new WaveManager();
+    wave.waveActive = true;
+    wave.spawnIndex = wave.queue.length;
+    wave.onAllSpawnedAndCleared();
+    expect(wave.queue.length).toBeGreaterThan(0);
+    expect(wave.spawnIndex).toBe(0);
+  });
 });
 
-describe('WaveManager._getScaling', () => {
+// ─── _getScaling ───────────────────────────────────────────────────────────
+
+describe('_getScaling', () => {
   it('cycle=0 returns {countMult: 1, hpMult: 1}', () => {
     const wave = new WaveManager();
     const result = wave._getScaling(0);
@@ -188,18 +350,36 @@ describe('WaveManager._getScaling', () => {
     expect(result.countMult).toBeCloseTo(1 + 3 * 0.35);
     expect(result.hpMult).toBeCloseTo(1 + 3 * 0.15);
   });
+
+  it('scales more for higher cycles', () => {
+    const wave = new WaveManager();
+    const s1 = wave._getScaling(1);
+    const s5 = wave._getScaling(5);
+    expect(s5.countMult).toBeGreaterThan(s1.countMult);
+    expect(s5.hpMult).toBeGreaterThan(s1.hpMult);
+  });
 });
 
-describe('WaveManager.currentMultiplier', () => {
+// ─── currentMultiplier ──────────────────────────────────────────────────────
+
+describe('currentMultiplier', () => {
   it('returns correct count multiplier for current wave', () => {
     const wave = new WaveManager();
     wave.currentWave = 0;
 
     expect(wave.currentMultiplier).toBe(1);
   });
+
+  it('returns > 1 for wave 11+', () => {
+    const wave = new WaveManager();
+    wave.currentWave = 10;
+    expect(wave.currentMultiplier).toBeGreaterThan(1);
+  });
 });
 
-describe('WaveManager.monstersRemainingThisWave', () => {
+// ─── monstersRemainingThisWave ──────────────────────────────────────────────
+
+describe('monstersRemainingThisWave', () => {
   it('returns queue.length - spawnIndex', () => {
     const wave = new WaveManager();
     wave.buildCustomFromCounts({ 1: 3, 2: 1 });
@@ -209,5 +389,353 @@ describe('WaveManager.monstersRemainingThisWave', () => {
     wave.popDueMonster();
 
     expect(wave.monstersRemainingThisWave).toBe(3);
+  });
+});
+
+// ─── getNextWavePreview ─────────────────────────────────────────────────────
+
+describe('getNextWavePreview', () => {
+  let wave;
+
+  beforeEach(() => {
+    wave = new WaveManager();
+  });
+
+  it('returns a non-null preview after construction (wave 1)', () => {
+    const preview = wave.getNextWavePreview();
+    expect(preview).not.toBeNull();
+    expect(Array.isArray(preview)).toBe(true);
+  });
+
+  it('returns array of [level, count] tuples', () => {
+    const preview = wave.getNextWavePreview();
+
+    for (const entry of preview) {
+      expect(Array.isArray(entry)).toBe(true);
+      expect(entry).toHaveLength(2);
+      expect(typeof entry[0] === 'string' || typeof entry[0] === 'number').toBe(true);
+      expect(typeof entry[1]).toBe('number');
+      expect(entry[1]).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('returns currentPreview', () => {
+    const preview = wave.getNextWavePreview();
+    expect(preview).toBe(wave.currentPreview);
+  });
+
+  it('matches WAVES[0] for wave 1 (currentWave=0)', () => {
+    wave.currentWave = 0;
+    wave.buildQueue();
+    const preview = wave.getNextWavePreview();
+
+    expect(preview).toEqual([[1, 8]]);
+  });
+
+  it('returns wave 2 preview after incrementing currentWave to 1', () => {
+    wave.currentWave = 1;
+    wave.buildQueue();
+    const preview = wave.getNextWavePreview();
+
+    expect(preview).toEqual([[1, 12]]);
+  });
+
+  it('returns wave 3 preview with mixed monster types', () => {
+    wave.currentWave = 2;
+    wave.buildQueue();
+    const preview = wave.getNextWavePreview();
+
+    expect(preview).toEqual([
+      [1, 6],
+      [2, 6],
+    ]);
+  });
+});
+
+// ─── _previewForWave ───────────────────────────────────────────────────────
+
+describe('WaveManager._previewForWave()', () => {
+  let wave;
+
+  beforeEach(() => {
+    wave = new WaveManager();
+  });
+
+  it('returns correct structure for wave 0 (first wave)', () => {
+    const result = wave._previewForWave(0);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result.length).toBe(WAVES[0].length);
+
+    for (const entry of result) {
+      expect(entry).toHaveLength(2);
+      expect(typeof entry[0] === 'string' || typeof entry[0] === 'number').toBe(true);
+      expect(typeof entry[1]).toBe('number');
+    }
+  });
+
+  it('returns the base wave data for cycle 0 (no scaling)', () => {
+    const result = wave._previewForWave(0);
+    const expected = WAVES[0];
+
+    expect(result).toEqual(expected.map(([level, count]) => [level, count]));
+  });
+
+  it('includes correct monster types from WAVES config for wave 9', () => {
+    const result = wave._previewForWave(8);
+    const expected = WAVES[8];
+
+    const resultLevels = result.map(([level]) => level);
+    const expectedLevels = expected.map(([level]) => level);
+
+    expect(resultLevels).toEqual(expectedLevels);
+  });
+
+  it('wraps around using modulo for waves beyond the base list', () => {
+    const waveCount = WAVES.length;
+    const result = wave._previewForWave(waveCount);
+    const base = WAVES[0];
+
+    const resultLevels = result.map(([level]) => level);
+    const baseLevels = base.map(([level]) => level);
+
+    expect(resultLevels).toEqual(baseLevels);
+  });
+
+  it('applies count scaling for higher cycles', () => {
+    const cycle1Result = wave._previewForWave(WAVES.length);
+    const base = WAVES[0];
+
+    const expectedCount = Math.round((8 + 1 * 2) * (1 + 1 * CONFIG.WAVE_SCALE_COUNT));
+    const clampedCount = Math.min(CONFIG.MAX_SPAWNS_PER_TYPE, expectedCount);
+
+    expect(cycle1Result[0][1]).toBe(clampedCount);
+  });
+
+  it('applies cycle=2 scaling for waves beyond 2x wave count', () => {
+    const cycle2Result = wave._previewForWave(WAVES.length * 2);
+    const base = WAVES[0];
+
+    const expectedCount = Math.round((8 + 2 * 2) * (1 + 2 * CONFIG.WAVE_SCALE_COUNT));
+    const clampedCount = Math.min(CONFIG.MAX_SPAWNS_PER_TYPE, expectedCount);
+
+    expect(cycle2Result[0][1]).toBe(clampedCount);
+  });
+
+  it('respects MAX_SPAWNS_PER_TYPE cap', () => {
+    const veryHighCycleWave = WAVES.length * 100;
+    const result = wave._previewForWave(veryHighCycleWave);
+
+    for (const [, count] of result) {
+      expect(count).toBeLessThanOrEqual(CONFIG.MAX_SPAWNS_PER_TYPE);
+    }
+  });
+
+  it('minimum count is always at least 1', () => {
+    const result = wave._previewForWave(0);
+
+    for (const [, count] of result) {
+      expect(count).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
+// ─── preview through wave lifecycle ────────────────────────────────────────
+
+describe('WaveManager preview through wave lifecycle', () => {
+  it('preview updates after advancing to the next wave', () => {
+    const wave = new WaveManager();
+
+    const preview1 = wave.getNextWavePreview();
+    expect(preview1).toEqual([[1, 8]]);
+
+    wave.startNextWave();
+    wave.onAllSpawnedAndCleared();
+
+    const preview2 = wave.getNextWavePreview();
+    expect(preview2).toEqual([[1, 12]]);
+  });
+
+  it('preview continues through multiple wave advances', () => {
+    const wave = new WaveManager();
+
+    for (let i = 0; i < 3; i++) {
+      wave.startNextWave();
+      wave.onAllSpawnedAndCleared();
+    }
+
+    const preview = wave.getNextWavePreview();
+    const levels = preview.map(([level]) => level);
+    expect(levels).toContain(3);
+    expect(levels).toContain(2);
+  });
+
+  it('preview cycles and scales for waves beyond the base list', () => {
+    const wave = new WaveManager();
+
+    wave.currentWave = 10;
+    wave.buildQueue();
+
+    const preview = wave.getNextWavePreview();
+    expect(preview[0][0]).toBe(1);
+    expect(preview[0][1]).toBeGreaterThan(8);
+  });
+});
+
+// ─── getNextWaveEstimate ───────────────────────────────────────────────────
+
+describe('WaveManager.getNextWaveEstimate()', () => {
+  let wave;
+
+  beforeEach(() => {
+    wave = new WaveManager();
+  });
+
+  it('returns estimate with start time, duration, gold, and leak for wave 1', () => {
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate).toMatchObject({
+      timeUntilStart: CONFIG.WAVE_START_DELAY,
+      startsIn: CONFIG.WAVE_START_DELAY,
+      totalGold: 8 * MONSTER_SPECS[1].reward,
+      totalLeak: 8 * MONSTER_SPECS[1].leak,
+      hasNecromancer: false,
+      reviveEstimate: null,
+    });
+    expect(estimate.estimatedDuration).toBeGreaterThan(0);
+    expect(estimate.clearDuration).toBe(estimate.estimatedDuration);
+  });
+
+  it('returns 0 start time when wave is active', () => {
+    wave.startNextWave();
+
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate.timeUntilStart).toBe(0);
+    expect(estimate.startsIn).toBe(0);
+  });
+
+  it('calculates total gold from monster rewards', () => {
+    wave.currentWave = 2;
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+    const expectedGold = 6 * MONSTER_SPECS[1].reward + 6 * MONSTER_SPECS[2].reward;
+
+    expect(estimate.totalGold).toBe(expectedGold);
+    expect(estimate.gold).toBe(expectedGold);
+  });
+
+  it('calculates total leak from monster leaks', () => {
+    wave.currentWave = 8;
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+    const expectedLeak =
+      10 * MONSTER_SPECS[4].leak + 4 * MONSTER_SPECS[5].leak + 1 * MONSTER_SPECS.Y.leak + 2 * MONSTER_SPECS[3].leak;
+
+    expect(estimate.totalLeak).toBe(expectedLeak);
+  });
+
+  it('includes revive estimate for waves with Necromancer', () => {
+    wave.currentWave = 8;
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate.hasNecromancer).toBe(true);
+    expect(estimate.reviveEstimate).not.toBeNull();
+    expect(estimate.reviveEstimate.count).toBeGreaterThan(0);
+    expect(estimate.reviveEstimate.gold).toBeGreaterThan(0);
+    expect(estimate.reviveEstimate.additionalDuration).toBeGreaterThan(0);
+  });
+
+  it('has null revive estimate for waves without Necromancer', () => {
+    const estimate = wave.getNextWaveEstimate();
+
+    expect(estimate.hasNecromancer).toBe(false);
+    expect(estimate.reviveEstimate).toBeNull();
+  });
+
+  it('applies scaling to gold and leak for higher waves', () => {
+    wave.currentWave = WAVES.length;
+    wave.buildQueue();
+
+    const estimate = wave.getNextWaveEstimate();
+    const expectedCount = Math.round((8 + 1 * 2) * (1 + 1 * CONFIG.WAVE_SCALE_COUNT));
+    const clampedCount = Math.min(CONFIG.MAX_SPAWNS_PER_TYPE, expectedCount);
+    const expectedGold = clampedCount * MONSTER_SPECS[1].reward;
+
+    expect(estimate.totalGold).toBe(expectedGold);
+    expect(estimate.totalLeak).toBe(clampedCount * MONSTER_SPECS[1].leak);
+  });
+
+  it('estimates duration includes spawn timing and path traversal', () => {
+    const estimate = wave.getNextWaveEstimate();
+    const expectedSpawnDuration = 8 * CONFIG.SPAWN_INTERVAL;
+    const expectedPathDuration = CONFIG.MIN_PATH_LENGTH / CONFIG.MOVEMENT_SPEEDS[MONSTER_SPECS[1].movementSpeed];
+
+    expect(estimate.estimatedDuration).toBeCloseTo(expectedSpawnDuration + expectedPathDuration, 0);
+  });
+});
+
+// ─── _estimateRevives ───────────────────────────────────────────────────────
+
+describe('_estimateRevives', () => {
+  it('returns null when no Necromancers', () => {
+    const wave = new WaveManager();
+    const result = wave._estimateRevives(0, 10, 1000);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when no non-Necromancers', () => {
+    const wave = new WaveManager();
+    const result = wave._estimateRevives(1, 0, 0);
+    expect(result).toBeNull();
+  });
+
+  it('returns estimate when both present', () => {
+    const wave = new WaveManager();
+    const result = wave._estimateRevives(1, 10, 1000);
+    expect(result).not.toBeNull();
+    expect(result.revivedCount).toBeGreaterThan(0);
+    expect(result.additionalGold).toBeGreaterThanOrEqual(0);
+    expect(result.additionalDuration).toBeGreaterThan(0);
+  });
+
+  it('caps revivedCount at 25% of non-Necromancers', () => {
+    const wave = new WaveManager();
+    const result = wave._estimateRevives(10, 4, 100);
+    expect(result.revivedCount).toBeLessThanOrEqual(1);
+  });
+});
+
+// ─── wave composition validation ────────────────────────────────────────────
+
+describe('wave composition validation', () => {
+  it('every wave has at least one entry', () => {
+    for (let i = 0; i < WAVES.length; i++) {
+      expect(WAVES[i].length).toBeGreaterThan(0);
+    }
+  });
+
+  it('every wave entry has valid monster key', () => {
+    const validKeys = new Set(['1', '2', '3', '4', '5', 'Y', 'B', 'S', 'X']);
+    for (const wave of WAVES) {
+      for (const [level, count] of wave) {
+        expect(validKeys.has(String(level))).toBe(true);
+        expect(count).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('wave 9 includes Necromancer', () => {
+    const wave9 = WAVES[8];
+    expect(wave9.some(([level]) => level === 'Y')).toBe(true);
+  });
+
+  it('wave 10 includes Boss', () => {
+    const wave10 = WAVES[9];
+    expect(wave10.some(([level]) => level === 'B')).toBe(true);
   });
 });

@@ -164,7 +164,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit + integration test suite (803 tests, 29 files)
+- **Vitest** — unit + integration test suite (1,263 tests, 24 files)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -216,35 +216,30 @@ src/
     constants.js     # UI layout constants
     utils.js         # UI helper functions
 tests/
-  config.test.js
-  grid.test.js
-  utils.test.js
-  pathGenerator.test.js
-  projectile.test.js
-  persistence.test.js
-  updateManager.test.js
-  waveManager.test.js
-  game.test.js
-  gameExtended.test.js
-  monster.test.js
-  monsterExtended.test.js
-  troop.test.js
-  troopExtended.test.js
-  waveManagerExtended.test.js
-  waveManagerPreview.test.js
-  persistenceExtended.test.js
-  necromancer.test.js
-  healer.test.js
-  healerBehavior.test.js
-  splitting.test.js
-  devMode.test.js
-  placementPreview.test.js
-  versioning.test.js
-  githubReleaseFeed.test.js
-  smoke.test.js
-  particles.test.js
-  integration.test.js
-  electronEdgeCases.test.js
+  helpers.js              # Shared test utilities (makeGame, makeTileIndex, longPath, etc.)
+  config.test.js          # CONFIG, MONSTER_SPECS, TROOP_SPECS, WAVES validation
+  grid.test.js            # Grid and TILE constants
+  utils.test.js           # Utility functions (clamp, lerp, dist, pixelToTile, etc.)
+  pathGenerator.test.js   # Procedural path generation
+  projectile.test.js      # Projectile logic
+  particles.test.js       # Particle effects
+  game.test.js            # Core game: canPlace, placeTroop, sellTroop, upgrades, combat
+  monster.test.js         # Monster constructor, AI, combat, splitting, necromancer, shatter
+  monsterIntegration.test.js # Monster spawning, movement, lifecycle, mixed interactions
+  troop.test.js           # Troop stats, upgrades, healing, shield, healer, chain lightning
+  persistence.test.js     # Save/restore serialization, game world factory
+  waveManager.test.js     # Wave queue, necromancer shuffling, custom waves, preview
+  updateManager.test.js   # Auto-update filtering, settings, electron integration
+  integration.test.js     # End-to-end: melee/ranged combat, selling, upgrading, game speed
+  combatIntegration.test.js # Troop-specific combat: splash, chain, mortar, knight, sniper
+  goldEconomy.test.js     # Economy: costs, refunds, upgrades, shields, kill rewards
+  performance.test.js     # Performance: step throughput, entity scaling, memory stability
+  memoryLeak.test.js      # Memory: entity lifecycle, pool recycling, long sessions
+  devMode.test.js         # Dev mode economy and spawn mechanics
+  placementPreview.test.js # Placement preview DPS/HPS calculations
+  versioning.test.js      # Beta release versioning logic
+  githubReleaseFeed.test.js # GitHub Atom feed parsing
+  smoke.test.js           # Installer smoke test (entry points, file existence)
 electron-main.js     # Electron main process
 preload.js          # Electron preload script
 index.html          # Single-page canvas host
@@ -282,8 +277,9 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (803 tests)
+npm test             # Run test suite (1,263 tests)
 npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with code coverage report
 ```
 
 ## License

@@ -12,7 +12,8 @@
     "format": "prettier --write \"src/**/*.js\" \"*.js\" \"tests/**/*.js\" \"css/**/*.css\"",
     "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"tests/**/*.js\" \"css/**/*.css\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "build": {
     "appId": "com.towerdefense.app",
@@ -49,6 +50,7 @@
     "electron-updater": "^6.6.1"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.8",
     "electron": "^42.3.2",
     "electron-builder": "^26.8.1",
     "eslint": "^8.57.0",

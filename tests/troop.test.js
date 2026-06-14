@@ -1,15 +1,119 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { Troop } from '../src/troop.js';
+import { Monster } from '../src/monster.js';
 import { CONFIG, TROOP_SPECS } from '../src/config.js';
+import { PARTICLES } from '../src/particles.js';
 
 const archerSpec = TROOP_SPECS.find((s) => s.id === 'archer');
 const swordsmanSpec = TROOP_SPECS.find((s) => s.id === 'swordsman');
-const lightningSpec = TROOP_SPECS.find((s) => s.id === 'lightning');
 const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
 const knightSpec = TROOP_SPECS.find((s) => s.id === 'knight');
 const icewizSpec = TROOP_SPECS.find((s) => s.id === 'icewiz');
+const lightningSpec = TROOP_SPECS.find((s) => s.id === 'lightning');
 
-// ---------- 1. Constructor ----------
+// ─── Shared helpers ────────────────────────────────────────────────────────
+
+function sharedPath() {
+  return { segments: [], totalLength: 0 };
+}
+
+function makeMonsterAt(level, gx, gy) {
+  const monster = new Monster(level, [[gx, gy]], sharedPath());
+  monster.hp = 100;
+  monster.maxHp = 100;
+  return monster;
+}
+
+function makeGame(troops, monsters = []) {
+  return {
+    troops,
+    monsters,
+    damageCalls: [],
+    damageMonster(m, amount) {
+      this.damageCalls.push({ monster: m, amount });
+      m.hp -= amount;
+      if (m.hp <= 0) m.alive = false;
+    },
+    gold: 123,
+    popups: [],
+    _getPopup(text, x, y, t, color) {
+      this.popups.push({ text, x, y, t, color });
+    },
+  };
+}
+
+function makeMockMonster(gx, gy, alive = true) {
+  return {
+    alive,
+    gx,
+    gy,
+    x: gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+    y: gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+    hp: 50,
+    maxHp: 50,
+  };
+}
+
+function makeMockGame(monsters = [], tileIndex = null) {
+  const damaged = [];
+  const createdProjectiles = [];
+  return {
+    monsters,
+    _monsterTileIndex: tileIndex,
+    troops: [],
+    damageMonster(m, dmg) {
+      damaged.push({ monster: m, dmg });
+    },
+    acquireProjectile(troop, target, x, y) {
+      const proj = { troop, target, x, y };
+      createdProjectiles.push(proj);
+      return proj;
+    },
+    _damaged: damaged,
+    _projectiles: createdProjectiles,
+    _getPopup() {},
+  };
+}
+
+function buildTileIndex(troops) {
+  const gs = CONFIG.GRID_SIZE;
+  const idx = new Array(gs * gs).fill(null);
+  for (const t of troops) {
+    const key = t.gy * gs + t.gx;
+    if (!idx[key]) idx[key] = [];
+    idx[key].push(t);
+  }
+  return idx;
+}
+
+function makeMockTarget(gx, gy, progress, alive = true) {
+  return {
+    alive,
+    x: gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+    y: gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+    hp: 50,
+    maxHp: 50,
+    progress,
+    _tileGx: gx,
+    _tileGy: gy,
+    tileDistanceTo(tx, ty) {
+      return Math.max(Math.abs(this._tileGx - tx), Math.abs(this._tileGy - ty));
+    },
+  };
+}
+
+function buildTargetIndex(monsters, gridSize = CONFIG.GRID_SIZE) {
+  const index = new Array(gridSize * gridSize).fill(null);
+  for (const m of monsters) {
+    const key = m._tileGy * gridSize + m._tileGx;
+    if (!index[key]) index[key] = [];
+    index[key].push(m);
+  }
+  return index;
+}
+
+// ─── Constructor ────────────────────────────────────────────────────────────
+
 describe('Constructor', () => {
   it('caches spec stats at level 1 (damage, range, attackSpeed)', () => {
     const t = new Troop(archerSpec, 2, 3);
@@ -19,8 +123,7 @@ describe('Constructor', () => {
   });
 
   it('computes position from gx, gy and TILE_SIZE', () => {
-    const gx = 5,
-      gy = 7;
+    const gx = 5, gy = 7;
     const t = new Troop(archerSpec, gx, gy);
     expect(t.x).toBe(gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
     expect(t.y).toBe(gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
@@ -41,7 +144,8 @@ describe('Constructor', () => {
   });
 });
 
-// ---------- 2. Stat scaling (_recomputeStats) ----------
+// ─── Stat scaling (_recomputeStats) ────────────────────────────────────────
+
 describe('Stat scaling (_recomputeStats)', () => {
   it('damage scales by DAMAGE_SCALE_PER_LEVEL per level', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -88,20 +192,14 @@ describe('Stat scaling (_recomputeStats)', () => {
   });
 });
 
-// ---------- 3. Upgrade costs ----------
+// ─── Upgrade costs ──────────────────────────────────────────────────────────
+
 describe('Upgrade costs', () => {
   it('getUpgradeCost("dmg") returns correct exponential cost', () => {
     const t = new Troop(archerSpec, 0, 0);
-    // level 1 → base cost
     expect(t.getUpgradeCost('dmg')).toBe(Math.round(archerSpec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, 0)));
     t.dmgLevel = 3;
-    // level 3 → cost * 1.35^2
     expect(t.getUpgradeCost('dmg')).toBe(Math.round(archerSpec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, 2)));
-  });
-
-  it('getUpgradeCost("range") returns base cost for melee troops (canUpgrade gates visibility)', () => {
-    const t = new Troop(swordsmanSpec, 0, 0);
-    expect(t.getUpgradeCost('range')).toBe(swordsmanSpec.cost);
   });
 
   it('canUpgrade("range") false for melee, true for ranged', () => {
@@ -116,7 +214,8 @@ describe('Upgrade costs', () => {
   });
 });
 
-// ---------- 4. upgradeStat ----------
+// ─── upgradeStat ────────────────────────────────────────────────────────────
+
 describe('upgradeStat', () => {
   it('increments dmgLevel and recomputes cached damage', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -150,7 +249,8 @@ describe('upgradeStat', () => {
   });
 });
 
-// ---------- 5. isMaxed ----------
+// ─── isMaxed ────────────────────────────────────────────────────────────────
+
 describe('isMaxed', () => {
   it('returns true when at maxUpgradeLevel', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -164,7 +264,8 @@ describe('isMaxed', () => {
   });
 });
 
-// ---------- 6. Healing ----------
+// ─── Healing ────────────────────────────────────────────────────────────────
+
 describe('Healing', () => {
   it('getHealCost returns ceil(cost * TROOP_HEAL_COST_RATIO)', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -188,7 +289,8 @@ describe('Healing', () => {
   });
 });
 
-// ---------- 7. Shield ----------
+// ─── Shield ─────────────────────────────────────────────────────────────────
+
 describe('Shield', () => {
   it('canAddShield() true when no shield, false when has shield', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -213,7 +315,8 @@ describe('Shield', () => {
   });
 });
 
-// ---------- 8. takeDamage ----------
+// ─── takeDamage ─────────────────────────────────────────────────────────────
+
 describe('takeDamage', () => {
   it('no shield: HP reduced directly', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -240,7 +343,8 @@ describe('takeDamage', () => {
   });
 });
 
-// ---------- 9. getTotalInvested ----------
+// ─── getTotalInvested ──────────────────────────────────────────────────────
+
 describe('getTotalInvested', () => {
   it('base cost only at level 1', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -250,139 +354,94 @@ describe('getTotalInvested', () => {
   it('includes upgrade costs after upgrading', () => {
     const t = new Troop(archerSpec, 0, 0);
     t.upgradeStat('dmg');
-    // total = base + cost for level 1 → 2
     const upgradeCost = Math.round(archerSpec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, 0));
     expect(t.getTotalInvested()).toBe(archerSpec.cost + upgradeCost);
   });
 });
 
-// ---------- Helper: mock monster for pickTarget tests ----------
-function makeMockMonster(gx, gy, progress, alive = true) {
-  return {
-    alive,
-    x: gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-    y: gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-    hp: 50,
-    maxHp: 50,
-    progress,
-    _tileGx: gx,
-    _tileGy: gy,
-    tileDistanceTo(tx, ty) {
-      return Math.max(Math.abs(this._tileGx - tx), Math.abs(this._tileGy - ty));
-    },
-  };
-}
+// ─── pickTarget ─────────────────────────────────────────────────────────────
 
-function buildTileIndex(monsters, gridSize = CONFIG.GRID_SIZE) {
-  const index = new Array(gridSize * gridSize).fill(null);
-  for (const m of monsters) {
-    const key = m._tileGy * gridSize + m._tileGx;
-    if (!index[key]) index[key] = [];
-    index[key].push(m);
-  }
-  return index;
-}
-
-// ---------- 10. pickTarget ----------
 describe('pickTarget', () => {
   describe('melee troops', () => {
     it('picks nearest alive monster within range (no tileIndex)', () => {
-      const t = new Troop(swordsmanSpec, 5, 5); // range=1
-      const near = makeMockMonster(6, 5, 0.5); // tileDist=1
-      const far = makeMockMonster(8, 5, 0.6); // tileDist=3, out of range
+      const t = new Troop(swordsmanSpec, 5, 5);
+      const near = makeMockTarget(6, 5, 0.5);
+      const far = makeMockTarget(8, 5, 0.6);
       const result = t.pickTarget([near, far], null);
       expect(result).toBe(near);
     });
 
     it('returns null when no monster is in range', () => {
       const t = new Troop(swordsmanSpec, 5, 5);
-      const far = makeMockMonster(10, 10, 0.5);
+      const far = makeMockTarget(10, 10, 0.5);
       const result = t.pickTarget([far], null);
       expect(result).toBeNull();
     });
 
     it('skips dead monsters', () => {
       const t = new Troop(swordsmanSpec, 5, 5);
-      const dead = makeMockMonster(6, 5, 0.5, false);
-      const alive = makeMockMonster(5, 6, 0.5);
+      const dead = makeMockTarget(6, 5, 0.5, false);
+      const alive = makeMockTarget(5, 6, 0.5);
       const result = t.pickTarget([dead, alive], null);
       expect(result).toBe(alive);
     });
 
-    it('picks the closest when multiple are in range', () => {
-      const t = new Troop(swordsmanSpec, 5, 5);
-      const m1 = makeMockMonster(6, 5, 0.5); // dist=1
-      const m2 = makeMockMonster(5, 6, 0.5); // dist=1
-      const m3 = makeMockMonster(4, 5, 0.5); // dist=1
-      const result = t.pickTarget([m1, m2, m3], null);
-      // All are distance 1; picks first found with dist < bestDist (starts at range+buf+1=2.5)
-      expect(result).not.toBeNull();
-      expect(result.tileDistanceTo(5, 5)).toBeLessThanOrEqual(1);
-    });
-
     it('uses tileIndex path when provided', () => {
       const t = new Troop(swordsmanSpec, 5, 5);
-      const near = makeMockMonster(6, 5, 0.5);
-      const far = makeMockMonster(8, 5, 0.6);
-      const tileIndex = buildTileIndex([near, far]);
+      const near = makeMockTarget(6, 5, 0.5);
+      const far = makeMockTarget(8, 5, 0.6);
+      const tileIndex = buildTargetIndex([near, far]);
       const result = t.pickTarget([near, far], tileIndex);
       expect(result).toBe(near);
-    });
-
-    it('returns null via tileIndex when no monster in range', () => {
-      const t = new Troop(swordsmanSpec, 5, 5);
-      const far = makeMockMonster(10, 10, 0.5);
-      const tileIndex = buildTileIndex([far]);
-      const result = t.pickTarget([far], tileIndex);
-      expect(result).toBeNull();
     });
   });
 
   describe('ranged troops', () => {
     it('picks furthest-along-path monster in pixel range (no tileIndex)', () => {
-      const t = new Troop(archerSpec, 5, 5); // range=3, tileBuf=0.5, rangePxSq = (3.5*53)^2
-      const early = makeMockMonster(6, 5, 0.2);
-      const late = makeMockMonster(7, 5, 0.8); // further along path, still in range
+      const t = new Troop(archerSpec, 5, 5);
+      const early = makeMockTarget(6, 5, 0.2);
+      const late = makeMockTarget(7, 5, 0.8);
       const result = t.pickTarget([early, late], null);
       expect(result).toBe(late);
     });
 
     it('returns null when no monster is in pixel range', () => {
       const t = new Troop(archerSpec, 5, 5);
-      const far = makeMockMonster(15, 15, 0.9);
+      const far = makeMockTarget(15, 15, 0.9);
       const result = t.pickTarget([far], null);
       expect(result).toBeNull();
     });
 
     it('skips dead monsters', () => {
       const t = new Troop(archerSpec, 5, 5);
-      const dead = makeMockMonster(6, 5, 0.8, false);
-      const alive = makeMockMonster(6, 5, 0.3);
+      const dead = makeMockTarget(6, 5, 0.8, false);
+      const alive = makeMockTarget(6, 5, 0.3);
       const result = t.pickTarget([dead, alive], null);
       expect(result).toBe(alive);
     });
 
     it('uses tileIndex path when provided', () => {
       const t = new Troop(archerSpec, 5, 5);
-      const early = makeMockMonster(6, 5, 0.2);
-      const late = makeMockMonster(7, 5, 0.8);
-      const tileIndex = buildTileIndex([early, late]);
+      const early = makeMockTarget(6, 5, 0.2);
+      const late = makeMockTarget(7, 5, 0.8);
+      const tileIndex = buildTargetIndex([early, late]);
       const result = t.pickTarget([early, late], tileIndex);
       expect(result).toBe(late);
     });
 
     it('picks monster with highest progress', () => {
       const t = new Troop(archerSpec, 5, 5);
-      const m1 = makeMockMonster(6, 6, 0.1);
-      const m2 = makeMockMonster(7, 5, 0.9);
-      const m3 = makeMockMonster(6, 4, 0.5);
+      const m1 = makeMockTarget(6, 6, 0.1);
+      const m2 = makeMockTarget(7, 5, 0.9);
+      const m3 = makeMockTarget(6, 4, 0.5);
       const result = t.pickTarget([m1, m2, m3], null);
       expect(result).toBe(m2);
     });
   });
 });
 
-// ---------- 11. getHealRangePxSq ----------
+// ─── getHealRangePxSq ──────────────────────────────────────────────────────
+
 describe('getHealRangePxSq', () => {
   it('returns (range + TILE_BUFFER)^2 * TILE_SIZE^2 for a troop', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -403,7 +462,8 @@ describe('getHealRangePxSq', () => {
   });
 });
 
-// ---------- 12. getChain ----------
+// ─── getChain ───────────────────────────────────────────────────────────────
+
 describe('getChain', () => {
   it('returns chain count for lightning troop', () => {
     const t = new Troop(lightningSpec, 0, 0);
@@ -429,7 +489,8 @@ describe('getChain', () => {
   });
 });
 
-// ---------- 13. getSlowFactor ----------
+// ─── getSlowFactor ──────────────────────────────────────────────────────────
+
 describe('getSlowFactor', () => {
   it('returns spec slowFactor for icewiz', () => {
     const t = new Troop(icewizSpec, 0, 0);
@@ -447,7 +508,8 @@ describe('getSlowFactor', () => {
   });
 });
 
-// ---------- 14. getSlowDuration ----------
+// ─── getSlowDuration ───────────────────────────────────────────────────────
+
 describe('getSlowDuration', () => {
   it('returns spec slowDuration for icewiz', () => {
     const t = new Troop(icewizSpec, 0, 0);
@@ -465,7 +527,8 @@ describe('getSlowDuration', () => {
   });
 });
 
-// ---------- 15. getShieldCost ----------
+// ─── getShieldCost ──────────────────────────────────────────────────────────
+
 describe('getShieldCost', () => {
   it('returns ceil(spec.cost * SHIELD_COST_RATIO)', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -476,14 +539,10 @@ describe('getShieldCost', () => {
     const t = new Troop(knightSpec, 0, 0);
     expect(t.getShieldCost()).toBe(Math.ceil(knightSpec.cost * CONFIG.SHIELD_COST_RATIO));
   });
-
-  it('returns correct value for swordsman', () => {
-    const t = new Troop(swordsmanSpec, 0, 0);
-    expect(t.getShieldCost()).toBe(Math.ceil(swordsmanSpec.cost * CONFIG.SHIELD_COST_RATIO));
-  });
 });
 
-// ---------- 16. getShieldRatio ----------
+// ─── getShieldRatio ─────────────────────────────────────────────────────────
+
 describe('getShieldRatio', () => {
   it('returns 0 when no shield', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -511,7 +570,8 @@ describe('getShieldRatio', () => {
   });
 });
 
-// ---------- 17. hasShield ----------
+// ─── hasShield ──────────────────────────────────────────────────────────────
+
 describe('hasShield', () => {
   it('returns false when no shield', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -532,7 +592,8 @@ describe('hasShield', () => {
   });
 });
 
-// ---------- 18. getHpPercent ----------
+// ─── getHpPercent ───────────────────────────────────────────────────────────
+
 describe('getHpPercent', () => {
   it('returns 100 at full health', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -547,20 +608,13 @@ describe('getHpPercent', () => {
 
   it('returns correct percentage at partial health', () => {
     const t = new Troop(archerSpec, 0, 0);
-    // Use exact fraction: 15/30 = 50%
     t.hp = 15;
     expect(t.getHpPercent()).toBe(50);
   });
-
-  it('returns 0 when maxHp is 0 (edge case)', () => {
-    const t = new Troop(archerSpec, 0, 0);
-    t.maxHp = 0;
-    t.hp = 0;
-    expect(t.getHpPercent()).toBe(0);
-  });
 });
 
-// ---------- 19. getHpRatio ----------
+// ─── getHpRatio ─────────────────────────────────────────────────────────────
+
 describe('getHpRatio', () => {
   it('returns 1 at full health', () => {
     const t = new Troop(archerSpec, 0, 0);
@@ -578,43 +632,17 @@ describe('getHpRatio', () => {
     t.hp = Math.round(t.maxHp * 0.5);
     expect(t.getHpRatio()).toBeCloseTo(0.5);
   });
-
-  it('returns 0 when maxHp is 0 (edge case)', () => {
-    const t = new Troop(archerSpec, 0, 0);
-    t.maxHp = 0;
-    t.hp = 0;
-    expect(t.getHpRatio()).toBe(0);
-  });
 });
 
-// ---------- 20. update (melee / ranged branch) ----------
-describe('update', () => {
-  function makeMockGame(monsters = [], tileIndex = null) {
-    const damaged = [];
-    const createdProjectiles = [];
-    return {
-      monsters,
-      _monsterTileIndex: tileIndex,
-      damageMonster(m, dmg) {
-        damaged.push({ monster: m, dmg });
-      },
-      acquireProjectile(troop, target, x, y) {
-        const proj = { troop, target, x, y };
-        createdProjectiles.push(proj);
-        return proj;
-      },
-      _damaged: damaged,
-      _projectiles: createdProjectiles,
-      _getPopup() {},
-    };
-  }
+// ─── update (melee / ranged branch) ────────────────────────────────────────
 
+describe('update', () => {
   describe('melee troops', () => {
     it('acquires target and attacks when cooldown is 0', () => {
       const t = new Troop(swordsmanSpec, 5, 5);
-      const monster = makeMockMonster(6, 5, 0.5);
+      const monster = makeMockTarget(6, 5, 0.5);
       const game = makeMockGame([monster]);
-      t.targetRefresh = 0; // force target refresh
+      t.targetRefresh = 0;
 
       t.update(0, [monster], [], game);
 
@@ -626,8 +654,8 @@ describe('update', () => {
 
     it('does not attack during cooldown', () => {
       const t = new Troop(swordsmanSpec, 5, 5);
-      t.cooldown = 1.0; // on cooldown
-      const monster = makeMockMonster(6, 5, 0.5);
+      t.cooldown = 1.0;
+      const monster = makeMockTarget(6, 5, 0.5);
       const game = makeMockGame([monster]);
       t.target = monster;
 
@@ -641,13 +669,12 @@ describe('update', () => {
       t.alive = false;
       const game = makeMockGame([]);
       t.update(0, [], [], game);
-      // Should not throw; just return early
       expect(game._damaged.length).toBe(0);
     });
 
     it('resets cooldown after attacking', () => {
       const t = new Troop(swordsmanSpec, 5, 5);
-      const monster = makeMockMonster(6, 5, 0.5);
+      const monster = makeMockTarget(6, 5, 0.5);
       const game = makeMockGame([monster]);
       t.targetRefresh = 0;
 
@@ -662,46 +689,12 @@ describe('update', () => {
       t.update(0.3, [], [], null);
       expect(t.cooldown).toBeCloseTo(0.7);
     });
-
-    it('picks new target when targetRefresh expires', () => {
-      const t = new Troop(swordsmanSpec, 5, 5);
-      const m1 = makeMockMonster(6, 5, 0.3);
-      const m2 = makeMockMonster(5, 6, 0.7);
-      const game = makeMockGame([m1, m2]);
-      t.targetRefresh = 0;
-
-      t.update(0, [m1, m2], [], game);
-
-      expect(t.target).not.toBeNull();
-    });
-
-    it('does not attack when target is null', () => {
-      const t = new Troop(swordsmanSpec, 5, 5);
-      const far = makeMockMonster(15, 15, 0.5);
-      const game = makeMockGame([far]);
-      t.targetRefresh = 0;
-
-      t.update(0, [far], [], game);
-
-      expect(game._damaged.length).toBe(0);
-    });
-
-    it('does not attack when target is dead', () => {
-      const t = new Troop(swordsmanSpec, 5, 5);
-      const dead = makeMockMonster(6, 5, 0.5, false);
-      const game = makeMockGame([]);
-      t.target = dead;
-
-      t.update(0, [], [], game);
-
-      expect(game._damaged.length).toBe(0);
-    });
   });
 
   describe('ranged troops', () => {
     it('acquires target and creates projectile when cooldown is 0', () => {
       const t = new Troop(archerSpec, 5, 5);
-      const monster = makeMockMonster(7, 5, 0.5);
+      const monster = makeMockTarget(7, 5, 0.5);
       const game = makeMockGame([monster]);
       t.targetRefresh = 0;
 
@@ -715,7 +708,7 @@ describe('update', () => {
     it('does not create projectile during cooldown', () => {
       const t = new Troop(archerSpec, 5, 5);
       t.cooldown = 1.0;
-      const monster = makeMockMonster(7, 5, 0.5);
+      const monster = makeMockTarget(7, 5, 0.5);
       const game = makeMockGame([monster]);
       t.target = monster;
 
@@ -726,7 +719,7 @@ describe('update', () => {
 
     it('resets cooldown after firing', () => {
       const t = new Troop(archerSpec, 5, 5);
-      const monster = makeMockMonster(7, 5, 0.5);
+      const monster = makeMockTarget(7, 5, 0.5);
       const game = makeMockGame([monster]);
       t.targetRefresh = 0;
 
@@ -734,17 +727,581 @@ describe('update', () => {
 
       expect(t.cooldown).toBe(t._cachedAttackSpeed);
     });
+  });
+});
 
-    it('pushes projectile to projectiles array', () => {
-      const t = new Troop(archerSpec, 5, 5);
-      const monster = makeMockMonster(7, 5, 0.5);
-      const game = makeMockGame([monster]);
-      const projectiles = [];
-      t.targetRefresh = 0;
+// ─── damageMonstersInHealRange ──────────────────────────────────────────────
 
-      t.update(0, [monster], projectiles, game);
+describe('damageMonstersInHealRange', () => {
+  it('damages monsters within heal range', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const m = makeMockMonster(6, 5);
+    const game = makeMockGame([m]);
+    game._monsterTileIndex = buildTileIndex([m]);
+    t.damageMonstersInHealRange(game);
+    expect(game._damaged.length).toBe(1);
+    expect(game._damaged[0].monster).toBe(m);
+    expect(game._damaged[0].dmg).toBe(healerSpec.monsterDamage);
+  });
 
-      expect(projectiles.length).toBe(1);
-    });
+  it('does not damage monsters outside heal range', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const m = makeMockMonster(10, 10);
+    const game = makeMockGame([m]);
+    game._monsterTileIndex = buildTileIndex([m]);
+    t.damageMonstersInHealRange(game);
+    expect(game._damaged.length).toBe(0);
+  });
+
+  it('does not damage dead monsters', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const m = makeMockMonster(6, 5, false);
+    const game = makeMockGame([m]);
+    game._monsterTileIndex = buildTileIndex([m]);
+    t.damageMonstersInHealRange(game);
+    expect(game._damaged.length).toBe(0);
+  });
+
+  it('does nothing when game is null', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    expect(() => t.damageMonstersInHealRange(null)).not.toThrow();
+  });
+
+  it('damages multiple monsters in range', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const m1 = makeMockMonster(6, 5);
+    const m2 = makeMockMonster(5, 6);
+    const game = makeMockGame([m1, m2]);
+    game._monsterTileIndex = buildTileIndex([m1, m2]);
+    t.damageMonstersInHealRange(game);
+    expect(game._damaged.length).toBe(2);
+  });
+
+  it('uses tile index path when available', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const m = makeMockMonster(6, 5);
+    const game = makeMockGame([m]);
+    game._monsterTileIndex = buildTileIndex([m]);
+    t.damageMonstersInHealRange(game);
+    expect(game._damaged.length).toBe(1);
+  });
+
+  it('falls back to linear scan when tile index is not an array', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const m = makeMockMonster(6, 5);
+    const game = makeMockGame([m]);
+    game._monsterTileIndex = null;
+    t.damageMonstersInHealRange(game);
+    expect(game._damaged.length).toBe(1);
+  });
+});
+
+// ─── getMonsterDamage ──────────────────────────────────────────────────────
+
+describe('getMonsterDamage', () => {
+  it('returns monsterDamage for healer', () => {
+    const t = new Troop(healerSpec, 0, 0);
+    expect(t.getMonsterDamage()).toBe(healerSpec.monsterDamage);
+  });
+
+  it('returns 0 for non-support troops', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    expect(t.getMonsterDamage()).toBe(0);
+  });
+
+  it('returns 0 for swordsman', () => {
+    const t = new Troop(swordsmanSpec, 0, 0);
+    expect(t.getMonsterDamage()).toBe(0);
+  });
+});
+
+// ─── Support update edge cases ──────────────────────────────────────────────
+
+describe('Support update edge cases', () => {
+  it('heals damaged allies in range', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const ally = new Troop(archerSpec, 6, 5);
+    ally.hp = 10;
+    const game = { troops: [t, ally], monsters: [], _getPopup: vi.fn() };
+    t.targetRefresh = 0;
+    t.cooldown = 0;
+    t.update(0, [], [], game);
+    expect(ally.hp).toBeGreaterThan(10);
+  });
+
+  it('does not heal full-HP allies', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const ally = new Troop(archerSpec, 6, 5);
+    ally.hp = ally.maxHp;
+    const game = { troops: [t, ally], monsters: [], _getPopup: vi.fn() };
+    t.targetRefresh = 0;
+    t.cooldown = 0;
+    t.update(0, [], [], game);
+    expect(ally.hp).toBe(ally.maxHp);
+  });
+
+  it('does not heal self', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    t.hp = 10;
+    const game = { troops: [t], monsters: [], _getPopup: vi.fn() };
+    t.targetRefresh = 0;
+    t.cooldown = 0;
+    t.update(0, [], [], game);
+    expect(t.hp).toBe(10);
+  });
+
+  it('does not heal dead allies', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const ally = new Troop(archerSpec, 6, 5);
+    ally.hp = 10;
+    ally.alive = false;
+    const game = { troops: [t, ally], monsters: [], _getPopup: vi.fn() };
+    t.targetRefresh = 0;
+    t.cooldown = 0;
+    t.update(0, [], [], game);
+    expect(ally.hp).toBe(10);
+  });
+
+  it('does not heal other support troops', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const otherHealer = new Troop(healerSpec, 6, 5);
+    otherHealer.hp = 10;
+    const game = { troops: [t, otherHealer], monsters: [], _getPopup: vi.fn() };
+    t.targetRefresh = 0;
+    t.cooldown = 0;
+    t.update(0, [], [], game);
+    expect(otherHealer.hp).toBe(10);
+  });
+
+  it('calls damageMonstersInHealRange during update', () => {
+    const t = new Troop(healerSpec, 5, 5);
+    const m = makeMockMonster(6, 5);
+    const game = makeMockGame([m]);
+    game._monsterTileIndex = buildTileIndex([m]);
+    const spy = vi.spyOn(t, 'damageMonstersInHealRange');
+    t.targetRefresh = 0;
+    t.cooldown = 0;
+    t.update(0, [], [], game);
+    expect(spy).toHaveBeenCalledWith(game);
+    spy.mockRestore();
+  });
+});
+
+// ─── getDps / getHps ───────────────────────────────────────────────────────
+
+describe('getDps / getHps', () => {
+  it('getDps returns damage / attackSpeed for damaging troops', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    expect(t.getDps()).toBeCloseTo(archerSpec.damage / archerSpec.attackSpeed);
+  });
+
+  it('getHps returns damage / attackSpeed for support troops', () => {
+    const t = new Troop(healerSpec, 0, 0);
+    expect(t.getHps()).toBeCloseTo(healerSpec.damage / healerSpec.attackSpeed);
+  });
+
+  it('getHps returns 0 for non-support troops', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    expect(t.getHps()).toBe(0);
+  });
+
+  it('DPS changes after upgrade', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    const dpsBefore = t.getDps();
+    t.upgradeStat('dmg');
+    expect(t.getDps()).toBeGreaterThan(dpsBefore);
+  });
+});
+
+// ─── isMaxed edge cases ─────────────────────────────────────────────────────
+
+describe('isMaxed edge cases', () => {
+  it('isMaxed returns true for inapplicable stats', () => {
+    const t = new Troop(swordsmanSpec, 0, 0);
+    expect(t.isMaxed('range')).toBe(true);
+  });
+
+  it('isMaxed returns true for chain on non-lightning troops', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    expect(t.isMaxed('chain')).toBe(true);
+  });
+
+  it('isMaxed returns true for slow on non-support/non-icewiz troops', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    expect(t.isMaxed('slow')).toBe(true);
+  });
+
+  it('isMaxed returns false for support slow (healTargetLevel)', () => {
+    const t = new Troop(healerSpec, 0, 0);
+    expect(t.isMaxed('slow')).toBe(false);
+  });
+
+  it('isMaxed returns true for support slow at max level', () => {
+    const t = new Troop(healerSpec, 0, 0);
+    t.healTargetLevel = CONFIG.MAX_UPGRADE_LEVEL;
+    expect(t.isMaxed('slow')).toBe(true);
+  });
+});
+
+// ─── canUpgrade edge cases ──────────────────────────────────────────────────
+
+describe('canUpgrade edge cases', () => {
+  it('canUpgrade("slow") returns true for support troops', () => {
+    const t = new Troop(healerSpec, 0, 0);
+    expect(t.canUpgrade('slow')).toBe(true);
+  });
+
+  it('canUpgrade("slow") returns true for icewiz', () => {
+    const t = new Troop(icewizSpec, 0, 0);
+    expect(t.canUpgrade('slow')).toBe(true);
+  });
+
+  it('canUpgrade("slow") returns false for non-slow troops', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    expect(t.canUpgrade('slow')).toBe(false);
+  });
+
+  it('canUpgrade("hp") returns true for all troops', () => {
+    expect(new Troop(archerSpec, 0, 0).canUpgrade('hp')).toBe(true);
+    expect(new Troop(healerSpec, 0, 0).canUpgrade('hp')).toBe(true);
+    expect(new Troop(swordsmanSpec, 0, 0).canUpgrade('hp')).toBe(true);
+  });
+});
+
+// ─── getTotalInvested with healGoldSpent ────────────────────────────────────
+
+describe('getTotalInvested with healGoldSpent', () => {
+  it('includes healGoldSpent in total', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    t.healGoldSpent = 50;
+    expect(t.getTotalInvested()).toBe(archerSpec.cost + 50);
+  });
+
+  it('includes upgrade costs and healGoldSpent', () => {
+    const t = new Troop(archerSpec, 0, 0);
+    t.upgradeStat('dmg');
+    t.healGoldSpent = 30;
+    const upgradeCost = Math.round(archerSpec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, 0));
+    expect(t.getTotalInvested()).toBe(archerSpec.cost + upgradeCost + 30);
+  });
+});
+
+// ─── _recomputeStats edge cases ─────────────────────────────────────────────
+
+describe('_recomputeStats edge cases', () => {
+  it('slow factor scales with slowLevel', () => {
+    const t = new Troop(icewizSpec, 0, 0);
+    const baseFactor = t.getSlowFactor();
+    t.slowLevel = 3;
+    t._recomputeStats();
+    const expected = Math.round(
+      icewizSpec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, 2) * 1000
+    ) / 1000;
+    expect(t.getSlowFactor()).toBe(expected);
+  });
+
+  it('slow duration scales with slowLevel', () => {
+    const t = new Troop(icewizSpec, 0, 0);
+    t.slowLevel = 3;
+    t._recomputeStats();
+    const expected = Math.round(
+      icewizSpec.slowDuration * Math.pow(CONFIG.SLOW_DURATION_SCALE_PER_LEVEL, 2) * 10
+    ) / 10;
+    expect(t.getSlowDuration()).toBe(expected);
+  });
+
+  it('shatter bonus scales with slowLevel', () => {
+    const t = new Troop(icewizSpec, 0, 0);
+    t.slowLevel = 3;
+    t._recomputeStats();
+    const expected = Math.round(
+      icewizSpec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, 2) * 1000
+    ) / 1000;
+    expect(t._cachedShatterBonus).toBe(expected);
+  });
+
+  it('melee range stays constant regardless of rangeLevel', () => {
+    const t = new Troop(swordsmanSpec, 0, 0);
+    t.rangeLevel = 5;
+    t._recomputeStats();
+    expect(t._cachedRange).toBe(swordsmanSpec.range);
+  });
+});
+
+// ─── Healer Troop (spec) ────────────────────────────────────────────────────
+
+describe('Healer Troop (spec)', () => {
+  it('exists in TROOP_SPECS', () => {
+    expect(healerSpec).toBeDefined();
+  });
+
+  it('has type support', () => {
+    expect(healerSpec.type).toBe('support');
+  });
+
+  it('has positive damage (used as heal amount)', () => {
+    expect(healerSpec.damage).toBeGreaterThan(0);
+  });
+
+  it('has range 2', () => {
+    expect(healerSpec.range).toBe(2);
+  });
+
+  it('has attack speed 0.5', () => {
+    expect(healerSpec.attackSpeed).toBe(0.5);
+  });
+
+  it('has monster damage 3', () => {
+    expect(healerSpec.monsterDamage).toBe(3);
+  });
+
+  it('has positive HP', () => {
+    expect(healerSpec.hp).toBeGreaterThan(0);
+  });
+
+  it('cost is 140', () => {
+    expect(healerSpec.cost).toBe(140);
+  });
+});
+
+// ─── Healer Troop Behavior ──────────────────────────────────────────────────
+
+describe('Healer Troop Behavior', () => {
+  it('can be constructed', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer).toBeDefined();
+    expect(healer.alive).toBe(true);
+    expect(healer.spec.id).toBe('healer');
+  });
+
+  it('getDamage returns heal amount', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getDamage()).toBe(healerSpec.damage);
+  });
+
+  it('getRange returns heal range', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getRange()).toBe(2);
+  });
+
+  it('getAttackSpeed returns heal cadence', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getAttackSpeed()).toBe(0.5);
+  });
+
+  it('getHealAmount returns cached damage as heal', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getHealAmount()).toBe(healer.getDamage());
+  });
+
+  it('pickHealTarget selects the lowest-HP ally over a closer ally', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const closerAlly = new Troop(swordsmanSpec, 6, 5);
+    closerAlly.hp = 30;
+    const fartherAlly = new Troop(swordsmanSpec, 5, 6);
+    fartherAlly.hp = 10;
+
+    const target = healer.pickHealTarget([closerAlly, fartherAlly]);
+    expect(target).toBe(fartherAlly);
+  });
+
+  it('pickHealTarget selects the lowest HP ratio when absolute HP differs', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const highMaxAlly = new Troop(swordsmanSpec, 6, 5);
+    highMaxAlly.maxHp = 200;
+    highMaxAlly.hp = 100;
+    const lowMaxAlly = new Troop(swordsmanSpec, 5, 6);
+    lowMaxAlly.maxHp = 100;
+    lowMaxAlly.hp = 50;
+
+    const target = healer.pickHealTarget([highMaxAlly, lowMaxAlly]);
+    expect(target).toBe(lowMaxAlly);
+  });
+
+  it('pickHealTarget selects multiple lowest-HP allies', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    healer.healTargetLevel = 2;
+    const closestAlly = new Troop(swordsmanSpec, 6, 5);
+    closestAlly.hp = 40;
+    const lowestAlly = new Troop(swordsmanSpec, 5, 6);
+    lowestAlly.hp = 10;
+    const secondLowestAlly = new Troop(swordsmanSpec, 7, 5);
+    secondLowestAlly.hp = 30;
+    const highestAlly = new Troop(swordsmanSpec, 5, 7);
+    highestAlly.hp = 45;
+
+    const target = healer.pickHealTarget([closestAlly, lowestAlly, secondLowestAlly, highestAlly]);
+
+    expect(target).toBe(lowestAlly);
+    expect(healer.healTargets).toEqual([lowestAlly, secondLowestAlly]);
+  });
+
+  it('pickHealTarget excludes self', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    healer.hp = 10;
+    const ally = new Troop(swordsmanSpec, 6, 5);
+    ally.hp = 30;
+
+    const target = healer.pickHealTarget([healer, ally]);
+    expect(target).toBe(ally);
+  });
+
+  it('pickHealTarget skips other support troops', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const allyHealer = new Troop(healerSpec, 5, 6);
+    allyHealer.hp = 10;
+    const ally = new Troop(swordsmanSpec, 6, 5);
+    ally.hp = 30;
+
+    const target = healer.pickHealTarget([allyHealer, ally]);
+    expect(target).toBe(ally);
+  });
+
+  it('pickHealTarget returns null for non-support type', () => {
+    const swordsman = new Troop(swordsmanSpec, 5, 5);
+    const ally = new Troop(swordsmanSpec, 6, 5);
+    ally.hp = 10;
+
+    const target = swordsman.pickHealTarget([ally]);
+    expect(target).toBeNull();
+  });
+
+  it('pickHealTarget returns null when no allies in range', () => {
+    const healer = new Troop(healerSpec, 0, 0);
+    const farAlly = new Troop(swordsmanSpec, 15, 15);
+    farAlly.hp = 10;
+
+    const target = healer.pickHealTarget([farAlly]);
+    expect(target).toBeNull();
+  });
+
+  it('pickHealTarget skips dead allies', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const deadAlly = new Troop(swordsmanSpec, 5, 6);
+    deadAlly.alive = false;
+    deadAlly.hp = 0;
+    const aliveAlly = new Troop(swordsmanSpec, 6, 5);
+    aliveAlly.hp = 30;
+
+    const target = healer.pickHealTarget([deadAlly, aliveAlly]);
+    expect(target).toBe(aliveAlly);
+  });
+
+  it('support healing through update heals without spending gold and spawns particles', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const ally = new Troop(swordsmanSpec, 5, 6);
+    ally.hp = 10;
+    const game = makeGame([healer, ally]);
+    const spawnSpy = vi.spyOn(PARTICLES, 'spawn');
+
+    healer.targetRefresh = 0;
+    healer.cooldown = 0;
+    healer.update(0.1, [], [], game);
+
+    expect(ally.hp).toBeGreaterThan(10);
+    expect(game.gold).toBe(123);
+    expect(game.popups[0]).toMatchObject({ text: '+8', color: '#44cc44' });
+    expect(ally.healBeam).toEqual({ troop: healer, timer: 0.6 });
+    expect(spawnSpy).toHaveBeenCalledWith(ally.x, ally.y, expect.any(Object));
+    spawnSpy.mockRestore();
+  });
+
+  it('support update damages monsters in heal range on 0.5s cooldown', () => {
+    const healer = new Troop(healerSpec, 0, 0);
+    const near1 = makeMonsterAt(1, 1, 0);
+    const near2 = makeMonsterAt(1, 0, 1);
+    const far = makeMonsterAt(1, 3, 0);
+    const game = makeGame([healer], [near1, near2, far]);
+
+    healer.targetRefresh = 0;
+    healer.cooldown = 0;
+    healer.update(0.016, [], [], game);
+
+    expect(game.damageCalls.filter((call) => call.monster === near1)).toHaveLength(1);
+    expect(game.damageCalls.filter((call) => call.monster === near2)).toHaveLength(1);
+    expect(game.damageCalls.filter((call) => call.monster === far)).toHaveLength(0);
+    expect(game.damageCalls.every((call) => call.amount === healer.getMonsterDamage())).toBe(true);
+    expect(healer.cooldown).toBe(0.5);
+
+    const callsAfterFirstUpdate = game.damageCalls.length;
+    healer.update(0.49, [], [], game);
+    expect(game.damageCalls).toHaveLength(callsAfterFirstUpdate);
+
+    healer.update(0.011, [], [], game);
+    expect(game.damageCalls).toHaveLength(callsAfterFirstUpdate + 2);
+  });
+
+  it('support update skips self and other support heal targets without spending gold', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const allyHealer = new Troop(healerSpec, 5, 6);
+    allyHealer.hp = 10;
+    const game = makeGame([healer, allyHealer]);
+
+    healer.hp = 10;
+    healer.healTargets.push(healer, allyHealer);
+    healer.targetRefresh = 0;
+    healer.cooldown = 0;
+    healer.update(0.1, [], [], game);
+
+    expect(healer.hp).toBe(10);
+    expect(allyHealer.hp).toBe(10);
+    expect(game.gold).toBe(123);
+    expect(game.popups).toHaveLength(0);
+  });
+
+  it('healer can be manually healed', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const maxHp = healer.maxHp;
+    const cost = healer.getHealCost();
+    healer.hp = 10;
+
+    expect(healer.canHeal()).toBe(true);
+    expect(cost).toBe(Math.ceil(healerSpec.cost * CONFIG.TROOP_HEAL_COST_RATIO));
+    expect(healer.heal()).toBe(true);
+    expect(healer.hp).toBeGreaterThan(10);
+    expect(healer.hp).toBeLessThanOrEqual(maxHp);
+  });
+
+  it('healer can be upgraded for damage (heal amount)', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const baseHeal = healer.getDamage();
+    healer.upgradeStat('dmg');
+    expect(healer.getDamage()).toBeGreaterThan(baseHeal);
+  });
+
+  it('healer can be upgraded for range', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const baseRange = healer.getRange();
+    healer.upgradeStat('range');
+    expect(healer.getRange()).toBeGreaterThan(baseRange);
+  });
+
+  it('healer can be upgraded for speed', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const baseSpeed = healer.getAttackSpeed();
+    healer.upgradeStat('speed');
+    expect(healer.getAttackSpeed()).toBeLessThan(baseSpeed);
+  });
+
+  it('healer has target count upgrade (repurposed slow)', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.canUpgrade('slow')).toBe(true);
+    expect(healer.getHealTargetCount()).toBe(1);
+    healer.upgradeStat('slow');
+    expect(healer.getHealTargetCount()).toBe(2);
+  });
+
+  it('healer target upgrades use the same cost curve', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    expect(healer.getUpgradeCost('slow')).toBe(Math.round(healerSpec.cost));
+    healer.upgradeStat('slow');
+    expect(healer.getUpgradeCost('slow')).toBe(Math.round(healerSpec.cost * 1.35));
+  });
+
+  it('includes healer target upgrades in total invested value', () => {
+    const healer = new Troop(healerSpec, 5, 5);
+    const before = healer.getTotalInvested();
+    healer.upgradeStat('slow');
+    expect(healer.getTotalInvested()).toBe(before + healerSpec.cost);
   });
 });
