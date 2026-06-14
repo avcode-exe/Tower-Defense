@@ -2,7 +2,7 @@
 // routes input to logic.
 
 import { RENDERER } from './rendering/renderer.js';
-import { CONFIG, LAYOUT, TROOP_SPECS, PROJECTILE_STYLES } from './config.js';
+import { CONFIG, LAYOUT, TROOP_SPECS, PROJECTILE_STYLES, MONSTER_DEV_ORDER } from './config.js';
 import { TILE } from './grid.js';
 import { PARTICLES } from './particles.js';
 import { Monster } from './monster.js';
@@ -68,6 +68,7 @@ export class Game {
     this._popupPool = [];
     this._tileIndexPool = [];
     this._projectilePool = [];
+    this._troopIndexByRef = new Map();
 
     this.wave = new WaveManager();
 
@@ -79,8 +80,8 @@ export class Game {
     this._goldClickTimer = 0;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
-    this.sellConfirmTroopIndex = null;
-    this.devMonsterCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 };
+    this.sellConfirmTroop = null;
+    this.devMonsterCounts = this._defaultDevCounts();
   }
 
   _getPopup(text, x, y, t, color) {
@@ -117,11 +118,25 @@ export class Game {
     return true;
   }
 
+  getPlacementInvalidReason(gx, gy, spec) {
+    if (!this.devMode && this.gold < spec.cost) return 'Need ' + spec.cost + 'g';
+    if (!this.grid.isBuildable(gx, gy)) return 'Cannot build here';
+    const idx = gy * CONFIG.GRID_SIZE + gx;
+    const tileTroops = this._troopTileIndex[idx];
+    if (tileTroops) {
+      for (let i = 0; i < tileTroops.length; i++) {
+        if (tileTroops[i].alive) return 'Tile occupied';
+      }
+    }
+    return null;
+  }
+
   placeTroop(spec, gx, gy) {
     if (!this.canPlace(gx, gy, spec)) return false;
     const t = new Troop(spec, gx, gy);
     this.troops.push(t);
-    if (!this.devMode) this.gold -= spec.cost;
+    const cost = this.devMode ? 0 : spec.cost;
+    this.gold -= cost;
     this._buildTroopTileIndex();
     AUDIO.troopPlace();
     return true;
@@ -152,8 +167,9 @@ export class Game {
     if (!t || !t.alive) return;
     if (t.isMaxed(stat)) return;
     const cost = t.getUpgradeCost(stat);
-    if (this.gold < cost) return;
-    this.gold -= cost;
+    if (!this.devMode && this.gold < cost) return;
+    const goldCost = this.devMode ? 0 : cost;
+    this.gold -= goldCost;
     t.upgradeStat(stat);
     this._getPopup(stat.toUpperCase() + ' +1', t.x, t.y - 10, 1.2, '#f1c40f');
     AUDIO.upgrade();
@@ -165,8 +181,9 @@ export class Game {
     if (!t || !t.alive) return;
     if (!t.canHeal()) return;
     const cost = t.getHealCost();
-    if (this.gold < cost) return;
-    this.gold -= cost;
+    if (!this.devMode && this.gold < cost) return;
+    const goldCost = this.devMode ? 0 : cost;
+    this.gold -= goldCost;
     t.healGoldSpent = (t.healGoldSpent || 0) + cost;
     const prevHp = t.hp;
     t.heal();
@@ -180,13 +197,13 @@ export class Game {
     const t = this.troops[index];
     if (!t || !t.alive) return false;
     if (!t.canAddShield()) return false; // already has shield (one-at-a-time)
-    const cost = Math.ceil(t.spec.cost * CONFIG.SHIELD_COST_RATIO);
+    const cost = this.devMode ? 0 : Math.ceil(t.spec.cost * CONFIG.SHIELD_COST_RATIO);
     if (!this.devMode && this.gold < cost) return false;
-    if (!this.devMode) this.gold -= cost;
+    this.gold -= cost;
     t.applyShield();
     this._getPopup('SHIELD!', t.x, t.y - 12, 1.0, '#5dade2');
     if (PARTICLES && PARTICLES.troopShieldActivate) {
-      PARTICLES.spawn(t.x, t.y, PARTICLES.troopShieldActivate(t.spec.color));
+      PARTICLES.troopShieldActivate(t.x, t.y, t.spec.color);
       AUDIO.shieldBuy();
     }
     return true;
@@ -228,18 +245,25 @@ export class Game {
     // to prevent double-reward from the defensive kill path in step().
     if (m.hp <= 0) {
       m.alive = false;
+      m.reviveGlow = false;
+      m._reviveGlowTimer = 0;
       return true;
     }
     const r = m.takeDamage(amount);
     if (r.killed) {
-      this._addGold(r.reward);
+      const awardedGold = r.reward + 1;
+      this._addGold(awardedGold);
       AUDIO.goldEarned();
-      this._getPopup('+' + r.reward, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
-      PARTICLES.spawn(m.x, m.y, PARTICLES.deathBurst(m.spec.color));
-      // Split monster: if level > 1, spawn 2 monsters of level-1 at this position.
-      const noSplit = (m.spec.attackMode || 'stop') === 'pass';
-      if (!noSplit && m.level !== 'B' && m.level !== 'S' && m.level > 1) {
-        const childLvl = m.level - 1;
+      this._getPopup('+' + awardedGold, m.x, m.y - 8, 1.2, CONFIG.COLORS.gold);
+      PARTICLES.deathBurst(m.x, m.y, m.spec.color);
+      m.reviveGlow = false;
+      m._reviveGlowTimer = 0;
+      // Split monster: if level > 1, spawn 2 monsters one split tier lower at this
+      // position. Runner is skipped in split children.
+      const noSplit = m.spec.noSplit === true || (m.spec.attackMode || 'stop') === 'pass';
+      if (!m.reviveImmune && !noSplit && typeof m.level === 'number' && m.level > 1) {
+        let childLvl = m.level - 1;
+        if (childLvl === 2) childLvl = 1;
         for (let i = 0; i < CONFIG.MONSTER_SPLIT_COUNT; i++) {
           const child = new Monster(childLvl, this.waypoints, this.pathSegments, m.hpMult);
           child.distance = m.distance;
@@ -256,7 +280,7 @@ export class Game {
       } else {
         this._getPopup(String(Math.round(r.hpDamage)), m.x, m.y - 6, 0.6, '#fff');
       }
-      PARTICLES.spawn(m.x, m.y, PARTICLES.hitSpark('#fff'));
+      PARTICLES.hitSpark(m.x, m.y, '#fff');
     }
     return r.killed;
   }
@@ -266,7 +290,7 @@ export class Game {
     troop.alive = false;
     this.grid.set(troop.gx, troop.gy, TILE.EMPTY);
     RENDERER.markCacheDirty();
-    PARTICLES.spawn(troop.x, troop.y, PARTICLES.troopDeath(troop.spec.color));
+    PARTICLES.troopDeath(troop.x, troop.y, troop.spec.color);
     this._getPopup('\u2620 Destroyed', troop.x, troop.y - 12, 1.0, '#ff4444');
     this._buildTroopTileIndex();
     if (this.selectedTroopIndex >= 0) {
@@ -274,20 +298,25 @@ export class Game {
       if (!sel || !sel.alive) this.selectedTroopIndex = -1;
     }
     // Clear sell confirmation if the confirmed troop was killed.
-    if (this.sellConfirmPending && this.sellConfirmTroopIndex === troop) {
+    if (this.sellConfirmPending && this.sellConfirmTroop === troop) {
       this.sellConfirmPending = false;
-      this.sellConfirmTroopIndex = null;
+      this.sellConfirmTroop = null;
     }
   }
 
   // Apply monster melee damage to a troop.
   damageTroop(monster, troop) {
     let dmg = monster.spec.damage;
-    // Melee troops take reduced damage from monsters (they can block).
-    if (troop.spec.type === 'melee') dmg = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
+    if (monster.reviveImmune) {
+      dmg = Math.max(1, Math.round(dmg * (monster.reviveDamageRatio ?? 0.5)));
+    }
+    if (troop.spec.type === 'melee') {
+      const reduced = Math.round(dmg * CONFIG.MELEE_DAMAGE_REDUCTION);
+      dmg = dmg > 0 ? Math.max(1, reduced) : reduced;
+    }
     const killed = troop.takeDamage(dmg);
     this._getPopup('-' + dmg, troop.x + (Math.random() - 0.5) * 8, troop.y - 14, 0.8, '#ff6644');
-    PARTICLES.spawn(troop.x, troop.y, PARTICLES.hitSpark('#ff8844'));
+    PARTICLES.hitSpark(troop.x, troop.y, '#ff8844');
     if (killed) {
       this.killTroop(troop);
     }
@@ -326,12 +355,16 @@ export class Game {
   // DRY: Apply slow effect to a monster from a troop.
   _applySlowToMonster(monster, troop) {
     if (monster.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
-      PARTICLES.spawn(monster.x, monster.y, PARTICLES.slowApply(troop.spec.color));
+      PARTICLES.slowApply(monster.x, monster.y, troop.spec.color);
     }
   }
 
   // DRY: Add gold with MAX_GOLD cap.
   _addGold(amount) {
+    if (this.devMode) {
+      this.gold = Infinity;
+      return;
+    }
     this.gold = Math.min(this.gold + amount, CONFIG.MAX_GOLD);
   }
 
@@ -344,6 +377,7 @@ export class Game {
     this._stepMonsters(dt);
     if (this.state === 'DEFEAT') return;
     this._stepMonsterAttacks();
+    this._stepNecromancerRevives();
     this._cleanupDead();
     this._stepWaveCompletion();
     this._stepPopups(dt);
@@ -415,6 +449,78 @@ export class Game {
     }
   }
 
+  _stepNecromancerRevives() {
+    for (let i = 0; i < this.monsters.length; i++) {
+      this.monsters[i]._reviveLock = false;
+    }
+
+    for (let i = 0; i < this.monsters.length; i++) {
+      const necro = this.monsters[i];
+      if (!necro.alive || necro.level !== 'Y') continue;
+
+      const range = (necro.spec.reviveRange ?? CONFIG.MONSTER_REVIVE_RANGE) * CONFIG.TILE_SIZE;
+      const rangeSq = range * range;
+      const maxTargets = necro.spec.reviveMaxTargets ?? CONFIG.MONSTER_REVIVE_MAX_TARGETS;
+      const glowDuration = necro.spec.reviveGlowDuration ?? CONFIG.MONSTER_REVIVE_GLOW_DURATION;
+
+      while ((necro.reviveCount || 0) < maxTargets) {
+        let best = null;
+        let bestDist = Infinity;
+        for (let j = 0; j < this.monsters.length; j++) {
+          const target = this.monsters[j];
+          if (
+            target === necro ||
+            target.alive ||
+            target.level === 'Y' ||
+            target.reachedEnd ||
+            target._reviveLock ||
+            target.reviveImmune
+          )
+            continue;
+          const dx = target.x - necro.x;
+          const dy = target.y - necro.y;
+          const distSq = dx * dx + dy * dy;
+          if (distSq <= rangeSq && distSq < bestDist) {
+            bestDist = distSq;
+            best = target;
+          }
+        }
+        if (!best) break;
+
+        const ratio = necro.spec.reviveHpRatio ?? CONFIG.MONSTER_REVIVE_HP_RATIO;
+        best.hp = Math.max(1, Math.round(best.maxHp * ratio));
+        best.alive = true;
+        best.reviveImmune = true;
+        best.reviveDamageRatio = 0.5;
+        best.reachedEnd = false;
+        necro.reviveCount = (necro.reviveCount || 0) + 1;
+        necro.reviveUsed = true;
+        this._resetRevivedMonster(best);
+        best.reviveGlow = true;
+        best._reviveGlowTimer = necro.spec.reviveGlowDuration ?? glowDuration;
+        best._reviveLock = true;
+        this._getPopup('Revived', best.x, best.y - 12, 0.9, CONFIG.COLORS.revive);
+        PARTICLES.reviveBurst(best.x, best.y, CONFIG.COLORS.revive);
+      }
+    }
+  }
+
+  _resetRevivedMonster(m) {
+    m.stunTimer = 0;
+    m.slowTimer = 0;
+    m.speed = m.baseSpeed;
+    m.shatterArmed = false;
+    m.shatterBonus = 0;
+    m._slowColorTint = 0;
+    m._reviveGlowTimer = 0;
+    m.state = 'MOVING';
+    m.attackTarget = null;
+    m.attackTimer = 0;
+    m._pendingAttack = null;
+    m._lastPassTile = -1;
+    m._hitTroops = null;
+  }
+
   _cleanupDead() {
     let mw = 0;
     for (let i = 0; i < this.monsters.length; i++) {
@@ -423,11 +529,12 @@ export class Game {
     this.monsters.length = mw;
     let pw = 0;
     for (let i = 0; i < this.projectiles.length; i++) {
-      if (this.projectiles[i].alive) this.projectiles[pw++] = this.projectiles[i];
-    }
-    // Return dead projectiles to pool (they were overwritten during compaction).
-    for (let i = pw; i < this.projectiles.length; i++) {
-      this._projectilePool.push(this.projectiles[i]);
+      const p = this.projectiles[i];
+      if (p.alive) {
+        this.projectiles[pw++] = p;
+      } else {
+        this._projectilePool.push(p);
+      }
     }
     this.projectiles.length = pw;
     const selRef = this.selectedTroopIndex >= 0 ? this.troops[this.selectedTroopIndex] : null;
@@ -441,6 +548,7 @@ export class Game {
     }
     this.troops.length = tw;
     this.selectedTroopIndex = selRef && selRef.alive ? newSelIdx : -1;
+    this._buildTroopTileIndex();
   }
 
   _stepWaveCompletion() {
@@ -562,12 +670,16 @@ export class Game {
   }
 
   _buildTroopTileIndex() {
+    this._troopIndexByRef.clear();
     for (let i = 0; i < this._troopTileIndex.length; i++) this._troopTileIndex[i].length = 0;
     for (let i = 0; i < this.troops.length; i++) {
       const t = this.troops[i];
       if (!t.alive) continue;
       const idx = t.gy * CONFIG.GRID_SIZE + t.gx;
-      if (idx >= 0 && idx < this._troopTileIndex.length) this._troopTileIndex[idx].push(t);
+      if (idx >= 0 && idx < this._troopTileIndex.length) {
+        this._troopTileIndex[idx].push(t);
+        this._troopIndexByRef.set(t, i);
+      }
     }
   }
 
@@ -630,7 +742,7 @@ export class Game {
           this.monsters[j].stunTimer = Math.max(this.monsters[j].stunTimer, stunDuration);
         }
       }
-      PARTICLES.spawn(srcX, srcY, PARTICLES.chainSpark());
+      PARTICLES.chainSpark(srcX, srcY);
       return m;
     };
 
@@ -672,9 +784,11 @@ export class Game {
         }
       }
       if (!best || bestDist > maxChainDist * maxChainDist) break; // too far, stop chaining
+      const srcX = lastX;
+      const srcY = lastY;
       lastX = best.x;
       lastY = best.y;
-      applyHit(best, best.x, best.y);
+      applyHit(best, srcX, srcY);
       // Remove hit monster from buffer to prevent re-hitting the same target.
       if (bestIdx >= 0) {
         const last = buf.length - 1;
@@ -720,7 +834,7 @@ export class Game {
         }
       }
     }
-    PARTICLES.spawn(x, y, PARTICLES.splashImpact(troop ? troop.spec.color : '#9b59b6'));
+    PARTICLES.splashImpact(x, y, troop ? troop.spec.color : '#9b59b6');
     return hitMonsters;
   }
 
@@ -759,12 +873,12 @@ export class Game {
     if (this._hitBox(px, py, UI._devConfirmYes)) {
       if (this.sellConfirmPending) {
         this.sellConfirmPending = false;
-        const ref = this.sellConfirmTroopIndex;
+        const ref = this.sellConfirmTroop;
         if (ref && ref.alive) {
           const idx = this.troops.indexOf(ref);
           if (idx >= 0) this.sellTroop(idx);
         }
-        this.sellConfirmTroopIndex = null;
+        this.sellConfirmTroop = null;
       } else if (this.resetConfirmPending) {
         this.resetConfirmPending = false;
         this.resetGame();
@@ -778,7 +892,7 @@ export class Game {
       this.devConfirmPending = false;
       this.resetConfirmPending = false;
       this.sellConfirmPending = false;
-      this.sellConfirmTroopIndex = null;
+      this.sellConfirmTroop = null;
       return;
     }
   }
@@ -875,7 +989,7 @@ export class Game {
       if (this.devMode) {
         this.sellTroop(this.selectedTroopIndex);
       } else {
-        this.sellConfirmTroopIndex = this.troops[this.selectedTroopIndex];
+        this.sellConfirmTroop = this.troops[this.selectedTroopIndex];
         this.sellConfirmPending = true;
       }
     }
@@ -915,11 +1029,12 @@ export class Game {
   }
 
   _handleMapClick(px, py) {
+    const shieldShopRight = RENDERER.width - UI_LAYOUT.shieldShopWidth;
     if (
       px < UI_LAYOUT.shopWidth ||
       py < UI_LAYOUT.hudHeight ||
       py > RENDERER.height - UI_LAYOUT.previewHeight ||
-      px > RENDERER.width - UI_LAYOUT.shieldShopWidth
+      px > shieldShopRight
     ) {
       return;
     }
@@ -937,8 +1052,9 @@ export class Game {
       if (this.placeTroop(this.selectedSpec, tile.gx, tile.gy)) {
         // Keep selected for repeat placement.
       } else {
+        const reason = this.getPlacementInvalidReason(tile.gx, tile.gy, this.selectedSpec) || 'Invalid!';
         tileCenterInto(tile.gx, tile.gy, this._centerScratch);
-        this._getPopup('Invalid!', this._centerScratch.x, this._centerScratch.y, 1.0, '#da3633');
+        this._getPopup(reason, this._centerScratch.x, this._centerScratch.y, 1.0, '#da3633');
         this.selectedTroopIndex = -1;
       }
       return;
@@ -947,9 +1063,13 @@ export class Game {
   }
 
   findTroopAtTile(gx, gy) {
-    for (let i = 0; i < this.troops.length; i++) {
-      const t = this.troops[i];
-      if (t.alive && t.gx === gx && t.gy === gy) return i;
+    if (gx < 0 || gy < 0 || gx >= CONFIG.GRID_SIZE || gy >= CONFIG.GRID_SIZE) return -1;
+    const idx = gy * CONFIG.GRID_SIZE + gx;
+    const tileTroops = this._troopTileIndex[idx];
+    if (!tileTroops) return -1;
+    for (let i = 0; i < tileTroops.length; i++) {
+      const troop = tileTroops[i];
+      if (troop.alive) return this._troopIndexByRef.get(troop) ?? -1;
     }
     return -1;
   }
@@ -976,7 +1096,11 @@ export class Game {
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
-    this.sellConfirmTroopIndex = null;
+    this.sellConfirmTroop = null;
+    this.selectedSpec = null;
+    this.selectedTroopIndex = -1;
+    this.waveCompleteAnim = { active: false, waveNum: 0 };
+    this.lastTime = 0;
     this.accumulator = 0;
   }
 
@@ -1072,7 +1196,7 @@ export class Game {
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
-    this.sellConfirmTroopIndex = null;
+    this.sellConfirmTroop = null;
     this.seed = Math.floor(Math.random() * 0xffffffff);
     GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();
@@ -1088,18 +1212,16 @@ export class Game {
 
   resetGame() {
     const wasDevMode = this.devMode;
-    this.devMode = false;
     this.devConfirmPending = false;
+    this.devMode = wasDevMode;
     this.restart();
-    if (wasDevMode) {
-      this.devMode = true;
-      const devBtn = document.getElementById('bar-dev-btn');
-      if (devBtn) devBtn.style.display = '';
-    }
   }
 
   _defaultDevCounts() {
-    return { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, B: 0, S: 0, X: 0 };
+    return MONSTER_DEV_ORDER.reduce((counts, key) => {
+      counts[key] = 0;
+      return counts;
+    }, {});
   }
 
   resetDevMonsterCounts() {

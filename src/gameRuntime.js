@@ -70,9 +70,13 @@ export class GameRuntimeController {
   // Called by Game.start() / Game.restart() to kick off the background loop.
   startLoop(canvas) {
     this.installResize(canvas);
-    this.game.lastTime = performance.now();
     this._running = true;
     this._rafVersion++;
+    this._startRafLoop();
+  }
+
+  _startRafLoop() {
+    this.game.lastTime = performance.now();
     const rafVersion = this._rafVersion;
     const game = this.game;
 
@@ -99,14 +103,7 @@ export class GameRuntimeController {
     if (game.state !== 'PAUSED') return;
     game.state = 'WAVE_ACTIVE';
     this.stopPauseRender();
-    game.lastTime = performance.now();
-    const rafVersion = this._rafVersion;
-    const loop = () => {
-      if (!this._running || this._rafVersion !== rafVersion) return;
-      game._runSimTick(performance.now());
-      this._rafId = requestAnimationFrame(loop);
-    };
-    this._rafId = requestAnimationFrame(loop);
+    this._startRafLoop();
   }
 
   togglePause() {

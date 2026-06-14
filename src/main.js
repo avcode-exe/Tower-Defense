@@ -3,7 +3,7 @@ import { RENDERER } from './rendering/renderer.js';
 import { Input } from './input.js';
 import { UpdateManager } from './updateManager.js';
 import { UI_LAYOUT } from './ui/index.js';
-import { MONSTER_SPECS } from './config.js';
+import { MONSTER_SPECS, MONSTER_DEV_ORDER } from './config.js';
 import { AUDIO } from './audio.js';
 import { SaveSerializer } from './gamePersistence.js';
 import { showToast } from './ui/toast.js';
@@ -16,7 +16,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (!canvas) return;
   game = new Game(canvas);
   window.game = game;
-  new Input(canvas, game);
+  const input = new Input(canvas, game);
+  window.input = input;
   let updateDevSpawnCounts = () => {};
 
   // ── Load progress dialog ─────────────────────────────────────────────────────
@@ -114,6 +115,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       hidePopup(openKey);
       // After the close animation finishes, open the target.
       const openPopup = document.getElementById(popupFor[openKey]);
+      if (!openPopup) {
+        openTarget();
+        return;
+      }
       let fallbackTimer = null;
       const onDone = () => {
         openPopup.removeEventListener('transitionend', onDone);
@@ -244,7 +249,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const saveStatus = document.getElementById('settings-save-status');
   if (saveBtn) {
     saveBtn.addEventListener('click', async () => {
-      await syncSettingsToMainProcess();
+      await syncSettingsToMainProcess().catch((err) => {
+        console.warn('[settings] failed to save settings', err);
+      });
       // Visual feedback: flash "✓ Saved" text
       if (saveStatus) {
         saveStatus.style.opacity = '1';
@@ -272,7 +279,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   const checkNowBtn = document.getElementById('settings-check-now-btn');
   if (checkNowBtn) {
     checkNowBtn.addEventListener('click', async () => {
-      await syncSettingsToMainProcess();
+      await syncSettingsToMainProcess().catch((err) => {
+        console.warn('[settings] failed to sync settings before update check', err);
+      });
       // Small delay to let main process apply the settings
       setTimeout(() => {
         if (window.electron && window.electron.sendManualCheck) {
@@ -283,7 +292,9 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Sync update channel on startup
-  syncSettingsToMainProcess();
+  syncSettingsToMainProcess().catch((err) => {
+    console.warn('[settings] failed to sync settings to main process', err);
+  });
 
   // ── settings accordion ──────────────────────────────────────────────────────
   document.querySelectorAll('.settings-section-header').forEach((header) => {
@@ -298,7 +309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
-  let appVersion = '1.3.0'; // fallback
+  let appVersion = '1.5.2'; // fallback
   if (window.electron && window.electron.getVersion) {
     try {
       appVersion = await window.electron.getVersion();
@@ -566,7 +577,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── populate monster info (unchanged) ──────────────────────────────────────
   const monsterInfoContent = document.getElementById('monster-info-content');
   if (monsterInfoContent) {
-    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
+    const order = MONSTER_DEV_ORDER;
     for (const key of order) {
       const spec = MONSTER_SPECS[key];
       if (!spec) continue;
@@ -585,13 +596,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         e.textContent = t;
         return e;
       };
-      stats.appendChild(statSpan('HP:' + spec.hp));
-      stats.appendChild(statSpan('Spd:' + spec.speed));
+      stats.appendChild(statSpan('HP: ' + spec.hp));
+      stats.appendChild(statSpan('Spd: ' + spec.speed));
       stats.appendChild(statSpan('+' + spec.reward + 'g'));
-      stats.appendChild(statSpan('Dmg:' + spec.damage));
-      stats.appendChild(statSpan('Leak:' + spec.leak));
+      stats.appendChild(statSpan('Dmg: ' + spec.damage));
+      stats.appendChild(statSpan('Leak: ' + spec.leak));
       if (spec.shield)
-        stats.appendChild(statSpan('Shield:' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
+        stats.appendChild(statSpan('Shield: ' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
       const mode = spec.attackMode || 'stop';
       if (mode === 'slow') {
         stats.appendChild(statSpan('Slow: slows near troops, attacks closest'));
@@ -608,7 +619,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── populate DEV popup spawn content ─────────────────────────────────────
   const devSpawnContent = document.getElementById('dev-spawn-content');
   if (devSpawnContent) {
-    const order = [1, 2, 3, 4, 5, 'B', 'S', 'X'];
+    const order = MONSTER_DEV_ORDER;
     const devRows = [];
     for (const key of order) {
       const spec = MONSTER_SPECS[key];

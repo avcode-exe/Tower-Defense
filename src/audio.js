@@ -35,14 +35,18 @@ export class AudioManager {
     }
   }
 
+  _canPlay() {
+    if (!this._enabled || this._volume <= 0) return false;
+    this._ensure();
+    return !!this._ctx;
+  }
+
   setVolume(v) {
     this._volume = Math.max(0, Math.min(1, v));
   }
 
   _tone(freq, duration, type = 'sine', vol = 1) {
-    if (!this._enabled) return;
-    this._ensure();
-    if (!this._ctx) return;
+    if (!this._canPlay()) return;
     const t = this._ctx.currentTime;
     const osc = this._ctx.createOscillator();
     const gain = this._ctx.createGain();
@@ -57,9 +61,7 @@ export class AudioManager {
   }
 
   _toneRamp(freqStart, freqEnd, duration, type, vol, startTime) {
-    if (!this._enabled) return null;
-    this._ensure();
-    if (!this._ctx) return null;
+    if (!this._canPlay()) return null;
     const t = startTime !== undefined ? startTime : this._ctx.currentTime;
     const osc = this._ctx.createOscillator();
     const gain = this._ctx.createGain();
@@ -76,9 +78,7 @@ export class AudioManager {
   }
 
   _noise(duration, vol = 1, freq = 1000, Q = 1) {
-    if (!this._enabled) return;
-    this._ensure();
-    if (!this._ctx) return;
+    if (!this._canPlay()) return;
     const t = this._ctx.currentTime;
     const sr = this._ctx.sampleRate;
     const len = Math.max(1, Math.ceil(sr * duration));
@@ -126,9 +126,7 @@ export class AudioManager {
   }
 
   rangedAttack() {
-    if (!this._enabled) return;
-    this._ensure();
-    if (!this._ctx) return;
+    if (!this._canPlay()) return;
     const t = this._ctx.currentTime;
     const osc = this._ctx.createOscillator();
     const gain = this._ctx.createGain();
@@ -157,9 +155,7 @@ export class AudioManager {
   }
 
   defeat() {
-    if (!this._enabled) return;
-    this._ensure();
-    if (!this._ctx) return;
+    if (!this._canPlay()) return;
     const t = this._ctx.currentTime;
     [523, 622, 784].forEach((freq, i) => {
       const start = t + i * 0.15;

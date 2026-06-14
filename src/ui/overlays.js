@@ -85,7 +85,7 @@ export function drawDevConfirmDialog(game) {
   if (game.sellConfirmPending) {
     c.fillText(
       'Sell ' +
-        (game.sellConfirmTroopIndex?.spec?.name || 'troop') +
+        (game.sellConfirmTroop?.spec?.name || 'troop') +
         ' for ' +
         Math.round(CONFIG.SELL_REFUND_RATIO * 100) +
         '% refund?',

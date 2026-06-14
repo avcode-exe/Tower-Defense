@@ -8,6 +8,42 @@ import { RENDERER } from './rendering/renderer.js';
 import { PARTICLES } from './particles.js';
 import { UI } from './ui/index.js';
 
+const TRANSIENT_ARRAY_KEYS = ['_projectilePool', '_splashHitBuf', '_chainBuf', '_tileIndexPool'];
+
+function resetTransientBuffers(game) {
+  for (const key of TRANSIENT_ARRAY_KEYS) {
+    game[key] = [];
+  }
+}
+
+function normalizeHealTargetLevel(value) {
+  const level = Number.isInteger(value) ? value : 1;
+  return Math.max(1, Math.min(CONFIG.MAX_UPGRADE_LEVEL, level));
+}
+
+function isFiniteNonNegative(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+function isValidGridPosition(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value < CONFIG.GRID_SIZE;
+}
+
+function isValidHealTargetLevel(value) {
+  return value == null || (Number.isInteger(value) && value >= 1 && value <= CONFIG.MAX_UPGRADE_LEVEL);
+}
+
+function isValidTroop(t) {
+  if (!t || typeof t !== 'object') return false;
+  if (typeof t.specId !== 'string') return false;
+  if (!isValidGridPosition(t.gx) || !isValidGridPosition(t.gy)) return false;
+  if (!isFiniteNonNegative(t.hp) || !isFiniteNonNegative(t.maxHp)) return false;
+  if (!isFiniteNonNegative(t.shield) || !isFiniteNonNegative(t.maxShield)) return false;
+  if (t.shield > t.maxShield) return false;
+  if (!isFiniteNonNegative(t.healGoldSpent)) return false;
+  return isValidHealTargetLevel(t.healTargetLevel);
+}
+
 // Persistence helpers: serialise save data, rebuild world geometry from a
 // seed, and restore game state from a save.  Extracted from Game so that
 // adding new persistent fields requires only one touch-point per operation.
@@ -15,7 +51,7 @@ import { UI } from './ui/index.js';
 export const SaveSerializer = {
   fromGame(game) {
     return {
-      version: '1.4.0',
+      version: '1.5.2',
       gold: game.gold === Infinity ? null : game.gold,
       lives: game.lives === Infinity ? null : game.lives,
       seed: game.seed,
@@ -40,6 +76,7 @@ export const SaveSerializer = {
           shield: t.shield,
           maxShield: t.maxShield,
           healCount: t.healCount,
+          healTargetLevel: t.healTargetLevel,
           healGoldSpent: t.healGoldSpent || 0,
         })),
     };
@@ -50,17 +87,12 @@ export const SaveSerializer = {
     if (typeof data.seed !== 'number') return false;
     if (data.speed != null && (typeof data.speed !== 'number' || data.speed <= 0)) return false;
     if (!Array.isArray(data.troops)) return false;
-    if (data.devMode && (data.gold !== null || data.lives !== null)) return false;
-    if (!data.devMode && (typeof data.gold !== 'number' || typeof data.lives !== 'number')) return false;
+    const isDev = data.devMode === true;
+    if (isDev && (data.gold !== null || data.lives !== null)) return false;
+    if (!isDev && (!isFiniteNonNegative(data.gold) || !isFiniteNonNegative(data.lives))) return false;
     if (!data.wave || typeof data.wave.currentWave !== 'number') return false;
-    return data.troops.every(
-      (t) =>
-        t &&
-        typeof t.specId === 'string' &&
-        typeof t.gx === 'number' &&
-        typeof t.gy === 'number' &&
-        typeof t.hp === 'number'
-    );
+    if (!Number.isFinite(data.wave.currentWave) || data.wave.currentWave < 0) return false;
+    return data.troops.every(isValidTroop);
   },
 };
 
@@ -114,11 +146,13 @@ export const GameSnapshotRestorer = {
     RENDERER.markCacheDirty();
     RENDERER._rebuildCache(game.grid);
 
-    // Reset entity collections.
+    // Reset entity collections and transient buffers.
     game.monsters = [];
     game.projectiles = [];
     game.popups = [];
     game._popupPool = [];
+    resetTransientBuffers(game);
+    game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
 
     // Wave manager.
     game.wave = new WaveManager();
@@ -131,12 +165,13 @@ export const GameSnapshotRestorer = {
       const spec = TROOP_SPECS.find((s) => s.id === tData.specId);
       if (!spec) continue;
       const t = new Troop(spec, tData.gx, tData.gy);
-      t.hpLevel = tData.hpLevel || 1;
-      t.dmgLevel = tData.dmgLevel || 1;
-      t.rangeLevel = tData.rangeLevel || 1;
-      t.speedLevel = tData.speedLevel || 1;
-      t.chainLevel = tData.chainLevel || 1;
-      t.slowLevel = tData.slowLevel || 1;
+      t.hpLevel = tData.hpLevel ?? 1;
+      t.dmgLevel = tData.dmgLevel ?? 1;
+      t.rangeLevel = tData.rangeLevel ?? 1;
+      t.speedLevel = tData.speedLevel ?? 1;
+      t.chainLevel = tData.chainLevel ?? 1;
+      t.slowLevel = tData.slowLevel ?? 1;
+      t.healTargetLevel = normalizeHealTargetLevel(tData.healTargetLevel);
       t._recomputeStats();
       t.maxHp = t._cachedMaxHp;
       t.hp = Math.min(tData.hp, t.maxHp);
@@ -173,13 +208,12 @@ export const GameSnapshotRestorer = {
     game.popups = [];
     game._popupPool = [];
     game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
-    game._splashHitBuf = [];
-    game._chainBuf = [];
-    game._tileIndexPool = [];
     game._troopTileIndex = [];
+    game._troopIndexByRef = new Map();
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) {
       game._troopTileIndex.push([]);
     }
+    resetTransientBuffers(game);
 
     // Wave manager.
     game.wave = new WaveManager();
