@@ -164,7 +164,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit test suite (700 tests, 27 files)
+- **Vitest** — unit + integration test suite (803 tests, 29 files)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -243,6 +243,8 @@ tests/
   githubReleaseFeed.test.js
   smoke.test.js
   particles.test.js
+  integration.test.js
+  electronEdgeCases.test.js
 electron-main.js     # Electron main process
 preload.js          # Electron preload script
 index.html          # Single-page canvas host
@@ -280,7 +282,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (700 tests)
+npm test             # Run test suite (803 tests)
 npm run test:watch   # Run tests in watch mode
 ```
 
