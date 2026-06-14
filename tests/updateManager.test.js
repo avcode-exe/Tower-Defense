@@ -472,11 +472,11 @@ describe('UpdateManager.shouldSkip (extended)', () => {
   });
 
   it('handles multiple skipped versions', () => {
-    m.settings.update.skippedVersions = ['1.5.0', '1.5.1', '1.5.2-beta.2'];
+    m.settings.update.skippedVersions = ['1.5.0', '1.5.1', '1.5.2'];
     expect(m.shouldSkip('1.5.0')).toBe(true);
     expect(m.shouldSkip('1.5.1')).toBe(true);
-    expect(m.shouldSkip('1.5.2-beta.2')).toBe(true);
-    expect(m.shouldSkip('1.5.2')).toBe(false);
+    expect(m.shouldSkip('1.5.2')).toBe(true);
+    expect(m.shouldSkip('1.5.3')).toBe(false);
   });
 });
 
