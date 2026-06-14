@@ -32,10 +32,11 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **Monster splitting** — non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
 - **Sell confirmation** — 30% refund with 3-second global cooldown
 
-## Release: v1.5.2 Beta 1
+## Release: v1.5.2 Beta 2
 
-v1.5.2 Beta 1 focuses on UI clarity, wave planning, runtime stability, and expanded validation coverage.
+v1.5.2 Beta 2 is the final pre-release polish pass for the 1.5.2 line, carrying forward the UI clarity, wave planning, runtime stability, and expanded validation work from Beta 1.
 
+- Package, persistence, and update-manager version metadata now report `1.5.2-beta.2`.
 - Placement preview now shows DPS for damaging troops, HPS for support troops, and specific invalid-placement reasons.
 - Wave preview now shows start timing, estimated clear duration, total gold, and revive-aware estimates for Necromancer waves.
 - Runtime cleanup, UI hit-testing, muted audio, update checks, and Electron updater behavior were stabilized.
