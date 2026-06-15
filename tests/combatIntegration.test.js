@@ -1307,8 +1307,8 @@ describe('Integration: Troop comparisons', () => {
     }
   });
 
-  it('all troop types accounted for (11 total)', () => {
-    expect(TROOP_SPECS.length).toBe(11);
+  it('all troop types accounted for (12 total)', () => {
+    expect(TROOP_SPECS.length).toBe(12);
   });
 });
 

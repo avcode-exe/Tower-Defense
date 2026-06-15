@@ -369,7 +369,7 @@ describe('SaveSerializer.fromGame', () => {
     };
     const data = SaveSerializer.fromGame(game);
 
-    expect(data.version).toBe('1.5.2');
+    expect(data.version).toBe('1.6.0-beta.1');
     expect(data.gold).toBe(500);
     expect(data.lives).toBe(20);
     expect(data.seed).toBe(42);

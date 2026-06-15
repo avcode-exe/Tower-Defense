@@ -18,6 +18,10 @@ export const CONFIG = {
 
   // Troop combat
   MELEE_DAMAGE_REDUCTION: 0.3, // melee troops take 30% damage from monsters (70% less)
+  FLAME_BURN_MAX_STACKS: 3,
+  FLAME_BURN_DURATION: 3,
+  FLAME_BURN_TICK_INTERVAL: 0.5,
+  FLAME_BURN_DAMAGE_RATIO: 0.25,
 
   // Troop healing
   TROOP_HEAL_HP_RATIO: 0.1, // heal 10% of max HP per heal
@@ -97,6 +101,7 @@ export const CONFIG = {
     invalid: 'rgba(220,80,80,0.28)',
     gold: '#f1c40f',
     heart: '#e74c3c',
+    burn: '#ff7a18',
     hpBarBg: '#400',
     hpBarFill: '#2ecc71',
     shieldBarBg: '#223',
@@ -298,6 +303,23 @@ export const TROOP_SPECS = [
     desc: 'Heavy melee with 120 HP and high damage. Takes 70% less damage from monsters. Excellent tank.',
   },
   {
+    id: 'flame',
+    name: 'Flame Troop',
+    type: 'melee',
+    cost: 160,
+    damage: 14,
+    range: 1,
+    attackSpeed: 0.75,
+    splash: 0,
+    color: '#ff6b1a',
+    hp: 70,
+    burnStacks: CONFIG.FLAME_BURN_MAX_STACKS,
+    burnDuration: CONFIG.FLAME_BURN_DURATION,
+    burnTickInterval: CONFIG.FLAME_BURN_TICK_INTERVAL,
+    burnDamageRatio: CONFIG.FLAME_BURN_DAMAGE_RATIO,
+    desc: 'Melee DoT unit with 70 HP. Applies burn stacks that deal fire damage over time.',
+  },
+  {
     id: 'archer',
     name: 'Archer',
     type: 'ranged',
@@ -452,7 +474,12 @@ for (let i = 0; i < TROOP_SPECS.length; i++) {
       s.hp +
       'hp' +
       (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') +
-      (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+      (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '') +
+      (s.burnStacks
+        ? ' · ' +
+          ((Math.max(1, Math.round(s.damage * s.burnDamageRatio)) * s.burnStacks) / s.burnTickInterval).toFixed(1) +
+          'burn'
+        : '');
   }
 }
 

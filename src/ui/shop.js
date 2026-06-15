@@ -54,7 +54,8 @@ export function _updateCardAreaBottom(game) {
     if (t && t.alive) {
       // Build stat lines to calculate panel height (same logic as draw)
       let lineCount = 2; // DMG/SPD + RNG/CHN
-      if (t.spec.slowFactor) lineCount++; // SLW line
+      if (t.spec.slowFactor) lineCount++;
+      if (t.spec.burnStacks) lineCount++;
       lineCount += 2; // HP + DPS
       const lineH = 14;
       const panelH = 14 + lineCount * lineH + 8;
@@ -316,6 +317,11 @@ export function drawShop(game) {
           statLines.push(
             'SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel
           );
+        }
+        if (t.spec.burnStacks) {
+          const tickDamage = Math.max(1, Math.round(t.getDamage() * t.spec.burnDamageRatio));
+          const burnDps = (tickDamage * t.spec.burnStacks) / t.spec.burnTickInterval;
+          statLines.push('BRN ' + burnDps.toFixed(1) + ' Lv.' + t.dmgLevel);
         }
       }
       // HP + HPS/DPS lines

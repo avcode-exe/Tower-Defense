@@ -1,6 +1,6 @@
 // Update manager – orchestrates update flow from the renderer.
 const DEFAULT_SETTINGS = {
-  version: '1.5.2',
+  version: '1.6.0-beta.1',
   update: {
     channel: 'release',
     autoDownload: false,

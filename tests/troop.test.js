@@ -6,6 +6,7 @@ import { PARTICLES } from '../src/particles.js';
 
 const archerSpec = TROOP_SPECS.find((s) => s.id === 'archer');
 const swordsmanSpec = TROOP_SPECS.find((s) => s.id === 'swordsman');
+const flameSpec = TROOP_SPECS.find((s) => s.id === 'flame');
 const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
 const knightSpec = TROOP_SPECS.find((s) => s.id === 'knight');
 const icewizSpec = TROOP_SPECS.find((s) => s.id === 'icewiz');
@@ -684,6 +685,106 @@ describe('update', () => {
       expect(t.cooldown).toBe(t._cachedAttackSpeed);
     });
 
+    it('applies burn after a successful flame melee hit', () => {
+      const t = new Troop(flameSpec, 5, 5);
+      const monster = makeMonsterAt(1, 6, 5);
+      monster.hp = 100;
+      monster.maxHp = 100;
+      const game = {
+        monsters: [monster],
+        _monsterTileIndex: buildTargetIndex([monster]),
+        troops: [],
+        damageMonster(m, dmg) {
+          m.hp -= dmg;
+          return false;
+        },
+        applyBurn(m, troop) {
+          this.appliedBurn = { monster: m, troop, stacks: m.burnStacks };
+          m.applyBurn(
+            1,
+            troop.spec.burnDuration,
+            troop.spec.burnTickInterval,
+            Math.max(1, Math.round(7 * troop.spec.burnDamageRatio))
+          );
+        },
+        _getPopup() {},
+      };
+      t.targetRefresh = 0;
+
+      t.update(0, [monster], [], game);
+
+      expect(game.appliedBurn.monster).toBe(monster);
+      expect(game.appliedBurn.troop).toBe(t);
+      expect(monster.burnStacks).toBe(1);
+      expect(monster.isBurning()).toBe(true);
+    });
+
+    it('does not apply burn when flame melee hit kills the monster', () => {
+      const t = new Troop(flameSpec, 5, 5);
+      const monster = makeMonsterAt(1, 6, 5);
+      monster.hp = 1;
+      monster.maxHp = 100;
+      const game = {
+        monsters: [monster],
+        _monsterTileIndex: buildTargetIndex([monster]),
+        troops: [],
+        damageMonster() {
+          monster.alive = false;
+          return true;
+        },
+        applyBurn: vi.fn(),
+        _getPopup() {},
+      };
+      t.targetRefresh = 0;
+
+      t.update(0, [monster], [], game);
+
+      expect(game.applyBurn).not.toHaveBeenCalled();
+    });
+
+    it('caps flame burn stacks at the configured max', () => {
+      const t = new Troop(flameSpec, 5, 5);
+      const monster = makeMonsterAt(1, 6, 5);
+      const game = {
+        monsters: [monster],
+        _monsterTileIndex: buildTargetIndex([monster]),
+        troops: [],
+        damageMonster() {
+          return false;
+        },
+        applyBurn(m) {
+          m.applyBurn(
+            1,
+            t.spec.burnDuration,
+            t.spec.burnTickInterval,
+            Math.max(1, Math.round(7 * t.spec.burnDamageRatio))
+          );
+        },
+        _getPopup() {},
+      };
+      t.targetRefresh = 0;
+
+      for (let i = 0; i < flameSpec.burnStacks + 2; i++) {
+        t.cooldown = 0;
+        t.update(0, [monster], [], game);
+      }
+
+      expect(monster.burnStacks).toBe(flameSpec.burnStacks);
+    });
+
+    it('scales flame burn damage with troop damage upgrades', () => {
+      const t = new Troop(flameSpec, 5, 5);
+      t.upgradeStat('dmg');
+      t.upgradeStat('dmg');
+      const burnDps =
+        (Math.max(1, Math.round(t.getDamage() * flameSpec.burnDamageRatio)) * flameSpec.burnStacks) /
+        flameSpec.burnTickInterval;
+      expect(burnDps).toBeGreaterThan(
+        (Math.max(1, Math.round(flameSpec.damage * flameSpec.burnDamageRatio)) * flameSpec.burnStacks) /
+          flameSpec.burnTickInterval
+      );
+    });
+
     it('decrements cooldown over time', () => {
       const t = new Troop(swordsmanSpec, 5, 5);
       t.cooldown = 1.0;
@@ -1021,6 +1122,34 @@ describe('_recomputeStats edge cases', () => {
     t.rangeLevel = 5;
     t._recomputeStats();
     expect(t._cachedRange).toBe(swordsmanSpec.range);
+  });
+});
+
+// ─── Flame Troop (spec) ───────────────────────────────────────────────────
+
+describe('Flame Troop (spec)', () => {
+  it('exists in TROOP_SPECS', () => {
+    expect(flameSpec).toBeDefined();
+  });
+
+  it('has melee type', () => {
+    expect(flameSpec.type).toBe('melee');
+  });
+
+  it('has configured burn stats', () => {
+    expect(flameSpec.cost).toBe(160);
+    expect(flameSpec.hp).toBe(70);
+    expect(flameSpec.damage).toBe(14);
+    expect(flameSpec.range).toBe(1);
+    expect(flameSpec.attackSpeed).toBe(0.75);
+    expect(flameSpec.burnStacks).toBe(3);
+    expect(flameSpec.burnDuration).toBe(3);
+    expect(flameSpec.burnTickInterval).toBe(0.5);
+    expect(flameSpec.burnDamageRatio).toBe(0.25);
+  });
+
+  it('has a burn stats string', () => {
+    expect(flameSpec._statsStr).toContain('burn');
   });
 });
 

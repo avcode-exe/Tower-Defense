@@ -116,6 +116,7 @@ const swordsmanSpec = TROOP_SPECS.find((s) => s.id === 'swordsman');
 const archerSpec = TROOP_SPECS.find((s) => s.id === 'archer');
 const knightSpec = TROOP_SPECS.find((s) => s.id === 'knight');
 const mageSpec = TROOP_SPECS.find((s) => s.id === 'mage');
+const flameSpec = TROOP_SPECS.find((s) => s.id === 'flame');
 const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
 
 // ─── Monster specs verification ────────────────────────────────────────────
@@ -409,6 +410,48 @@ describe('Monster: combat', () => {
     m.applySlow(0.5, 0.3, 0.5);
     for (let i = 0; i < 30; i++) m.update(CONFIG.FIXED_TIMESTEP, []);
     expect(m.speed).toBe(baseSpeed);
+  });
+
+  it('burn kills grant normal monster rewards', () => {
+    game.devMode = false;
+    game.gold = 0;
+    game.spawnMonster(1);
+    const m = game.monsters[0];
+    m.hp = 1;
+    const flame = new Troop(flameSpec, 5, 5);
+
+    game.applyBurn(m, flame);
+    for (let i = 0; i < 40; i++) m.update(CONFIG.FIXED_TIMESTEP, game._troopTileIndex);
+
+    expect(m.alive).toBe(false);
+    expect(game.gold).toBe(m.reward + 1);
+  });
+
+  it('burn kills do not double-count rewards', () => {
+    game.devMode = false;
+    game.gold = 0;
+    game.spawnMonster(1);
+    const m = game.monsters[0];
+    m.hp = 1;
+    const flame = new Troop(flameSpec, 5, 5);
+
+    game.applyBurn(m, flame);
+    for (let i = 0; i < 80; i++) m.update(CONFIG.FIXED_TIMESTEP, game._troopTileIndex);
+
+    expect(game.gold).toBe(m.reward + 1);
+  });
+
+  it('burn ticks against shield before monster HP', () => {
+    game.spawnMonster('S');
+    const s = game.monsters[0];
+    const shieldBefore = s.shield;
+    const flame = new Troop(flameSpec, 5, 5);
+
+    game.applyBurn(s, flame);
+    for (let i = 0; i < 35; i++) s.update(CONFIG.FIXED_TIMESTEP, game._troopTileIndex);
+
+    expect(s.shield).toBeLessThan(shieldBefore);
+    expect(s.hp).toBe(s.maxHp);
   });
 });
 

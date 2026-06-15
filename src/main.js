@@ -309,7 +309,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
-  let appVersion = '1.5.2'; // fallback
+  let appVersion = '1.6.0-beta.1'; // fallback
   if (window.electron && window.electron.getVersion) {
     try {
       appVersion = await window.electron.getVersion();

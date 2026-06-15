@@ -39,6 +39,13 @@ export class Monster {
     this._reviveGlowTimer = 0;
     this.stunTimer = 0;
 
+    this.burnStacks = 0;
+    this.burnTimer = 0;
+    this.burnTickTimer = 0;
+    this.burnTickInterval = CONFIG.FLAME_BURN_TICK_INTERVAL;
+    this.burnTickDamage = 0;
+    this._onBurnTick = null;
+
     // Shield mechanics (Shielded monster type).
     this.shield = Math.round((this.spec.shield || 0) * hpMult);
     this.maxShield = this.shield > 0 ? Math.ceil(this.shield * 1.5) : 0;
@@ -162,6 +169,58 @@ export class Monster {
     this.shatterBonus = bonus;
     this._slowColorTint = 1; // flag for renderer
     return true;
+  }
+
+  applyBurn(stacks = 1, duration = 0, tickInterval = 0, tickDamage = 0, onTick = null) {
+    if (!Number.isFinite(stacks) || stacks <= 0) return false;
+    if (!Number.isFinite(duration) || duration <= 0) return false;
+    if (!Number.isFinite(tickInterval) || tickInterval <= 0) return false;
+    if (!Number.isFinite(tickDamage) || tickDamage <= 0) return false;
+
+    const maxStacks = CONFIG.FLAME_BURN_MAX_STACKS || 1;
+    const nextStacks = Math.min(maxStacks, (this.burnStacks || 0) + stacks);
+    this.burnStacks = nextStacks;
+    this.burnTimer = duration;
+    this.burnTickTimer = Math.min(this.burnTickTimer || 0, tickInterval);
+    this.burnTickInterval = tickInterval;
+    this.burnTickDamage = tickDamage;
+    this._onBurnTick = onTick || this._onBurnTick;
+    return true;
+  }
+
+  clearBurn() {
+    this.burnStacks = 0;
+    this.burnTimer = 0;
+    this.burnTickTimer = 0;
+    this.burnTickInterval = CONFIG.FLAME_BURN_TICK_INTERVAL;
+    this.burnTickDamage = 0;
+    this._onBurnTick = null;
+  }
+
+  isBurning() {
+    return this.burnStacks > 0 && this.burnTimer > 0;
+  }
+
+  _updateBurn(dt) {
+    if (!this.isBurning()) return;
+
+    this.burnTimer = Math.max(0, this.burnTimer - dt);
+    if (this.burnTimer <= 0) {
+      this.clearBurn();
+      return;
+    }
+
+    const interval = this.burnTickInterval || CONFIG.FLAME_BURN_TICK_INTERVAL;
+    const tickDamage = Math.max(1, Math.round(this.burnTickDamage * this.burnStacks));
+    this.burnTickTimer += dt;
+    while (this.burnTickTimer >= interval && this.burnStacks > 0 && this.alive) {
+      this.burnTickTimer -= interval;
+      if (this._onBurnTick) this._onBurnTick(this, tickDamage);
+      if (!this.alive) {
+        this.clearBurn();
+        return;
+      }
+    }
   }
 
   isSlowed() {
@@ -324,6 +383,8 @@ export class Monster {
     this._updateRegen(dt);
     this._updateSlowDecay(dt);
     this._updateReviveGlow(dt);
+    this._updateBurn(dt);
+    if (!this.alive) return;
 
     if (this.stunTimer > 0) {
       this.stunTimer = Math.max(0, this.stunTimer - dt);

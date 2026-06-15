@@ -546,7 +546,10 @@ export class Troop {
           }
         }
       } else {
-        game.damageMonster(this.target, dmg);
+        const killed = game.damageMonster(this.target, dmg);
+        if (!killed && this.spec.burnStacks) {
+          game.applyBurn(this.target, this);
+        }
       }
       this.cooldown = atkSpd;
     } else {

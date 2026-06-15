@@ -359,6 +359,20 @@ export class Game {
     }
   }
 
+  applyBurn(monster, troop) {
+    if (!monster || !monster.alive || !troop || !troop.spec.burnStacks) return false;
+    const duration = troop.spec.burnDuration || CONFIG.FLAME_BURN_DURATION;
+    const tickInterval = troop.spec.burnTickInterval || CONFIG.FLAME_BURN_TICK_INTERVAL;
+    const ratio = troop.spec.burnDamageRatio ?? CONFIG.FLAME_BURN_DAMAGE_RATIO;
+    const tickDamage = Math.max(1, Math.round(troop._cachedDamage * ratio));
+    const applied = monster.applyBurn(1, duration, tickInterval, tickDamage, (m, dmg) => {
+      this.damageMonster(m, dmg);
+      PARTICLES.burnTick?.(m.x, m.y);
+    });
+    if (applied) PARTICLES.burnApply?.(monster.x, monster.y, troop.spec.color);
+    return applied;
+  }
+
   // DRY: Add gold with MAX_GOLD cap.
   _addGold(amount) {
     if (this.devMode) {
@@ -513,6 +527,7 @@ export class Game {
     m.shatterBonus = 0;
     m._slowColorTint = 0;
     m._reviveGlowTimer = 0;
+    if (typeof m.clearBurn === 'function') m.clearBurn();
     m.state = 'MOVING';
     m.attackTarget = null;
     m.attackTimer = 0;

@@ -160,6 +160,17 @@ export function renderGame(game) {
       ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (m.burnStacks > 0) {
+      const pulse = 0.5 + 0.5 * Math.sin(now * 0.012);
+      ctx.save();
+      ctx.globalAlpha = 0.35 + pulse * 0.25;
+      ctx.strokeStyle = CONFIG.COLORS.burn;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.spec.size * 0.5 + 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     // Stun overlay.
     if (m.stunTimer > 0) {
       ctx.fillStyle = 'rgba(255,255,255,0.4)';

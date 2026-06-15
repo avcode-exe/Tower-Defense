@@ -164,6 +164,22 @@ describe('TROOP_SPECS', () => {
     expect(healer.cost).toBeGreaterThan(0);
   });
 
+  it('has a flame troop with burn stats', () => {
+    const flame = TROOP_SPECS.find((s) => s.id === 'flame');
+    expect(flame).toBeDefined();
+    expect(flame.type).toBe('melee');
+    expect(flame.cost).toBe(160);
+    expect(flame.hp).toBe(70);
+    expect(flame.damage).toBe(14);
+    expect(flame.range).toBe(1);
+    expect(flame.attackSpeed).toBe(0.75);
+    expect(flame.burnStacks).toBe(3);
+    expect(flame.burnDuration).toBe(3);
+    expect(flame.burnTickInterval).toBe(0.5);
+    expect(flame.burnDamageRatio).toBe(0.25);
+    expect(flame._statsStr).toContain('burn');
+  });
+
   it('healer has unique color', () => {
     const healer = TROOP_SPECS.find((s) => s.id === 'healer');
     const colors = TROOP_SPECS.map((s) => s.color);

@@ -11,7 +11,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **ES modules** — source organized in `src/` with clean module boundaries
 - **Canvas 2D rendering** — game world drawn on HTML5 Canvas, with canvas overlays plus DOM panels for settings/help
 - **Electron desktop app** — packaged with electron-builder (NSIS), auto-updates via GitHub Releases
-- **11 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), and **Healer** (support healing + monster damage)
+- **12 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), **Healer** (support healing + monster damage), and **Flame Troop** (melee burn DoT)
 - **9 monster types** — Grunt, Runner, Brute, Elite, Champion, Necromancer, Shielded, Boss, Spear
 - **Modernized icon** — redesigned tower icon with glowing beacon and vibrant gradients
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
@@ -32,55 +32,45 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **Monster splitting** — non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
 - **Sell confirmation** — 30% refund with 3-second global cooldown
 
-## Release: v1.5.2
-
-v1.5.2 is the stable release for the 1.5.2 line, carrying forward the UI clarity, wave planning, runtime stability, and expanded validation work from the beta releases.
-
-- Package, persistence, and update-manager version metadata now report `1.5.2`.
-- Placement preview now shows DPS for damaging troops, HPS for support troops, and specific invalid-placement reasons.
-- Wave preview now shows start timing, estimated clear duration, total gold, and revive-aware estimates for Necromancer waves.
-- Runtime cleanup, UI hit-testing, muted audio, update checks, and Electron updater behavior were stabilized.
-- Healer balance is live with 3 monster damage in healing range.
-- Test suite expanded to **1,360 tests across 24 Vitest test files**.
-- Coverage thresholds were added for `src/game.js`, `src/monster.js`, and `src/troop.js`.
-
 ## Troops
 
-| #   | Name        | Type    | Cost | HP  | Damage | Range | Speed | Special                                          |
-| --- | ----------- | ------- | ---- | --- | ------ | ----- | ----- | ------------------------------------------------ |
-| 1   | Swordsman   | Melee   | 70   | 50  | 9      | 1     | 0.67s | —                                                |
-| 2   | Knight      | Melee   | 120  | 120 | 18     | 1     | 0.9s  | —                                                |
-| 3   | Archer      | Ranged  | 70   | 30  | 12     | 3     | 1.2s  | —                                                |
-| 4   | Machine Gun | Ranged  | 150  | 40  | 6      | 4     | 0.25s | High fire rate                                   |
-| 5   | Mage        | Ranged  | 180  | 35  | 32     | 3     | 1.3s  | Splash 2.0 tiles                                 |
-| 6   | Sniper      | Ranged  | 250  | 25  | 100    | 10    | 2.5s  | Long range                                       |
-| 7   | Valkyrie    | Melee   | 150  | 80  | 22     | 1     | 1.2s  | AoE 360° swing                                   |
-| 8   | Lightning   | Ranged  | 300  | 40  | 100    | 2     | 3s    | Chain 2 (+1/level) + stun 0.5s                   |
-| 9   | Mortar      | Ranged  | 200  | 30  | 65     | 8     | 3.0s  | Splash 2.5 tiles                                 |
-| 0   | Ice Wizard  | Ranged  | 200  | 60  | 6      | 3     | 1.4s  | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50% |
-| 11  | Healer      | Support | 150  | 40  | 8 heal | 3     | 0.5s  | Heals damaged allies; 3 dmg to monsters in range; TGT increases targets |
+| #   | Name        | Type    | Cost | HP  | Damage | Range | Speed | Special                                                                 |
+| --- | ----------- | ------- | ---- | --- | ------ | ----- | ----- | ----------------------------------------------------------------------- |
+| 1   | Swordsman   | Melee   | 70   | 50  | 9      | 1     | 0.67s | —                                                                       |
+| 2   | Knight      | Melee   | 120  | 120 | 18     | 1     | 0.9s  | —                                                                       |
+| 3   | Flame Troop | Melee   | 160  | 70  | 14     | 1     | 0.75s | Burn DoT 3 stacks / 3s / 0.5s ticks                                     |
+| 4   | Archer      | Ranged  | 70   | 30  | 12     | 3     | 1.2s  | —                                                                       |
+| 5   | Machine Gun | Ranged  | 150  | 40  | 6      | 4     | 0.25s | High fire rate                                                          |
+| 6   | Mage        | Ranged  | 180  | 35  | 32     | 3     | 1.3s  | Splash 2.0 tiles                                                        |
+| 7   | Sniper      | Ranged  | 250  | 25  | 100    | 10    | 2.5s  | Long range                                                              |
+| 8   | Valkyrie    | Melee   | 150  | 80  | 22     | 1     | 1.2s  | AoE 360° swing                                                          |
+| 9   | Lightning   | Ranged  | 300  | 40  | 100    | 2     | 3s    | Chain 2 (+1/level) + stun 0.5s                                          |
+| 10  | Mortar      | Ranged  | 200  | 30  | 65     | 8     | 3.0s  | Splash 2.5 tiles                                                        |
+| 11  | Ice Wizard  | Ranged  | 200  | 60  | 6      | 3     | 1.4s  | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50%                        |
+| 12  | Healer      | Support | 150  | 40  | 8 heal | 3     | 0.5s  | Heals damaged allies; 3 dmg to monsters in range; TGT increases targets |
 
 **Upgradeable stats per troop:**
 
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
 - Lightning: also **CHN** (+1 chain target per level)
+- **Flame Troop**: also **BRN** through DMG upgrades; higher damage increases burn tick damage and displayed burn DPS
 - **Healer**: also **TGT** (more simultaneous heal targets); deals 3 damage to monsters in heal range
 - **Ice Wizard**: also **SLW** (stronger slow, longer duration, bigger shatter per level)
 - **Melee troops take 70% reduced damage from monster attacks**
 
 ## Monsters
 
-| Level | Name     | HP   | Speed | Damage | Reward | Leak DMG | Special                                                             |
-| ----- | -------- | ---- | ----- | ------ | ------ | -------- | ------------------------------------------------------------------- |
-| 1     | Grunt    | 34   | 1.0   | 4      | 4g     | 1        | —                                                                   |
-| 2     | Runner   | 27   | 3.0   | 6      | 6g     | 1        | Fast, penetration (hits each troop once then moves on)              |
-| 3     | Brute    | 133  | 0.7   | 14     | 11g    | 1        | Tanky                                                               |
-| 4     | Elite    | 245  | 1.0   | 18     | 17g    | 2        | Splits into 2 Brutes on death                                       |
-| 5     | Champion | 667  | 0.9   | 32     | 36g    | 3        | Very tanky                                                          |
-| Y     | Necromancer | 220 | 0.8  | 18     | 18g    | 2        | Revives up to 4 dead allies (50% HP), revived take 50% less dmg     |
-| B     | Boss     | 1668 | 0.6   | 45     | 200g   | 5        | 2x HP, appears wave 10/20/30, heals 15 HP/s                         |
-| S     | Shielded | 173  | 0.8   | 16     | 15g    | 1        | Regenerating shield (69 HP, overheals to 104)                       |
-| X     | Spear    | 50   | 2.0   | 3      | 5g     | 1        | Slows to half speed near troops, attacks closest in 2.5 tile radius |
+| Level | Name        | HP   | Speed | Damage | Reward | Leak DMG | Special                                                             |
+| ----- | ----------- | ---- | ----- | ------ | ------ | -------- | ------------------------------------------------------------------- |
+| 1     | Grunt       | 34   | 1.0   | 4      | 4g     | 1        | —                                                                   |
+| 2     | Runner      | 27   | 3.0   | 6      | 6g     | 1        | Fast, penetration (hits each troop once then moves on)              |
+| 3     | Brute       | 133  | 0.7   | 14     | 11g    | 1        | Tanky                                                               |
+| 4     | Elite       | 245  | 1.0   | 18     | 17g    | 2        | Splits into 2 Brutes on death                                       |
+| 5     | Champion    | 667  | 0.9   | 32     | 36g    | 3        | Very tanky                                                          |
+| Y     | Necromancer | 220  | 0.8   | 18     | 18g    | 2        | Revives up to 4 dead allies (50% HP), revived take 50% less dmg     |
+| B     | Boss        | 1668 | 0.6   | 45     | 200g   | 5        | 2x HP, appears wave 10/20/30, heals 15 HP/s                         |
+| S     | Shielded    | 173  | 0.8   | 16     | 15g    | 1        | Regenerating shield (69 HP, overheals to 104)                       |
+| X     | Spear       | 50   | 2.0   | 3      | 5g     | 1        | Slows to half speed near troops, attacks closest in 2.5 tile radius |
 
 Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Necromancers revive dead allies within 2-tile range (up to 4 per Necromancer); revived monsters become `reviveImmune` and take 50% reduced damage. Non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 

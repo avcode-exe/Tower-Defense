@@ -131,6 +131,32 @@ const EFFECT_DEFS = {
     },
     count: 8,
   },
+  burnApply: {
+    cfg: {
+      color: '#ff7a18',
+      minSize: 2,
+      maxSize: 5,
+      minSpeed: 25,
+      maxSpeed: 80,
+      minLife: 0.35,
+      maxLife: 0.7,
+      gravity: false,
+    },
+    count: 8,
+  },
+  burnTick: {
+    cfg: {
+      color: '#ff7a18',
+      minSize: 1.5,
+      maxSize: 3,
+      minSpeed: 10,
+      maxSpeed: 35,
+      minLife: 0.25,
+      maxLife: 0.45,
+      gravity: false,
+    },
+    count: 4,
+  },
   healBurst: {
     cfg: {
       color: '#44cc44',
@@ -335,6 +361,14 @@ export const PARTICLES = {
 
   slowApply(x, y, color) {
     this._spawnEffect('slowApply', x, y, color ? { color } : undefined);
+  },
+
+  burnApply(x, y, color) {
+    this._spawnEffect('burnApply', x, y, color ? { color } : undefined);
+  },
+
+  burnTick(x, y, color) {
+    this._spawnEffect('burnTick', x, y, color ? { color } : undefined);
   },
 
   healBurst(x, y) {

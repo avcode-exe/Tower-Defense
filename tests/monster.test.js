@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { Monster } from '../src/monster.js';
-import { CONFIG, MONSTER_SPECS } from '../src/config.js';
+import { CONFIG, MONSTER_SPECS, TROOP_SPECS } from '../src/config.js';
 import { Game } from '../src/game.js';
 import { AUDIO } from '../src/audio.js';
 import { PARTICLES } from '../src/particles.js';
@@ -71,6 +71,8 @@ function makeReviveGame(monsters) {
     _resetRevivedMonster: Game.prototype._resetRevivedMonster,
   };
 }
+
+const flameSpec = TROOP_SPECS.find((s) => s.id === 'flame');
 
 function fakeMonster(level, x, y, overrides = {}) {
   const spec = MONSTER_SPECS[level] || MONSTER_SPECS[1];
@@ -283,6 +285,118 @@ describe('_updateSlowDecay', () => {
     m.applySlow(0.5, 3.0, 0);
     m._updateSlowDecay(1.0);
     expect(m.slowTimer).toBe(2.0);
+  });
+});
+
+// ─── Burn mechanic ──────────────────────────────────────────────────────────
+
+describe('Burn mechanic', () => {
+  function flameTickDamage() {
+    return Math.max(1, Math.round(flameSpec.damage * flameSpec.burnDamageRatio));
+  }
+
+  it('applyBurn sets burn stacks, timer, tick interval, tick damage, and callback', () => {
+    const m = makeMonster(1);
+    const onTick = vi.fn();
+    expect(m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick)).toBe(true);
+
+    expect(m.burnStacks).toBe(1);
+    expect(m.burnTimer).toBe(flameSpec.burnDuration);
+    expect(m.burnTickTimer).toBe(0);
+    expect(m.burnTickInterval).toBe(flameSpec.burnTickInterval);
+    expect(m.burnTickDamage).toBe(flameTickDamage());
+    expect(m.isBurning()).toBe(true);
+    expect(onTick).not.toHaveBeenCalled();
+  });
+
+  it('burn ticks over time through the registered callback', () => {
+    const m = makeMonster(1);
+    const onTick = vi.fn();
+    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
+
+    m._updateBurn(0.49);
+    expect(onTick).not.toHaveBeenCalled();
+
+    m._updateBurn(0.011);
+    expect(onTick).toHaveBeenCalledTimes(1);
+    expect(onTick).toHaveBeenCalledWith(m, flameTickDamage());
+  });
+
+  it('burn tick damage scales with current stacks', () => {
+    const m = makeMonster(1);
+    const onTick = vi.fn();
+    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
+
+    m._updateBurn(flameSpec.burnTickInterval);
+    expect(onTick).toHaveBeenCalledWith(m, 4);
+
+    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
+    m._updateBurn(flameSpec.burnTickInterval);
+    expect(onTick).toHaveBeenLastCalledWith(m, 8);
+
+    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
+    m._updateBurn(flameSpec.burnTickInterval);
+    expect(onTick).toHaveBeenLastCalledWith(m, 12);
+  });
+
+  it('burn uses the applied tick interval', () => {
+    const m = makeMonster(1);
+    const onTick = vi.fn();
+    m.applyBurn(1, 1.0, 0.25, flameTickDamage(), onTick);
+
+    m._updateBurn(0.24);
+    expect(onTick).not.toHaveBeenCalled();
+
+    m._updateBurn(0.011);
+    expect(onTick).toHaveBeenCalledTimes(1);
+    expect(onTick).toHaveBeenCalledWith(m, flameTickDamage());
+  });
+
+  it('burn expires and clears state', () => {
+    const m = makeMonster(1);
+    const onTick = vi.fn();
+    m.applyBurn(1, 1.0, flameSpec.burnTickInterval, flameTickDamage(), onTick);
+
+    m._updateBurn(1.5);
+
+    expect(m.burnStacks).toBe(0);
+    expect(m.burnTickDamage).toBe(0);
+    expect(m.burnTickInterval).toBe(CONFIG.FLAME_BURN_TICK_INTERVAL);
+    expect(m.isBurning()).toBe(false);
+    expect(onTick).not.toHaveBeenCalled();
+  });
+
+  it('burn stack refresh extends duration without exceeding max stacks', () => {
+    const m = makeMonster(1);
+    m.applyBurn(1, 1.0, flameSpec.burnTickInterval, flameTickDamage());
+    m.burnTickTimer = 0.25;
+    m.applyBurn(1, 2.5, flameSpec.burnTickInterval, flameTickDamage());
+
+    expect(m.burnStacks).toBe(2);
+    expect(m.burnTimer).toBe(2.5);
+    expect(m.burnTickTimer).toBe(0.25);
+    expect(m.burnTickDamage).toBe(flameTickDamage());
+
+    for (let i = 0; i < flameSpec.burnStacks + 2; i++) {
+      m.applyBurn(1, 3.0, flameSpec.burnTickInterval, flameTickDamage());
+    }
+
+    expect(m.burnStacks).toBe(flameSpec.burnStacks);
+    expect(m.burnTimer).toBe(3.0);
+  });
+
+  it('clearBurn resets burn state', () => {
+    const m = makeMonster(1);
+    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage());
+    m.burnTickDamage = 7;
+
+    m.clearBurn();
+
+    expect(m.burnStacks).toBe(0);
+    expect(m.burnTimer).toBe(0);
+    expect(m.burnTickTimer).toBe(0);
+    expect(m.burnTickInterval).toBe(CONFIG.FLAME_BURN_TICK_INTERVAL);
+    expect(m.burnTickDamage).toBe(0);
   });
 });
 

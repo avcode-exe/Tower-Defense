@@ -1,6 +1,10 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { TROOP_SPECS } from '../src/config.js';
-import { getSupportHpsForPlacementPreview, getDpsForPlacementPreview } from '../src/ui/placement.js';
+import {
+  getSupportHpsForPlacementPreview,
+  getDpsForPlacementPreview,
+  getBurnDpsForPlacementPreview,
+} from '../src/ui/placement.js';
 import { Game } from '../src/game.js';
 import { Grid } from '../src/grid.js';
 import { CONFIG } from '../src/config.js';
@@ -8,6 +12,7 @@ import { CONFIG } from '../src/config.js';
 const archerSpec = TROOP_SPECS.find((spec) => spec.id === 'archer');
 const healerSpec = TROOP_SPECS.find((spec) => spec.id === 'healer');
 const swordsmanSpec = TROOP_SPECS.find((spec) => spec.id === 'swordsman');
+const flameSpec = TROOP_SPECS.find((spec) => spec.id === 'flame');
 const sniperSpec = TROOP_SPECS.find((spec) => spec.id === 'sniper');
 
 describe('getSupportHpsForPlacementPreview', () => {
@@ -123,6 +128,24 @@ describe('getDpsForPlacementPreview', () => {
 
   it('returns zero for spec with type=support explicitly', () => {
     expect(getDpsForPlacementPreview({ type: 'support', damage: 10, attackSpeed: 1 })).toBe(0);
+  });
+});
+
+describe('getBurnDpsForPlacementPreview', () => {
+  it('returns expected Flame Troop burn DPS', () => {
+    const tickDamage = Math.max(1, Math.round(flameSpec.damage * flameSpec.burnDamageRatio));
+    const expected = (tickDamage * flameSpec.burnStacks) / flameSpec.burnTickInterval;
+    expect(getBurnDpsForPlacementPreview(flameSpec)).toBe(expected);
+  });
+
+  it('returns zero for non-burning troops', () => {
+    expect(getBurnDpsForPlacementPreview(swordsmanSpec)).toBe(0);
+    expect(getBurnDpsForPlacementPreview(archerSpec)).toBe(0);
+  });
+
+  it('returns zero for null/undefined specs', () => {
+    expect(getBurnDpsForPlacementPreview(null)).toBe(0);
+    expect(getBurnDpsForPlacementPreview(undefined)).toBe(0);
   });
 });
 
