@@ -102,6 +102,32 @@ describe('makeRNG', () => {
     const vals2 = Array.from({ length: 10 }, () => rng2());
     expect(vals1).not.toEqual(vals2);
   });
+  it('uses random seed when null is passed', () => {
+    const rng = makeRNG(null);
+    expect(typeof rng).toBe('function');
+    const v = rng();
+    expect(v).toBeGreaterThanOrEqual(0);
+    expect(v).toBeLessThan(1);
+  });
+  it('uses random seed when undefined is passed', () => {
+    const rng = makeRNG(undefined);
+    expect(typeof rng).toBe('function');
+    const v = rng();
+    expect(v).toBeGreaterThanOrEqual(0);
+    expect(v).toBeLessThan(1);
+  });
+  it('produces non-trivial sequence (not all zeros)', () => {
+    const rng = makeRNG(42);
+    const vals = Array.from({ length: 20 }, () => rng());
+    const unique = new Set(vals);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+  it('handles seed 0 correctly', () => {
+    const rng = makeRNG(0);
+    const v = rng();
+    expect(v).toBeGreaterThanOrEqual(0);
+    expect(v).toBeLessThan(1);
+  });
 });
 
 describe('shuffleInPlace', () => {
@@ -127,5 +153,26 @@ describe('shuffleInPlace', () => {
     const rng = makeRNG(42);
     shuffleInPlace(arr, rng);
     expect(arr).toEqual([42]);
+  });
+  it('handles two elements', () => {
+    const arr = [1, 2];
+    const rng = makeRNG(42);
+    shuffleInPlace(arr, rng);
+    expect(arr.sort()).toEqual([1, 2]);
+  });
+  it('shuffles a large array and preserves elements', () => {
+    const arr = Array.from({ length: 100 }, (_, i) => i);
+    const rng = makeRNG(99);
+    shuffleInPlace(arr, rng);
+    expect(arr.sort((a, b) => a - b)).toEqual(Array.from({ length: 100 }, (_, i) => i));
+  });
+  it('is deterministic with same RNG', () => {
+    const rng1 = makeRNG(77);
+    const rng2 = makeRNG(77);
+    const a1 = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const a2 = [...a1];
+    shuffleInPlace(a1, rng1);
+    shuffleInPlace(a2, rng2);
+    expect(a1).toEqual(a2);
   });
 });

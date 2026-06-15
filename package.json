@@ -1,17 +1,19 @@
 {
   "name": "tower-defense",
-  "version": "1.4.1",
+  "version": "1.5.2",
   "description": "Tower Defense Game",
   "main": "electron-main.js",
   "scripts": {
     "start": "electron .",
     "build": "electron-builder --win --x64",
     "release": "electron-builder --win --x64 --publish always",
-    "lint": "eslint src/ electron-main.js preload.js",
-    "lint:fix": "eslint --fix src/ electron-main.js preload.js",
-    "format": "prettier --write \"src/**/*.js\" \"*.js\" \"css/**/*.css\"",
+    "lint": "eslint src/ tests/ electron-main.js preload.js",
+    "lint:fix": "eslint --fix src/ tests/ electron-main.js preload.js",
+    "format": "prettier --write \"src/**/*.js\" \"*.js\" \"tests/**/*.js\" \"css/**/*.css\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"*.js\" \"tests/**/*.js\" \"css/**/*.css\"",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "build": {
     "appId": "com.towerdefense.app",
@@ -48,9 +50,11 @@
     "electron-updater": "^6.6.1"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.8",
     "electron": "^42.3.2",
     "electron-builder": "^26.8.1",
     "eslint": "^8.57.0",
+    "jsdom": "^29.1.1",
     "prettier": "^3.3.0",
     "vitest": "^4.1.8"
   }

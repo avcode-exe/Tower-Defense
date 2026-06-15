@@ -68,7 +68,7 @@ export function renderGame(game) {
     ctx.lineWidth = 1.5;
     ctx.stroke(_troopPath);
     ctx.restore();
-    const dotColor = t.spec.type === 'melee' ? '#f1c40f' : '#bdc3c7';
+    const dotColor = t.spec.type === 'melee' ? '#f1c40f' : t.spec.type === 'support' ? '#fff' : '#bdc3c7';
     ctx.fillStyle = dotColor;
     ctx.fillRect(t.x - 2.5, t.y - 5.5, 5, 5);
     // HP bar (only when damaged).
@@ -96,6 +96,23 @@ export function renderGame(game) {
     }
   }
 
+  // Heal beams — faint green lines from healers to recently-healed allies.
+  for (let i = 0; i < game.troops.length; i++) {
+    const t = game.troops[i];
+    if (!t.alive || !t.healBeam || !t.healBeam.troop.alive) continue;
+    const src = t.healBeam.troop;
+    const alpha = Math.min(1, t.healBeam.timer / 0.3) * 0.35;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#44cc44';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(src.x, src.y);
+    ctx.lineTo(t.x, t.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   // PASS 1: Monster bodies — shadows, shield rings, body arcs, stun overlays.
   for (let i = 0; i < game.monsters.length; i++) {
     const m = game.monsters[i];
@@ -106,6 +123,19 @@ export function renderGame(game) {
     ctx.beginPath();
     ctx.arc(m.x, m.y + 2, shadowR, 0, Math.PI * 2);
     ctx.fill();
+    if (m.reviveGlow === true) {
+      const pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
+      const glowAlpha = 0.45 + pulse * 0.45;
+      const glowRadius = m.spec.size * 0.72 + pulse * 6;
+      ctx.save();
+      ctx.globalAlpha = glowAlpha;
+      ctx.strokeStyle = CONFIG.COLORS.revive;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, glowRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     // Shield ring.
     if (m.shield > 0) {
       const shieldRatio = m.shield / m.maxShield;
@@ -305,13 +335,14 @@ export function hitTestCursor(game, px, py) {
         py <= healBtnY + LAYOUT.SHOP.HEAL_BTN_H
       )
         return 'pointer';
-      // Sell button (below heal).
-      const sellBtnY = healBtnY - LAYOUT.SHOP.HEAL_BTN_H - 4;
+      // Sell button.
+      const sellBtnY = RENDERER.height - LAYOUT.SHOP.SELL_BTN_Y_OFFSET;
+      const sellBtnW = UI_LAYOUT.SHOP_WIDTH - LAYOUT.SHOP.SEW;
       if (
         px >= LAYOUT.SHOP.BTN_PAD &&
-        px <= LAYOUT.SHOP.BTN_PAD + healBtnW &&
+        px <= LAYOUT.SHOP.BTN_PAD + sellBtnW &&
         py >= sellBtnY &&
-        py <= sellBtnY + LAYOUT.SHOP.HEAL_BTN_H
+        py <= sellBtnY + LAYOUT.SHOP.SELL_BTN_H
       )
         return 'pointer';
     }
@@ -328,7 +359,7 @@ export function hitTestCursor(game, px, py) {
       if (tileTroops) {
         for (let i = 0; i < tileTroops.length; i++) {
           const t = tileTroops[i];
-          if (t.alive && Math.abs(px - t.x) < CONFIG.TILE_SIZE / 2 && Math.abs(py - t.y) < CONFIG.TILE_SIZE / 2)
+          if (t.alive && Math.abs(w.x - t.x) < CONFIG.TILE_SIZE / 2 && Math.abs(w.y - t.y) < CONFIG.TILE_SIZE / 2)
             return 'pointer';
         }
       }
@@ -342,7 +373,7 @@ export function hitTestCursor(game, px, py) {
     if (
       inBounds(tgx, tgy) &&
       px > UI_LAYOUT.shopWidth &&
-      px < RENDERER.width &&
+      px < RENDERER.width - (UI_LAYOUT.collapsed.shieldShop ? 0 : UI_LAYOUT.shieldShopWidth) &&
       py > UI_LAYOUT.hudHeight &&
       py < RENDERER.height - UI_LAYOUT.previewHeight
     ) {

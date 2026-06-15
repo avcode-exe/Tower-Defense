@@ -9,18 +9,18 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 ## Features
 
 - **ES modules** — source organized in `src/` with clean module boundaries
-- **Canvas 2D rendering** — all UI drawn directly on canvas, no DOM manipulation
+- **Canvas 2D rendering** — game world drawn on HTML5 Canvas, with canvas overlays plus DOM panels for settings/help
 - **Electron desktop app** — packaged with electron-builder (NSIS), auto-updates via GitHub Releases
-- **10 troop types** — melee, ranged, splash, chain lightning, siege, and **Ice Wizard** (splash + slow + shatter)
-- **8 monster types** — Grunt, Runner, Brute, Elite, Champion, Shielded, Boss, **Spear** (slow-attack hybrid)
+- **11 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), and **Healer** (support healing + monster damage)
+- **9 monster types** — Grunt, Runner, Brute, Elite, Champion, Necromancer, Shielded, Boss, Spear
 - **Modernized icon** — redesigned tower icon with glowing beacon and vibrant gradients
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
 - **Three monster attack modes** — **stop** (default, pauses to attack), **slow** (slows near troops, attacks while moving), **pass** (penetration, hits each troop once)
 - **Troop HP** — troops have health pools and can be destroyed by monsters
-- **Upgradeable troops** — 4 independently upgradeable stats per troop (DMG / RNG / SPD / CHN), up to level 5 each; Ice Wizard adds **SLW** (slow power/duration/shatter)
-- **Dev mode** (F2) — infinite gold & lives, custom wave composition via dedicated DEV popup. Start Wave button is greyed out in dev mode (use DEV popup to launch custom waves)
+- **Upgradeable troops** — 4 independently upgradeable stats per troop (DMG / RNG / SPD plus type-specific stats), up to level 5 each; Lightning adds **CHN**, Healer adds **TGT**, Ice Wizard adds **SLW**
+- **Dev mode** (triple-click gold) — infinite gold & lives, custom wave composition via dedicated DEV popup. Start Wave button is greyed out in dev mode (use DEV popup to launch custom waves)
 - **Adjustable game speed** — 1x / 2x / 4x / 8x / 16x / 32x / 64x / 128x
-- **Web Worker heartbeat** — 16ms tick keeps the main-thread sim running when the window is backgrounded
+- **Background heartbeat** — keeps the main-thread sim running when the window is backgrounded
 - **Auto-update** — built-in update checker via GitHub Releases with channel selection (stable / pre-release)
 - **Notification system** — bell icon with toast popups, notification panel with action buttons
 - **Settings panel** — persistent settings with Save/Cancel, update channel selection, check interval
@@ -28,44 +28,61 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **Animated tray windows** — smooth roll-up/down transitions, only one tray window open at a time
 - **Smart cursor** — standard arrow by default, hand pointer on clickable elements (shop, buttons, troops, grid)
 - **16x16 grid** with procedurally generated winding paths
-- **Monster splitting** — non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
+- **Necromancer** — revives dead allied monsters within range (up to 4 per Necromancer); revived monsters take 50% reduced damage
+- **Monster splitting** — non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
 - **Sell confirmation** — 30% refund with 3-second global cooldown
+
+## Release: v1.5.2
+
+v1.5.2 is the stable release for the 1.5.2 line, carrying forward the UI clarity, wave planning, runtime stability, and expanded validation work from the beta releases.
+
+- Package, persistence, and update-manager version metadata now report `1.5.2`.
+- Placement preview now shows DPS for damaging troops, HPS for support troops, and specific invalid-placement reasons.
+- Wave preview now shows start timing, estimated clear duration, total gold, and revive-aware estimates for Necromancer waves.
+- Runtime cleanup, UI hit-testing, muted audio, update checks, and Electron updater behavior were stabilized.
+- Healer balance is live with 3 monster damage in healing range.
+- Test suite expanded to **1,360 tests across 24 Vitest test files**.
+- Coverage thresholds were added for `src/game.js`, `src/monster.js`, and `src/troop.js`.
 
 ## Troops
 
-| # | Name | Type | Cost | HP | Damage | Range | Speed | Special |
-|---|------|------|------|----|--------|-------|-------|---------|
-| 1 | Swordsman | Melee | 70 | 50 | 9 | 1 | 0.67s | — |
-| 2 | Knight | Melee | 120 | 120 | 18 | 1 | 0.9s | — |
-| 3 | Archer | Ranged | 70 | 30 | 12 | 3 | 1.2s | — |
-| 4 | Machine Gun | Ranged | 150 | 40 | 6 | 4 | 0.25s | High fire rate |
-| 5 | Mage | Ranged | 180 | 35 | 32 | 3 | 1.3s | Splash 2.0 tiles |
-| 6 | Sniper | Ranged | 250 | 25 | 100 | 10 | 2.5s | Long range |
-| 7 | Valkyrie | Melee | 150 | 80 | 22 | 1 | 1.2s | AoE 360° swing |
-| 8 | Lightning | Ranged | 300 | 40 | 100 | 2 | 3s | Chain 2 (+1/level) + stun 0.5s |
-| 9 | Mortar | Ranged | 200 | 30 | 65 | 8 | 3.0s | Splash 2.5 tiles |
-| 0 | Ice Wizard | Ranged | 200 | 60 | 8 | 3 | 1.4s | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50% |
+| #   | Name        | Type    | Cost | HP  | Damage | Range | Speed | Special                                          |
+| --- | ----------- | ------- | ---- | --- | ------ | ----- | ----- | ------------------------------------------------ |
+| 1   | Swordsman   | Melee   | 70   | 50  | 9      | 1     | 0.67s | —                                                |
+| 2   | Knight      | Melee   | 120  | 120 | 18     | 1     | 0.9s  | —                                                |
+| 3   | Archer      | Ranged  | 70   | 30  | 12     | 3     | 1.2s  | —                                                |
+| 4   | Machine Gun | Ranged  | 150  | 40  | 6      | 4     | 0.25s | High fire rate                                   |
+| 5   | Mage        | Ranged  | 180  | 35  | 32     | 3     | 1.3s  | Splash 2.0 tiles                                 |
+| 6   | Sniper      | Ranged  | 250  | 25  | 100    | 10    | 2.5s  | Long range                                       |
+| 7   | Valkyrie    | Melee   | 150  | 80  | 22     | 1     | 1.2s  | AoE 360° swing                                   |
+| 8   | Lightning   | Ranged  | 300  | 40  | 100    | 2     | 3s    | Chain 2 (+1/level) + stun 0.5s                   |
+| 9   | Mortar      | Ranged  | 200  | 30  | 65     | 8     | 3.0s  | Splash 2.5 tiles                                 |
+| 0   | Ice Wizard  | Ranged  | 200  | 60  | 6      | 3     | 1.4s  | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50% |
+| 11  | Healer      | Support | 150  | 40  | 8 heal | 3     | 0.5s  | Heals damaged allies; 3 dmg to monsters in range; TGT increases targets |
 
 **Upgradeable stats per troop:**
+
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
 - Lightning: also **CHN** (+1 chain target per level)
+- **Healer**: also **TGT** (more simultaneous heal targets); deals 3 damage to monsters in heal range
 - **Ice Wizard**: also **SLW** (stronger slow, longer duration, bigger shatter per level)
 - **Melee troops take 70% reduced damage from monster attacks**
 
 ## Monsters
 
-| Level | Name | HP | Speed | Damage | Reward | Leak DMG | Special |
-|-------|------|----|-------|--------|--------|----------|---------|
-| 1 | Grunt | 34 | 1.0 | 4 | 4g | 1 | — |
-| 2 | Runner | 27 | 3.0 | 6 | 6g | 1 | Fast, penetration (hits each troop once then moves on) |
-| 3 | Brute | 133 | 0.7 | 14 | 11g | 1 | Tanky |
-| 4 | Elite | 245 | 1.0 | 18 | 17g | 2 | Splits into 2 Brutes on death |
-| 5 | Champion | 667 | 0.9 | 32 | 36g | 3 | Very tanky |
-| B | Boss | 1668 | 0.6 | 45 | 200g | 5 | 2x HP, appears wave 10/20/30, heals 15 HP/s |
-| S | Shielded | 173 | 0.8 | 16 | 15g | 1 | Regenerating shield (69 HP, overheals to 104) |
-| X | Spear | 50 | 2.0 | 3 | 5g | 1 | Slows to half speed near troops, attacks closest in 2.5 tile radius |
+| Level | Name     | HP   | Speed | Damage | Reward | Leak DMG | Special                                                             |
+| ----- | -------- | ---- | ----- | ------ | ------ | -------- | ------------------------------------------------------------------- |
+| 1     | Grunt    | 34   | 1.0   | 4      | 4g     | 1        | —                                                                   |
+| 2     | Runner   | 27   | 3.0   | 6      | 6g     | 1        | Fast, penetration (hits each troop once then moves on)              |
+| 3     | Brute    | 133  | 0.7   | 14     | 11g    | 1        | Tanky                                                               |
+| 4     | Elite    | 245  | 1.0   | 18     | 17g    | 2        | Splits into 2 Brutes on death                                       |
+| 5     | Champion | 667  | 0.9   | 32     | 36g    | 3        | Very tanky                                                          |
+| Y     | Necromancer | 220 | 0.8  | 18     | 18g    | 2        | Revives up to 4 dead allies (50% HP), revived take 50% less dmg     |
+| B     | Boss     | 1668 | 0.6   | 45     | 200g   | 5        | 2x HP, appears wave 10/20/30, heals 15 HP/s                         |
+| S     | Shielded | 173  | 0.8   | 16     | 15g    | 1        | Regenerating shield (69 HP, overheals to 104)                       |
+| X     | Spear    | 50   | 2.0   | 3      | 5g     | 1        | Slows to half speed near troops, attacks closest in 2.5 tile radius |
 
-Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Non-Boss, non-Shielded monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
+Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Necromancers revive dead allies within 2-tile range (up to 4 per Necromancer); revived monsters become `reviveImmune` and take 50% reduced damage. Non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 
 Monsters have three attack modes:
 
@@ -87,31 +104,31 @@ Troops have HP and can be destroyed — plan your defenses carefully!
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
-| Click shop card | Select troop to place |
-| Click tile | Place selected troop |
-| Click existing troop | Select for upgrade / sell |
-| Right-click / Esc | Cancel selection |
-| Space | Pause / Resume |
-| Enter | Start wave |
-| R | Restart (on win/lose) |
-| F2 | Toggle Dev mode |
-| D | Toggle DEV popup (dev mode only) |
-| Speed buttons | Adjust game speed (1x-128x) in HUD |
+| Key                  | Action                             |
+| -------------------- | ---------------------------------- |
+| Click shop card      | Select troop to place              |
+| Click tile           | Place selected troop               |
+| Click existing troop | Select for upgrade / sell          |
+| Right-click / Esc    | Cancel selection                   |
+| Space                | Pause / Resume                     |
+| Enter                | Start wave                         |
+| R                    | Restart (on win/lose)              |
+| Triple-click gold    | Toggle Dev mode confirmation       |
+| Alt + D              | Toggle DEV popup (dev mode only)   |
+| Speed buttons        | Adjust game speed (1x-128x) in HUD |
 
 ## UI Panels
 
 The bottom bar contains buttons for all in-game panels:
 
-| Button | Panel | Description |
-|--------|-------|-------------|
-| **Monsters** | Monster info | HP, speed, damage, reward, and special abilities for all monster types |
-| **Controls** | Controls reference | Keyboard shortcuts and mouse controls |
-| **DEV** | Dev tools | Custom wave spawner with per-monster count controls (dev mode only) |
-| **Settings** | Settings | Update channel, auto-download, check interval, Save/Cancel |
-| **🔔** | Notifications | Update status, download progress, action buttons (Update/Skip/Restart) |
-| **ⓘ** | About | Game name, version with release type, author, GitHub repo link |
+| Button       | Panel              | Description                                                            |
+| ------------ | ------------------ | ---------------------------------------------------------------------- |
+| **Monsters** | Monster info       | HP, speed, damage, reward, and special abilities for all monster types |
+| **Controls** | Controls reference | Keyboard shortcuts and mouse controls                                  |
+| **DEV**      | Dev tools          | Custom wave spawner with per-monster count controls (dev mode only)    |
+| **Settings** | Settings           | Update channel, auto-download, check interval, Save/Cancel             |
+| **🔔**       | Notifications      | Update status, download progress, action buttons (Update/Skip/Restart) |
+| **ⓘ**        | About              | Game name, version with release type, author, GitHub repo link         |
 
 ### Settings Panel
 
@@ -145,6 +162,7 @@ The game checks for updates on startup (configurable) and offers to download the
 4. **Install** — when complete, click Restart & Install to apply the update
 
 **Channel selection:**
+
 - **Release** — only stable releases (e.g. `v1.2.0`)
 - **Pre-release** — includes beta, alpha, and RC builds (e.g. `v1.3.0-beta.1`)
 
@@ -153,14 +171,27 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 ## Tech Stack
 
 - **ES modules** — source organized in `src/` with subdirectories for rendering and UI modules
-- **Vanilla JavaScript (ES6+)** — no frameworks, all UI drawn directly on canvas
+- **Vanilla JavaScript (ES6+)** — no frameworks, game world rendered on canvas with DOM panels for configuration/help
 - **HTML5 Canvas 2D** rendering with `devicePixelRatio` scaling and offscreen canvas caching
-- **Web Worker heartbeat** — 16ms tick that keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
+- **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit test suite (87 tests)
+- **Vitest** — unit + integration test suite (1,360 tests, 24 files)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
+
+## Code Quality
+
+The codebase follows consistent patterns for maintainability:
+
+- **Tile-index spatial lookups** — O(1) neighbor queries via `_monsterTileIndex` and `_troopTileIndex`, with a shared `monstersInRange()` helper eliminating scan duplication
+- **Data-driven particle effects** — all 9 effect types defined in a single `EFFECT_DEFS` table with identical configs, spawned via a generic `_spawnEffect()` dispatcher
+- **Config-driven design** — all game tuning constants, monster specs, troop specs, and wave definitions live in `config.js`
+- **Entity pooling** — projectiles, popups, and tile-index arrays are recycled to minimize GC pressure
+- **Offscreen canvas caching** — static grid/path layers rendered once to offscreen canvases
+- **Path2D caching** — troop rounded-rectangle paths created once and reused across frames
+- **Fixed-timestep simulation** — deterministic game logic decoupled from frame rate via accumulator
+- **Zero-allocation coordinate helpers** — `_into` variants (`tileCenterInto`, `pixelToTile`, `shopCardRectInto`) write into pre-allocated output objects
 
 ## Project Structure
 
@@ -172,11 +203,11 @@ src/
   config.js          # Game constants and tuning values
   grid.js            # 16x16 grid management
   troop.js           # Troop definitions, upgrades, and combat
-  monster.js         # Monster AI, pathfinding, and splitting
+  monster.js         # Monster AI, pathfinding, splitting, and attack modes
   projectile.js      # Projectile logic (bullets, chains, splash)
   waveManager.js     # Wave spawning and progression
   pathGenerator.js   # Procedural path generation
-  particles.js       # Particle effects
+  particles.js       # Data-driven particle effects with pooling
   audio.js           # Sound management
   input.js           # Keyboard and mouse input
   gamePersistence.js # Save/load game state
@@ -197,12 +228,31 @@ src/
     constants.js     # UI layout constants
     utils.js         # UI helper functions
 tests/
-  config.test.js
-  grid.test.js
-  utils.test.js
-  pathGenerator.test.js
-  projectile.test.js
-  persistence.test.js
+  helpers.js              # Shared test utilities (makeGame, makeTileIndex, longPath, etc.)
+  config.test.js          # CONFIG, MONSTER_SPECS, TROOP_SPECS, WAVES validation
+  grid.test.js            # Grid and TILE constants
+  utils.test.js           # Utility functions (clamp, lerp, dist, pixelToTile, etc.)
+  pathGenerator.test.js   # Procedural path generation
+  projectile.test.js      # Projectile logic
+  particles.test.js       # Particle effects
+  game.test.js            # Core game: canPlace, placeTroop, sellTroop, upgrades, combat
+  gameRuntime.test.js     # Runtime loop, pause render loop, resize, and state transitions
+  monster.test.js         # Monster constructor, AI, combat, splitting, necromancer, shatter
+  monsterIntegration.test.js # Monster spawning, movement, lifecycle, mixed interactions
+  troop.test.js           # Troop stats, upgrades, healing, shield, healer, chain lightning
+  persistence.test.js     # Save/restore serialization, game world factory
+  waveManager.test.js     # Wave queue, necromancer shuffling, custom waves, preview
+  updateManager.test.js   # Auto-update filtering, settings, electron integration
+  integration.test.js     # End-to-end: melee/ranged combat, selling, upgrading, game speed
+  combatIntegration.test.js # Troop-specific combat: splash, chain, mortar, knight, sniper
+  goldEconomy.test.js     # Economy: costs, refunds, upgrades, shields, kill rewards
+  performance.test.js     # Performance: step throughput, entity scaling, memory stability
+  memoryLeak.test.js      # Memory: entity lifecycle, pool recycling, long sessions
+  devMode.test.js         # Dev mode economy and spawn mechanics
+  placementPreview.test.js # Placement preview DPS/HPS calculations
+  versioning.test.js      # Beta release versioning logic
+  githubReleaseFeed.test.js # GitHub Atom feed parsing
+  smoke.test.js           # Installer smoke test (entry points, file existence)
 electron-main.js     # Electron main process
 preload.js          # Electron preload script
 index.html          # Single-page canvas host
@@ -213,11 +263,11 @@ css/                # Minimal styles (tray windows, notifications)
 
 The app stores data in the following locations:
 
-| Location | Contents | Survives uninstall? |
-|----------|----------|---------------------|
-| `%USERPROFILE%\.tower-defense\` | Settings (update channel, preferences) | ✅ Yes |
-| `%APPDATA%\tower-defense\` | Settings copy + game saves + logs | ❌ No |
-| `%LOCALAPPDATA%\tower-defense-updater\` | Downloaded update installers | ❌ No |
+| Location                                | Contents                               | Survives uninstall? |
+| --------------------------------------- | -------------------------------------- | ------------------- |
+| `%USERPROFILE%\.tower-defense\`         | Settings (update channel, preferences) | ✅ Yes              |
+| `%APPDATA%\tower-defense\`              | Settings copy + game saves + logs      | ❌ No               |
+| `%LOCALAPPDATA%\tower-defense-updater\` | Downloaded update installers           | ❌ No               |
 
 **Details:**
 
@@ -239,8 +289,10 @@ npm run release      # Build + publish to GitHub Releases (requires GH_TOKEN)
 npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
-npm test             # Run test suite (87 tests)
+npm run format:check  # Check formatting without modifying files
+npm test             # Run test suite (1,360 tests)
 npm run test:watch   # Run tests in watch mode
+npm run test:coverage # Run tests with code coverage report
 ```
 
 ## License

@@ -52,9 +52,20 @@ export const CONFIG = {
   MAX_UPGRADE_LEVEL: 5,
 
   // Monster mechanics
+  MOVEMENT_SPEED_CATEGORIES: ['very slow', 'slow', 'medium', 'fast', 'very fast'],
+  MOVEMENT_SPEEDS: {
+    'very slow': 0.6,
+    slow: 0.8,
+    medium: 1.0,
+    fast: 2.0,
+    'very fast': 3.0,
+  },
   BOSS_HP_MULTIPLIER: 2,
   MONSTER_SPLIT_COUNT: 2,
-
+  MONSTER_REVIVE_RANGE: 2.0,
+  MONSTER_REVIVE_HP_RATIO: 0.5,
+  MONSTER_REVIVE_MAX_TARGETS: 4,
+  MONSTER_REVIVE_GLOW_DURATION: 1.5,
   // Path generation
   PATH_EDGE_REJECTION: 0.35,
 
@@ -78,6 +89,7 @@ export const CONFIG = {
 
   // Visual
   COLORS: {
+    revive: '#39a7ff',
     background: '#0e1418',
     gridLine: 'rgba(255,255,255,0.06)',
     path: '#3a2a18',
@@ -125,6 +137,7 @@ export const MONSTER_SPECS = {
     name: 'Grunt',
     hp: 34,
     speed: 1.0,
+    movementSpeed: 'medium',
     reward: 4,
     leak: 1,
     color: '#7ec07e',
@@ -138,6 +151,7 @@ export const MONSTER_SPECS = {
     name: 'Runner',
     hp: 27,
     speed: 3.0,
+    movementSpeed: 'very fast',
     reward: 6,
     leak: 1,
     color: '#9be37a',
@@ -146,11 +160,13 @@ export const MONSTER_SPECS = {
     attackSpeed: 1.0,
     attackRange: 1,
     attackMode: 'pass',
+    noSplit: true,
   },
   3: {
     name: 'Brute',
     hp: 133,
-    speed: 0.7,
+    speed: 0.8,
+    movementSpeed: 'slow',
     reward: 11,
     leak: 1,
     color: '#c0a060',
@@ -164,6 +180,7 @@ export const MONSTER_SPECS = {
     name: 'Elite',
     hp: 245,
     speed: 1.0,
+    movementSpeed: 'medium',
     reward: 17,
     leak: 2,
     color: '#d96a6a',
@@ -176,7 +193,8 @@ export const MONSTER_SPECS = {
   5: {
     name: 'Champion',
     hp: 667,
-    speed: 0.9,
+    speed: 0.8,
+    movementSpeed: 'slow',
     reward: 36,
     leak: 3,
     color: '#a86ad9',
@@ -190,6 +208,7 @@ export const MONSTER_SPECS = {
     name: 'Boss',
     hp: 1668,
     speed: 0.6,
+    movementSpeed: 'very slow',
     reward: 200,
     leak: 5,
     color: '#e74c3c',
@@ -203,7 +222,8 @@ export const MONSTER_SPECS = {
   S: {
     name: 'Shielded',
     hp: 173,
-    speed: 0.8,
+    speed: 1.0,
+    movementSpeed: 'medium',
     reward: 15,
     leak: 1,
     color: '#5dade2',
@@ -218,6 +238,7 @@ export const MONSTER_SPECS = {
     name: 'Spear',
     hp: 50,
     speed: 2.0,
+    movementSpeed: 'fast',
     reward: 5,
     leak: 1,
     color: '#a3a3a3',
@@ -226,6 +247,25 @@ export const MONSTER_SPECS = {
     attackSpeed: 0.8,
     attackRange: 2.5,
     attackMode: 'slow',
+  },
+  Y: {
+    name: 'Necromancer',
+    hp: 220,
+    speed: 0.8,
+    movementSpeed: 'slow',
+    reward: 18,
+    leak: 2,
+    color: '#7b4397',
+    size: 14,
+    damage: 18,
+    attackSpeed: 1.0,
+    attackRange: 1,
+    attackMode: 'stop',
+    noSplit: true,
+    reviveRange: CONFIG.MONSTER_REVIVE_RANGE,
+    reviveHpRatio: 0.5,
+    reviveMaxTargets: CONFIG.MONSTER_REVIVE_MAX_TARGETS,
+    reviveGlowDuration: CONFIG.MONSTER_REVIVE_GLOW_DURATION,
   },
 };
 
@@ -367,28 +407,58 @@ export const TROOP_SPECS = [
     slowDuration: 2.5,
     shatterBonus: 0.5,
   },
+  {
+    id: 'healer',
+    name: 'Healer',
+    type: 'support',
+    cost: 140,
+    damage: 8,
+    range: 2,
+    attackSpeed: 0.5,
+    splash: 0,
+    color: '#2ecc71',
+    hp: 40,
+    monsterDamage: 3,
+    desc: 'Support unit with 40 HP. Heals damaged allies and damages nearby monsters. Upgrades increase healing and target count.',
+  },
 ];
 
 // Pre-compute stats strings per troop (avoids string concat every frame).
 for (let i = 0; i < TROOP_SPECS.length; i++) {
   const s = TROOP_SPECS[i];
-  const type = s.type.charAt(0).toUpperCase() + s.type.slice(1);
-  s._statsStr =
-    type +
-    ' \u00B7 ' +
-    s.damage +
-    'dmg \u00B7 ' +
-    s.range +
-    'rng \u00B7 ' +
-    s.attackSpeed +
-    's \u00B7 ' +
-    s.hp +
-    'hp' +
-    (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') +
-    (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+  if (s.type === 'support') {
+    s._statsStr =
+      'Support \u00B7 ' +
+      s.damage +
+      'heal \u00B7 ' +
+      s.range +
+      'rng \u00B7 ' +
+      s.attackSpeed +
+      's \u00B7 ' +
+      s.hp +
+      'hp' +
+      (s.monsterDamage ? ' \u00B7 ' + s.monsterDamage + 'dmg' : '');
+  } else {
+    const type = s.type.charAt(0).toUpperCase() + s.type.slice(1);
+    s._statsStr =
+      type +
+      ' \u00B7 ' +
+      s.damage +
+      'dmg \u00B7 ' +
+      s.range +
+      'rng \u00B7 ' +
+      s.attackSpeed +
+      's \u00B7 ' +
+      s.hp +
+      'hp' +
+      (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') +
+      (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+  }
 }
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.
+export const MONSTER_DEV_ORDER = [1, 2, 3, 4, 5, 'Y', 'B', 'S', 'X'];
+
 export const WAVES = [
   [[1, 8]], // Wave 1: 8 Grunts (272 HP)
   [[1, 12]], // Wave 2: 12 Grunts (408 HP)
@@ -424,8 +494,9 @@ export const WAVES = [
   [
     [4, 10],
     [5, 4],
+    ['Y', 1],
     [3, 2],
-  ], // Wave 9: 10 Elite + 4 Champion + 2 Brute
+  ], // Wave 9: 10 Elite + 4 Champion + 1 Necromancer + 2 Brute
   [
     [5, 6],
     ['S', 4],

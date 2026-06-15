@@ -2,9 +2,22 @@ const { app, BrowserWindow, Menu, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
+const https = require('https');
+const { URL } = require('url');
+const { parseUpdateInfo } = require('electron-updater/out/providers/Provider');
 const { autoUpdater } = require('electron-updater');
+const {
+  selectNewestNewerPrereleaseTag,
+  selectNewestNewerRelease,
+  resolveDownloadTag,
+} = require('./src/githubReleaseFeed');
 
 Menu.setApplicationMenu(null);
+
+const GITHUB_OWNER = 'avcode-exe';
+const GITHUB_REPO = 'Tower-Defense';
+const GITHUB_RELEASES_ATOM_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases.atom`;
 
 // Persistent settings path survives uninstall/reinstall (stored in user home dir)
 const PERSISTENT_DIR = path.join(os.homedir(), '.tower-defense');
@@ -34,6 +47,73 @@ const DEFAULT_SETTINGS = {
     settings: true,
   },
 };
+
+const MIN_CHECK_INTERVAL_MINUTES = 15;
+const FETCH_TIMEOUT_MS = 30000;
+const MAX_FETCH_REDIRECTS = 5;
+
+function normalizeCheckIntervalMinutes(value) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed)
+    ? Math.max(MIN_CHECK_INTERVAL_MINUTES, Math.floor(parsed))
+    : MIN_CHECK_INTERVAL_MINUTES;
+}
+
+function sanitizeSettings(settings) {
+  if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null;
+
+  const sanitized = {
+    update: { ...DEFAULT_SETTINGS.update },
+    collapsed: { ...DEFAULT_SETTINGS.collapsed },
+  };
+
+  if (settings.update && typeof settings.update === 'object' && !Array.isArray(settings.update)) {
+    if (typeof settings.update.channel === 'string' && ['release', 'pre-release'].includes(settings.update.channel)) {
+      sanitized.update.channel = settings.update.channel;
+    }
+    if (typeof settings.update.autoDownload === 'boolean') sanitized.update.autoDownload = settings.update.autoDownload;
+    if (typeof settings.update.checkOnStartup === 'boolean') {
+      sanitized.update.checkOnStartup = settings.update.checkOnStartup;
+    }
+    if (typeof settings.update.checkIntervalMinutes === 'number') {
+      sanitized.update.checkIntervalMinutes = normalizeCheckIntervalMinutes(settings.update.checkIntervalMinutes);
+    }
+    if (Array.isArray(settings.update.skippedVersions)) {
+      sanitized.update.skippedVersions = settings.update.skippedVersions.filter(
+        (v) => typeof v === 'string' && v.length <= 50 && /^[a-zA-Z0-9._-]+$/.test(v)
+      );
+    }
+    if (typeof settings.update.showProgressBar === 'boolean') {
+      sanitized.update.showProgressBar = settings.update.showProgressBar;
+    }
+    if (
+      typeof settings.update.availableVersion === 'string' &&
+      settings.update.availableVersion.length <= 50 &&
+      /^[a-zA-Z0-9._-]+$/.test(settings.update.availableVersion)
+    ) {
+      sanitized.update.availableVersion = settings.update.availableVersion;
+    }
+    if (
+      typeof settings.update.releaseType === 'string' &&
+      settings.update.releaseType.length <= 50 &&
+      /^[a-zA-Z0-9._-]+$/.test(settings.update.releaseType)
+    ) {
+      sanitized.update.releaseType = settings.update.releaseType;
+    }
+  }
+
+  if (settings.collapsed && typeof settings.collapsed === 'object' && !Array.isArray(settings.collapsed)) {
+    for (const key of Object.keys(DEFAULT_SETTINGS.collapsed)) {
+      if (typeof settings.collapsed[key] === 'boolean') sanitized.collapsed[key] = settings.collapsed[key];
+    }
+  }
+
+  return sanitized;
+}
+
+function formatUpdaterError(err) {
+  return err ? err.message || String(err) : 'Unknown error';
+}
 
 let mainWindow = null;
 let updateCheckInterval = null;
@@ -105,6 +185,38 @@ function isPrerelease(version) {
   return PRERELEASE_RE.test(version || '');
 }
 
+// Parse semver into { major, minor, patch, prerelease } for comparison.
+// Handles formats like "1.5.0", "1.5.0-beta.1", "1.5.0-rc.2".
+function parseVersion(v) {
+  if (!v) return { major: 0, minor: 0, patch: 0, prerelease: [] };
+  const match = v.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
+  if (!match) return { major: 0, minor: 0, patch: 0, prerelease: [] };
+  const prerelease = match[4] ? match[4].split('.').map((p) => (/^\d+$/.test(p) ? parseInt(p, 10) : p)) : [];
+  return { major: parseInt(match[1], 10), minor: parseInt(match[2], 10), patch: parseInt(match[3], 10), prerelease };
+}
+
+// Returns true if `version` is strictly newer than `current`.
+function isNewerThan(version, current) {
+  const a = parseVersion(version);
+  const b = parseVersion(current);
+  if (a.major !== b.major) return a.major > b.major;
+  if (a.minor !== b.minor) return a.minor > b.minor;
+  if (a.patch !== b.patch) return a.patch > b.patch;
+  // Same major.minor.patch: stable releases are newer than prereleases.
+  if (a.prerelease.length === 0 && b.prerelease.length > 0) return true;
+  if (a.prerelease.length > 0 && b.prerelease.length === 0) return false;
+  // Both prerelease: compare lexicographically.
+  const len = Math.min(a.prerelease.length, b.prerelease.length);
+  for (let i = 0; i < len; i++) {
+    const ap = a.prerelease[i],
+      bp = b.prerelease[i];
+    if (ap === bp) continue;
+    if (typeof ap === 'number' && typeof bp === 'number') return ap > bp;
+    return String(ap) > String(bp);
+  }
+  return a.prerelease.length > b.prerelease.length;
+}
+
 // Apply autoUpdater settings from persisted settings
 function applyAutoUpdaterSettings() {
   const settings = readSettings();
@@ -117,15 +229,210 @@ function applyAutoUpdaterSettings() {
 
 function sendStatus(phase, extra = {}) {
   if (!mainWindow) return;
-  mainWindow.webContents.send('update-status', { phase, ...extra });
+  try {
+    mainWindow.webContents.send('update-status', { phase, ...extra });
+  } catch (err) {
+    console.warn('[update] status send failed:', formatUpdaterError(err));
+  }
+}
+
+function handleUpdaterError(err) {
+  sendStatus('error', { message: formatUpdaterError(err) });
+}
+
+function checkForUpdatesSafely() {
+  try {
+    const result = autoUpdater.checkForUpdates();
+    if (result && typeof result.catch === 'function') {
+      result.catch(handleUpdaterError);
+    }
+  } catch (err) {
+    handleUpdaterError(err);
+  }
+}
+
+function downloadUpdateSafely() {
+  try {
+    const result = autoUpdater.downloadUpdate();
+    if (result && typeof result.catch === 'function') {
+      result.catch(handleUpdaterError);
+    }
+  } catch (err) {
+    handleUpdaterError(err);
+  }
 }
 
 function shouldAnnounceToUser(info, settings) {
   const update = settings.update || {};
-  if (update.channel === 'release' && isPrerelease(info.version)) return false;
   if ((update.skippedVersions || []).includes(info.version)) return false;
-  return true;
+  const channel = update.channel || 'release';
+  const currentVersion = settings.version || app.getVersion();
+  const isPre = isPrerelease(info.version);
+  const newer = isNewerThan(info.version, currentVersion);
+  if (channel === 'release' && isPre) return false;
+  if (!isPre && channel === 'pre-release' && !newer) return false;
+  return newer;
 }
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function requestText(url, redirects = 0) {
+  return new Promise((resolve, reject) => {
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+
+    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+      reject(new Error(`Unsupported protocol: ${parsedUrl.protocol}`));
+      return;
+    }
+
+    const client = parsedUrl.protocol === 'https:' ? https : http;
+    const req = client.get(
+      parsedUrl,
+      {
+        headers: {
+          'User-Agent': 'Tower-Defense-Updater',
+        },
+      },
+      (res) => {
+        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
+          res.resume();
+          if (redirects >= MAX_FETCH_REDIRECTS) {
+            reject(new Error(`Too many redirects for ${url}`));
+            return;
+          }
+          let redirectUrl;
+          try {
+            redirectUrl = new URL(res.headers.location, parsedUrl);
+          } catch (err) {
+            reject(err);
+            return;
+          }
+          requestText(redirectUrl, redirects + 1)
+            .then(resolve)
+            .catch(reject);
+          return;
+        }
+
+        if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+          res.resume();
+          reject(new Error(`Request failed for ${url}: ${res.statusCode} ${res.statusMessage || ''}`.trim()));
+          return;
+        }
+
+        const chunks = [];
+        let totalSize = 0;
+        res.on('data', (chunk) => {
+          totalSize += Buffer.byteLength(chunk);
+          if (totalSize > 1024 * 512) {
+            res.destroy(new Error(`Response body too large for ${url}`));
+            return;
+          }
+          chunks.push(chunk);
+        });
+        res.on('end', () => resolve(chunks.join('')));
+      }
+    );
+    req.on('error', reject);
+    req.setTimeout(FETCH_TIMEOUT_MS, () => req.destroy(new Error(`Request timed out for ${url}`)));
+  });
+}
+
+async function fetchText(url) {
+  return requestText(url);
+}
+
+function createReleaseAssetProvider(tag) {
+  const downloadBaseUrl = new URL(
+    `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(tag)}/`
+  );
+
+  return {
+    isUseMultipleRangeRequest: false,
+    getBlockMapFiles(newInstallerUrl, oldVersion, newVersion) {
+      const newBlockMapUrl = new URL(`${newInstallerUrl.pathname}.blockmap`, newInstallerUrl.origin);
+      const oldBlockMapUrl = new URL(
+        `${newInstallerUrl.pathname.replace(new RegExp(escapeRegExp(newVersion), 'g'), oldVersion)}.blockmap`,
+        newInstallerUrl.origin
+      );
+      return [oldBlockMapUrl, newBlockMapUrl];
+    },
+    resolveFiles(updateInfo) {
+      return (updateInfo.files || []).map((fileInfo) => {
+        if (fileInfo.sha2 == null && fileInfo.sha512 == null) {
+          throw new Error(`Update info doesn't contain checksum: ${JSON.stringify(fileInfo)}`);
+        }
+        return {
+          url: new URL(encodeURI(fileInfo.url), downloadBaseUrl),
+          info: fileInfo,
+        };
+      });
+    },
+  };
+}
+
+async function getSelectedReleaseUpdateInfo(selectedRelease, tagOverride) {
+  const downloadTag = tagOverride || selectedRelease.tag;
+  const channelFileUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(
+    downloadTag
+  )}/latest.yml`;
+  const rawData = await fetchText(channelFileUrl);
+  const updateInfo = parseUpdateInfo(rawData, 'latest.yml', channelFileUrl);
+  updateInfo.tag = downloadTag;
+  updateInfo.releaseName = selectedRelease.title || updateInfo.releaseName;
+  return {
+    info: updateInfo,
+    provider: createReleaseAssetProvider(downloadTag),
+  };
+}
+
+function patchGitHubPrereleaseDiscovery() {
+  if (typeof autoUpdater.getUpdateInfoAndProvider !== 'function') {
+    return;
+  }
+
+  const originalGetUpdateInfoAndProvider = autoUpdater.getUpdateInfoAndProvider.bind(autoUpdater);
+
+  autoUpdater.getUpdateInfoAndProvider = async function getUpdateInfoAndProviderWithPrereleaseScan() {
+    const settings = readSettings();
+    if ((settings.update || {}).channel !== 'pre-release') {
+      return originalGetUpdateInfoAndProvider();
+    }
+
+    try {
+      const feedXml = await fetchText(GITHUB_RELEASES_ATOM_URL);
+      const currentVersion = app.getVersion();
+      const selectedPrerelease = selectNewestNewerPrereleaseTag(feedXml, currentVersion);
+      if (selectedPrerelease) {
+        const resolved = await resolveDownloadTag(GITHUB_OWNER, GITHUB_REPO, selectedPrerelease.tag);
+        return getSelectedReleaseUpdateInfo(selectedPrerelease, resolved.tag);
+      }
+
+      const selectedStable = selectNewestNewerRelease(feedXml, currentVersion);
+      if (selectedStable) {
+        const resolved = await resolveDownloadTag(GITHUB_OWNER, GITHUB_REPO, selectedStable.tag);
+        return getSelectedReleaseUpdateInfo(selectedStable, resolved.tag);
+      }
+
+      return originalGetUpdateInfoAndProvider();
+    } catch (err) {
+      console.warn(
+        '[auto-updater] prerelease feed scan failed; falling back to electron-updater:',
+        err?.message || err
+      );
+      return originalGetUpdateInfoAndProvider();
+    }
+  };
+}
+
+patchGitHubPrereleaseDiscovery();
 
 autoUpdater.logger = {
   info: (msg) => console.log('[auto-updater]', msg),
@@ -144,7 +451,7 @@ autoUpdater.on('update-available', (info) => {
   if (shouldAnnounceToUser(info, settings)) {
     sendStatus('available', { version: info.version, type: channel });
   } else {
-    console.log('[auto-updater] filtered (channel/skipped):', info.version, channel);
+    console.warn('[auto-updater] filtered (channel/skipped):', info.version, channel);
   }
 });
 
@@ -170,9 +477,10 @@ ipcMain.handle('get-settings', () => {
 });
 
 ipcMain.handle('save-settings', (_event, settings) => {
-  if (!settings || typeof settings !== 'object') return false;
-  if (JSON.stringify(settings, null, 2).length > 1024 * 100) return false; // 100KB limit
-  return writeSettings(settings);
+  const sanitized = sanitizeSettings(settings);
+  if (!sanitized) return false;
+  if (JSON.stringify(sanitized, null, 2).length > 1024 * 100) return false; // 100KB limit
+  return writeSettings(sanitized);
 });
 
 ipcMain.handle('get-version', () => {
@@ -180,47 +488,65 @@ ipcMain.handle('get-version', () => {
 });
 
 ipcMain.on('check-updates', () => {
-  autoUpdater.checkForUpdates().catch((err) => {
-    sendStatus('error', { message: err?.message || String(err) });
-  });
+  checkForUpdatesSafely();
 });
 
 ipcMain.on('download-update', () => {
-  autoUpdater.downloadUpdate().catch((err) => {
-    sendStatus('error', { message: err?.message || String(err) });
-  });
+  downloadUpdateSafely();
 });
 
 ipcMain.on('skip-update', (_event, version) => {
-  if (typeof version !== 'string' || version.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(version)) return;
-  const settings = readSettings();
-  if (!settings.update) settings.update = {};
-  settings.update.skippedVersions = settings.update.skippedVersions || [];
-  if (!settings.update.skippedVersions.includes(version)) {
-    settings.update.skippedVersions.push(version);
+  try {
+    if (typeof version !== 'string' || version.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(version)) return;
+    const settings = readSettings();
+    if (!settings.update) settings.update = {};
+    settings.update.skippedVersions = settings.update.skippedVersions || [];
+    if (!settings.update.skippedVersions.includes(version)) {
+      settings.update.skippedVersions.push(version);
+    }
+    writeSettings(settings);
+  } catch (err) {
+    console.error('[update] skip failed:', formatUpdaterError(err));
   }
-  writeSettings(settings);
 });
 
 ipcMain.on('restart-to-update', () => {
-  autoUpdater.quitAndInstall();
+  try {
+    autoUpdater.quitAndInstall();
+  } catch (err) {
+    handleUpdaterError(err);
+  }
 });
 
 ipcMain.on('set-auto-download', (_event, enabled) => {
-  const val = !!enabled;
-  autoUpdater.autoDownload = val;
-  autoUpdater.autoInstallOnAppQuit = val;
+  try {
+    const val = !!enabled;
+    autoUpdater.autoDownload = val;
+    autoUpdater.autoInstallOnAppQuit = val;
+  } catch (err) {
+    console.warn('[auto-updater] set auto download failed:', formatUpdaterError(err));
+  }
 });
 
 ipcMain.on('set-update-channel', (_event, channel) => {
-  if (typeof channel !== 'string') return;
-  const allowed = ['release', 'pre-release'];
-  if (!allowed.includes(channel)) return;
-  autoUpdater.allowPrerelease = channel === 'pre-release';
+  try {
+    if (typeof channel !== 'string') return;
+    const allowed = ['release', 'pre-release'];
+    if (!allowed.includes(channel)) return;
+    autoUpdater.allowPrerelease = channel === 'pre-release';
+  } catch (err) {
+    console.warn('[auto-updater] set update channel failed:', formatUpdaterError(err));
+  }
 });
 
 ipcMain.on('cancel-update', () => {
-  // Stop any in-progress download
+  try {
+    if (typeof autoUpdater.cancelDownload === 'function') {
+      autoUpdater.cancelDownload();
+    }
+  } catch (err) {
+    console.warn('[auto-updater] cancel download failed:', formatUpdaterError(err));
+  }
   autoUpdater.autoDownload = false;
 });
 
@@ -292,20 +618,15 @@ function createWindow() {
 }
 
 function checkForUpdates() {
-  autoUpdater.checkForUpdates().catch((err) => {
-    const errMsg = err ? err.message || String(err) : 'Unknown error';
-    sendStatus('error', { message: errMsg });
-  });
+  checkForUpdatesSafely();
 }
 
 function startPeriodicUpdateCheck() {
   if (updateCheckInterval) return;
   const settings = readSettings();
-  const intervalMs = ((settings.update || {}).checkIntervalMinutes || 60) * 60 * 1000;
+  const intervalMs = normalizeCheckIntervalMinutes((settings.update || {}).checkIntervalMinutes) * 60 * 1000;
   updateCheckInterval = setInterval(() => {
-    autoUpdater.checkForUpdates().catch((err) => {
-      sendStatus('error', { message: err?.message || String(err) });
-    });
+    checkForUpdatesSafely();
   }, intervalMs);
 }
 
