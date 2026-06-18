@@ -11,7 +11,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **ES modules** — source organized in `src/` with clean module boundaries
 - **Canvas 2D rendering** — game world drawn on HTML5 Canvas, with canvas overlays plus DOM panels for settings/help
 - **Electron desktop app** — packaged with electron-builder (NSIS), auto-updates via GitHub Releases
-- **12 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), **Healer** (support healing + monster damage), and **Flame Troop** (melee burn DoT)
+- **12 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), **Healer** (support healing + monster damage), and **Flamer** (melee burn DoT)
 - **9 monster types** — Grunt, Runner, Brute, Elite, Champion, Necromancer, Shielded, Boss, Spear
 - **Modernized icon** — redesigned tower icon with glowing beacon and vibrant gradients
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
@@ -38,7 +38,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 | --- | ----------- | ------- | ---- | --- | ------ | ----- | ----- | ----------------------------------------------------------------------- |
 | 1   | Swordsman   | Melee   | 70   | 50  | 9      | 1     | 0.67s | —                                                                       |
 | 2   | Knight      | Melee   | 120  | 120 | 18     | 1     | 0.9s  | —                                                                       |
-| 3   | Flame Troop | Melee   | 160  | 70  | 14     | 1     | 0.75s | Burn DoT 3 stacks / 3s / 0.5s ticks                                     |
+| 3   | Flamer      | Melee   | 160  | 70  | 14     | 1     | 0.75s | Burn DoT 3 stacks / 3s / 0.5s ticks                                     |
 | 4   | Archer      | Ranged  | 70   | 30  | 12     | 3     | 1.2s  | —                                                                       |
 | 5   | Machine Gun | Ranged  | 150  | 40  | 6      | 4     | 0.25s | High fire rate                                                          |
 | 6   | Mage        | Ranged  | 180  | 35  | 32     | 3     | 1.3s  | Splash 2.0 tiles                                                        |
@@ -53,7 +53,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
 - Lightning: also **CHN** (+1 chain target per level)
-- **Flame Troop**: also **BRN** through DMG upgrades; higher damage increases burn tick damage and displayed burn DPS
+- **Flamer**: also **BRN** through DMG upgrades; higher damage increases burn tick damage and displayed burn DPS
 - **Healer**: also **TGT** (more simultaneous heal targets); deals 3 damage to monsters in heal range
 - **Ice Wizard**: also **SLW** (stronger slow, longer duration, bigger shatter per level)
 - **Melee troops take 70% reduced damage from monster attacks**
@@ -166,7 +166,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit + integration test suite (1,360 tests, 24 files)
+- **Vitest** — unit + integration test suite (1,460 tests, 31 files)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -180,6 +180,7 @@ The codebase follows consistent patterns for maintainability:
 - **Entity pooling** — projectiles, popups, and tile-index arrays are recycled to minimize GC pressure
 - **Offscreen canvas caching** — static grid/path layers rendered once to offscreen canvases
 - **Path2D caching** — troop rounded-rectangle paths created once and reused across frames
+- **Expanded test coverage** — dedicated coverage for UI helpers, UI constants, input mapping, audio effects, renderer transforms/cache behavior, toast notifications, cursor hit-testing, and release-feed parsing
 - **Fixed-timestep simulation** — deterministic game logic decoupled from frame rate via accumulator
 - **Zero-allocation coordinate helpers** — `_into` variants (`tileCenterInto`, `pixelToTile`, `shopCardRectInto`) write into pre-allocated output objects
 
@@ -242,6 +243,13 @@ tests/
   placementPreview.test.js # Placement preview DPS/HPS calculations
   versioning.test.js      # Beta release versioning logic
   githubReleaseFeed.test.js # GitHub Atom feed parsing
+  uiUtils.test.js         # UI rounded rect, tooltip, text wrapping, toggle hit tests
+  uiConstants.test.js     # UI layout constants and color tokens
+  input.test.js           # Mouse, wheel, context menu, and keyboard input mapping
+  audio.test.js           # AudioManager context, volume, mute, and SFX node chains
+  renderer.test.js        # Canvas renderer init, resize, transforms, and static layers
+  toast.test.js           # Toast creation, classes, click removal, and timers
+  gameRendererCursor.test.js # Cursor hit-testing for UI, troops, placement, and dialogs
   smoke.test.js           # Installer smoke test (entry points, file existence)
 electron-main.js     # Electron main process
 preload.js          # Electron preload script
@@ -280,7 +288,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (1,360 tests)
+npm test             # Run test suite (1,460 tests)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with code coverage report
 ```

@@ -304,7 +304,7 @@ export const TROOP_SPECS = [
   },
   {
     id: 'flame',
-    name: 'Flame Troop',
+    name: 'Flamer',
     type: 'melee',
     cost: 160,
     damage: 14,

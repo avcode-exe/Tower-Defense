@@ -1125,9 +1125,9 @@ describe('_recomputeStats edge cases', () => {
   });
 });
 
-// ─── Flame Troop (spec) ───────────────────────────────────────────────────
+// ─── Flamer (spec) ────────────────────────────────────────────────────────
 
-describe('Flame Troop (spec)', () => {
+describe('Flamer (spec)', () => {
   it('exists in TROOP_SPECS', () => {
     expect(flameSpec).toBeDefined();
   });
