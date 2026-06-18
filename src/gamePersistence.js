@@ -51,7 +51,7 @@ function isValidTroop(t) {
 export const SaveSerializer = {
   fromGame(game) {
     return {
-      version: '1.6.0-beta.1',
+      version: '1.6.0-beta.2',
       gold: game.gold === Infinity ? null : game.gold,
       lives: game.lives === Infinity ? null : game.lives,
       seed: game.seed,

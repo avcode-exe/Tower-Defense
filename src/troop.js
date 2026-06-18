@@ -345,8 +345,8 @@ export class Troop {
     if (!monsterDamage) return;
 
     const rangePxSq = this.getHealRangePxSq();
-    const txpx = this.x;
-    const typx = this.y;
+    const typX = this.x;
+    const typY = this.y;
     const tileIndex = game._monsterTileIndex;
     if (Array.isArray(tileIndex)) {
       const tileRange = this._cachedRange + CONFIG.TILE_BUFFER;
@@ -354,8 +354,8 @@ export class Troop {
       for (let i = 0; i < candidates.length; i++) {
         const m = candidates[i];
         if (!m.alive) continue;
-        const mx = m.x - txpx,
-          my = m.y - typx;
+        const mx = m.x - typX,
+          my = m.y - typY;
         if (mx * mx + my * my <= rangePxSq) {
           game.damageMonster(m, monsterDamage);
         }
@@ -365,8 +365,8 @@ export class Troop {
     for (let i = game.monsters.length - 1; i >= 0; i--) {
       const m = game.monsters[i];
       if (!m.alive) continue;
-      const dx = m.x - txpx,
-        dy = m.y - typx;
+      const dx = m.x - typX,
+        dy = m.y - typY;
       if (dx * dx + dy * dy <= rangePxSq) {
         game.damageMonster(m, monsterDamage);
       }
@@ -409,8 +409,8 @@ export class Troop {
     const rangePx = (range + tileBuf) * CONFIG.TILE_SIZE;
     let best = null;
     let bestProgress = -1;
-    const txpx = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
-    const typx = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const centerX = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const centerY = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
     const rangePxSq = rangePx * rangePx;
     if (tileIndex) {
       const tileRange = range + tileBuf;
@@ -418,8 +418,8 @@ export class Troop {
       for (let i = 0; i < candidates.length; i++) {
         const m = candidates[i];
         if (!m.alive) continue;
-        const dx2 = m.x - txpx,
-          dy2 = m.y - typx;
+        const dx2 = m.x - centerX,
+          dy2 = m.y - centerY;
         if (dx2 * dx2 + dy2 * dy2 <= rangePxSq) {
           if (m.progress > bestProgress) {
             bestProgress = m.progress;
@@ -433,8 +433,8 @@ export class Troop {
     for (let i = 0; i < monsters.length; i++) {
       const m = monsters[i];
       if (!m.alive) continue;
-      const dx = m.x - txpx,
-        dy = m.y - typx;
+      const dx = m.x - centerX,
+        dy = m.y - centerY;
       if (dx * dx + dy * dy <= rangePxSq) {
         if (m.progress > bestProgress) {
           bestProgress = m.progress;

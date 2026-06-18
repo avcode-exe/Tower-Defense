@@ -132,7 +132,7 @@ describe('getDpsForPlacementPreview', () => {
 });
 
 describe('getBurnDpsForPlacementPreview', () => {
-  it('returns expected Flame Troop burn DPS', () => {
+  it('returns expected Flamer burn DPS', () => {
     const tickDamage = Math.max(1, Math.round(flameSpec.damage * flameSpec.burnDamageRatio));
     const expected = (tickDamage * flameSpec.burnStacks) / flameSpec.burnTickInterval;
     expect(getBurnDpsForPlacementPreview(flameSpec)).toBe(expected);

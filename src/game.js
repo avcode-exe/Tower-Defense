@@ -260,7 +260,7 @@ export class Game {
       m._reviveGlowTimer = 0;
       // Split monster: if level > 1, spawn 2 monsters one split tier lower at this
       // position. Runner is skipped in split children.
-      const noSplit = m.spec.noSplit === true || (m.spec.attackMode || 'stop') === 'pass';
+      const noSplit = (m.spec && m.spec.noSplit === true) || (m.spec && (m.spec.attackMode || 'stop') === 'pass');
       if (!m.reviveImmune && !noSplit && typeof m.level === 'number' && m.level > 1) {
         let childLvl = m.level - 1;
         if (childLvl === 2) childLvl = 1;

@@ -356,7 +356,7 @@ describe('UpdateManager.passesFilter (extended)', () => {
 
     it('rejects prerelease version', () => {
       m = makeManager({ version: '1.5.0', update: { channel: 'release' } });
-      expect(m.passesFilter({ version: '1.6.0-beta.1' })).toBe(false);
+      expect(m.passesFilter({ version: '1.6.0-beta.2' })).toBe(false);
     });
 
     it('rejects prerelease even if newer', () => {
