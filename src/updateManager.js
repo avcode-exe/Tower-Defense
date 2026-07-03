@@ -1,57 +1,7 @@
 // Update manager – orchestrates update flow from the renderer.
-const DEFAULT_SETTINGS = {
-  version: '1.6.0-beta.2',
-  update: {
-    channel: 'release',
-    autoDownload: false,
-    checkOnStartup: true,
-    checkIntervalMinutes: 60,
-    skippedVersions: [],
-    showProgressBar: true,
-    availableVersion: null,
-    releaseType: null,
-  },
-  collapsed: {
-    hud: false,
-    shop: false,
-    preview: false,
-    shieldShop: false,
-    help: true,
-    monsterInfo: true,
-    settings: true,
-  },
-};
+import { DEFAULT_SETTINGS, isPrerelease, parseVersion, isNewerThan } from './config/settingsDefaults.js';
 
-const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
-const isNewerVersion = _isNewerThan;
-
-// Parse semver for comparison (mirrors electron-main.js logic).
-function _parseVersion(v) {
-  if (!v) return { major: 0, minor: 0, patch: 0, prerelease: [] };
-  const match = v.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
-  if (!match) return { major: 0, minor: 0, patch: 0, prerelease: [] };
-  const prerelease = match[4] ? match[4].split('.').map((p) => (/^\d+$/.test(p) ? parseInt(p, 10) : p)) : [];
-  return { major: parseInt(match[1], 10), minor: parseInt(match[2], 10), patch: parseInt(match[3], 10), prerelease };
-}
-
-function _isNewerThan(version, current) {
-  const a = _parseVersion(version);
-  const b = _parseVersion(current);
-  if (a.major !== b.major) return a.major > b.major;
-  if (a.minor !== b.minor) return a.minor > b.minor;
-  if (a.patch !== b.patch) return a.patch > b.patch;
-  if (a.prerelease.length === 0 && b.prerelease.length > 0) return true;
-  if (a.prerelease.length > 0 && b.prerelease.length === 0) return false;
-  const len = Math.min(a.prerelease.length, b.prerelease.length);
-  for (let i = 0; i < len; i++) {
-    const ap = a.prerelease[i],
-      bp = b.prerelease[i];
-    if (ap === bp) continue;
-    if (typeof ap === 'number' && typeof bp === 'number') return ap > bp;
-    return String(ap) > String(bp);
-  }
-  return a.prerelease.length > b.prerelease.length;
-}
+const isNewerVersion = isNewerThan;
 
 export class UpdateManager {
   constructor(settings) {
@@ -106,7 +56,7 @@ export class UpdateManager {
   }
 
   _isPrerelease(version) {
-    return PRERELEASE_RE.test(version || '');
+    return isPrerelease(version);
   }
 
   passesFilter(info) {

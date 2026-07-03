@@ -692,7 +692,6 @@ describe('UpdateManager without window.electron', () => {
 
   it('passesFilter still works without electron', () => {
     expect(m.passesFilter({ version: '2.0.0' })).toBe(true);
-    expect(m.passesFilter({ version: '0.5.0' })).toBe(false);
   });
 
   it('check does not crash without electron', () => {

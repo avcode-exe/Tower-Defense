@@ -82,6 +82,7 @@ export class Game {
     this.sellConfirmPending = false;
     this.sellConfirmTroop = null;
     this.devMonsterCounts = this._defaultDevCounts();
+    this._needsSaveCleanup = false;
   }
 
   _getPopup(text, x, y, t, color) {
@@ -433,6 +434,14 @@ export class Game {
       const m = this.monsters[i];
       if (!m.alive) continue;
       if (m.hp <= 0) {
+        if (m.alive) {
+          console.warn('[game] Monster HP desync on frame — force-killing without reward.', {
+            level: m.level,
+            hp: m.hp,
+            x: m.x,
+            y: m.y,
+          });
+        }
         m.alive = false;
         continue;
       }

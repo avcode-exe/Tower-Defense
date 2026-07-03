@@ -28,10 +28,10 @@ function formatSeconds(value) {
   return minutes > 0 ? `${minutes}m${restSeconds}s` : `${restSeconds}s`;
 }
 
-function getWaveEstimate(wave) {
+function getWaveEstimate(wave, pathLengthTiles) {
   if (!wave || typeof wave.getNextWaveEstimate !== 'function') return null;
   try {
-    return wave.getNextWaveEstimate();
+    return wave.getNextWaveEstimate(pathLengthTiles);
   } catch {
     return null;
   }
@@ -149,7 +149,10 @@ export function drawPreview(game) {
     c.fillText(spec.name, cx + 18, y + 42);
     cx += 80;
   }
-  const estimate = getWaveEstimate(game?.wave);
+  const estimate = getWaveEstimate(
+    game?.wave,
+    game?.pathSegments?.totalLength ? game.pathSegments.totalLength / CONFIG.TILE_SIZE : null
+  );
   if (estimate) {
     const start = formatSeconds(
       readNumber(estimate, ['startTime', 'startDelay', 'secondsUntilStart', 'timeUntilStart', 'startsIn'])

@@ -146,7 +146,7 @@ export class WaveManager {
   }
 
   // For UI: estimates for the upcoming wave.
-  getNextWaveEstimate() {
+  getNextWaveEstimate(pathLengthTiles) {
     if (!this.currentPreview) return null;
 
     let totalGold = 0;
@@ -169,7 +169,7 @@ export class WaveManager {
     }
 
     const spawnDuration = this._estimateSpawnDuration(this.currentPreview);
-    const pathDuration = this._estimatePathDuration(this.currentPreview);
+    const pathDuration = this._estimatePathDuration(this.currentPreview, pathLengthTiles);
     const baseDuration = spawnDuration + pathDuration;
     const reviveEstimate = this._estimateRevives(necromancerCount, nonNecromancerCount, totalHp);
 
@@ -207,14 +207,14 @@ export class WaveManager {
     return t - CONFIG.WAVE_START_DELAY;
   }
 
-  _estimatePathDuration(preview) {
+  _estimatePathDuration(preview, pathLengthTiles) {
     let weightedDuration = 0;
     let totalCount = 0;
     for (const [level, count] of preview) {
       const spec = this._getMonsterSpec(level);
       if (!spec) continue;
       const speed = CONFIG.MOVEMENT_SPEEDS[spec.movementSpeed] || spec.speed;
-      const pathTiles = CONFIG.MIN_PATH_LENGTH;
+      const pathTiles = pathLengthTiles || CONFIG.MIN_PATH_LENGTH;
       const duration = pathTiles / Math.max(0.1, speed);
       weightedDuration += duration * count;
       totalCount += count;

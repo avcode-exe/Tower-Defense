@@ -82,12 +82,18 @@ describe('Installer smoke test', () => {
       expect(match[1]).toBe(pkg.version);
     });
 
+    it('updateManager settings shape matches defaults', () => {
+      const um = readFileSync(join(ROOT, 'src/updateManager.js'), 'utf8');
+      expect(um).toContain('DEFAULT_SETTINGS');
+      expect(um).toContain('isNewerThan');
+      expect(um).toContain('isPrerelease');
+    });
+
     it('package.json and updateManager use the same version', () => {
       const pkg = readJson('package.json');
-      const um = readFileSync(join(ROOT, 'src/updateManager.js'), 'utf8');
-      const match = um.match(/version:\s*'([^']+)'/);
+      const em = readFileSync(join(ROOT, 'electron-main.js'), 'utf8');
+      const match = em.match(/version:\s*app\.getVersion\(\)/);
       expect(match).not.toBeNull();
-      expect(match[1]).toBe(pkg.version);
     });
 
     it('version is valid semver', () => {

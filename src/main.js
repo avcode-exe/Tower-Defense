@@ -6,6 +6,7 @@ import { UI_LAYOUT } from './ui/index.js';
 import { MONSTER_SPECS, MONSTER_DEV_ORDER } from './config.js';
 import { AUDIO } from './audio.js';
 import { SaveSerializer } from './gamePersistence.js';
+import { DEFAULT_SETTINGS } from './config/settingsDefaults.js';
 import { showToast } from './ui/toast.js';
 
 let game = null;
@@ -205,11 +206,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadSettingsToForm() {
     const saved = (await loadSettings()) || {};
     settingsDraft = JSON.parse(JSON.stringify(saved));
-    if (!settingsDraft.update) settingsDraft.update = {};
-    // Apply defaults to draft
-    settingsDraft.update.channel = settingsDraft.update.channel || 'release';
-    settingsDraft.update.autoDownload = settingsDraft.update.autoDownload !== false;
-    settingsDraft.update.checkIntervalMinutes = settingsDraft.update.checkIntervalMinutes || 60;
+    if (!settingsDraft.update) {
+      settingsDraft.update = { ...DEFAULT_SETTINGS.update };
+    } else {
+      settingsDraft.update = { ...DEFAULT_SETTINGS.update, ...saved.update };
+    }
     // Update form elements
     document.querySelectorAll('input[name="settings-channel"]').forEach((radio) => {
       radio.checked = settingsDraft.update.channel === radio.value;

@@ -26,6 +26,7 @@ const PERSISTENT_SETTINGS_PATH = path.join(PERSISTENT_DIR, 'settings.json');
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const SAVE_PATH = path.join(app.getPath('userData'), 'game-save.json');
 const DEFAULT_SETTINGS = {
+  // Canonical source of truth for field shapes: src/config/settingsDefaults.js (renderer side).
   version: app.getVersion(),
   update: {
     channel: 'release',
