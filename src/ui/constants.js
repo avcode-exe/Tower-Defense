@@ -1,4 +1,5 @@
 import { CONFIG } from '../config.js';
+import { COLLAPSED_KEYS, makeCollapsedDefaults } from '../config/settingsDefaults.js';
 
 export const UI_LAYOUT = {
   HUD_HEIGHT: 56,
@@ -6,12 +7,7 @@ export const UI_LAYOUT = {
   PREVIEW_HEIGHT: 80,
   SHIELD_SHOP_WIDTH: CONFIG.SHIELD_SHOP_WIDTH,
 
-  collapsed: {
-    shop: false,
-    hud: false,
-    preview: false,
-    shieldShop: false,
-  },
+  collapsed: makeCollapsedDefaults(),
 
   get hudHeight() {
     return this.collapsed.hud ? 20 : this.HUD_HEIGHT;

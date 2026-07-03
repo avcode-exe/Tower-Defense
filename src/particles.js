@@ -314,17 +314,17 @@ export const PARTICLES = {
 
   // Reuse a single config object to avoid per-call allocation from spread.
   _applyCfg(src, color) {
-    const dst = this._tmpCfg || (this._tmpCfg = {});
-    dst.count = src.count;
-    dst.color = color;
-    dst.minSize = src.minSize;
-    dst.maxSize = src.maxSize;
-    dst.minSpeed = src.minSpeed;
-    dst.maxSpeed = src.maxSpeed;
-    dst.minLife = src.minLife;
-    dst.maxLife = src.maxLife;
-    dst.gravity = src.gravity;
-    return dst;
+    return {
+      count: src.count,
+      color: color,
+      minSize: src.minSize,
+      maxSize: src.maxSize,
+      minSpeed: src.minSpeed,
+      maxSpeed: src.maxSpeed,
+      minLife: src.minLife,
+      maxLife: src.maxLife,
+      gravity: src.gravity,
+    };
   },
 
   _spawnEffect(name, x, y, overrides) {

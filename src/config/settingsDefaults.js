@@ -1,34 +1,14 @@
-const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
+import { isPrerelease, parseVersion, isNewerThan } from '../versionUtils.js';
 
-function isPrerelease(version) {
-  return PRERELEASE_RE.test(version || '');
-}
+export const COLLAPSED_KEYS = ['shop', 'hud', 'preview', 'shieldShop', 'help', 'monsterInfo', 'settings'];
 
-function parseVersion(v) {
-  if (!v) return { major: 0, minor: 0, patch: 0, prerelease: [] };
-  const match = v.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
-  if (!match) return { major: 0, minor: 0, patch: 0, prerelease: [] };
-  const prerelease = match[4] ? match[4].split('.').map((p) => (/^\d+$/.test(p) ? parseInt(p, 10) : p)) : [];
-  return { major: parseInt(match[1], 10), minor: parseInt(match[2], 10), patch: parseInt(match[3], 10), prerelease };
-}
-
-function isNewerThan(version, current) {
-  const a = parseVersion(version);
-  const b = parseVersion(current);
-  if (a.major !== b.major) return a.major > b.major;
-  if (a.minor !== b.minor) return a.minor > b.minor;
-  if (a.patch !== b.patch) return a.patch > b.patch;
-  if (a.prerelease.length === 0 && b.prerelease.length > 0) return true;
-  if (a.prerelease.length > 0 && b.prerelease.length === 0) return false;
-  const len = Math.min(a.prerelease.length, b.prerelease.length);
-  for (let i = 0; i < len; i++) {
-    const ap = a.prerelease[i],
-      bp = b.prerelease[i];
-    if (ap === bp) continue;
-    if (typeof ap === 'number' && typeof bp === 'number') return ap > bp;
-    return String(ap) > String(bp);
+export function makeCollapsedDefaults(overrides = {}) {
+  const defaults = {};
+  for (const key of COLLAPSED_KEYS) {
+    defaults[key] =
+      overrides[key] !== undefined ? overrides[key] : key === 'help' || key === 'monsterInfo' || key === 'settings';
   }
-  return a.prerelease.length > b.prerelease.length;
+  return defaults;
 }
 
 const DEFAULT_SETTINGS = {
@@ -42,15 +22,7 @@ const DEFAULT_SETTINGS = {
     availableVersion: null,
     releaseType: null,
   },
-  collapsed: {
-    hud: false,
-    shop: false,
-    preview: false,
-    shieldShop: false,
-    help: true,
-    monsterInfo: true,
-    settings: true,
-  },
+  collapsed: makeCollapsedDefaults(),
 };
 
 export { DEFAULT_SETTINGS, isPrerelease, parseVersion, isNewerThan };

@@ -1,10 +1,8 @@
-'use strict';
-
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
-const semver = require('semver');
-const { parseXml } = require('builder-util-runtime');
+import http from 'http';
+import https from 'https';
+import { URL } from 'url';
+import semver from 'semver';
+import { parseXml } from 'builder-util-runtime';
 
 const TAG_HREF_RE = /\/tag\/([^/]+)$/;
 
@@ -164,8 +162,4 @@ async function resolveDownloadTag(owner, repo, feedTag) {
   return { tag: feedTag, variant: null };
 }
 
-module.exports = {
-  selectNewestNewerPrereleaseTag,
-  selectNewestNewerRelease,
-  resolveDownloadTag,
-};
+export { selectNewestNewerPrereleaseTag, selectNewestNewerRelease, resolveDownloadTag };

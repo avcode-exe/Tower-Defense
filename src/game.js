@@ -403,6 +403,14 @@ export class Game {
     PARTICLES.update(dt);
   }
 
+  _compactMonsters() {
+    let mw = 0;
+    for (let i = 0; i < this.monsters.length; i++) {
+      if (this.monsters[i].alive) this.monsters[mw++] = this.monsters[i];
+    }
+    this.monsters.length = mw;
+  }
+
   _stepWaveSpawning(dt) {
     this.wave.update(dt);
     let spawnData = this.wave.popDueMonster();
@@ -477,6 +485,13 @@ export class Game {
       this.monsters[i]._reviveLock = false;
     }
 
+    const deadCandidates = [];
+    for (let j = 0; j < this.monsters.length; j++) {
+      const target = this.monsters[j];
+      if (target.alive || target.level === 'Y' || target.reachedEnd || target.reviveImmune) continue;
+      deadCandidates.push(target);
+    }
+
     for (let i = 0; i < this.monsters.length; i++) {
       const necro = this.monsters[i];
       if (!necro.alive || necro.level !== 'Y') continue;
@@ -489,17 +504,9 @@ export class Game {
       while ((necro.reviveCount || 0) < maxTargets) {
         let best = null;
         let bestDist = Infinity;
-        for (let j = 0; j < this.monsters.length; j++) {
-          const target = this.monsters[j];
-          if (
-            target === necro ||
-            target.alive ||
-            target.level === 'Y' ||
-            target.reachedEnd ||
-            target._reviveLock ||
-            target.reviveImmune
-          )
-            continue;
+        for (let j = 0; j < deadCandidates.length; j++) {
+          const target = deadCandidates[j];
+          if (target._reviveLock) continue;
           const dx = target.x - necro.x;
           const dy = target.y - necro.y;
           const distSq = dx * dx + dy * dy;
@@ -1222,6 +1229,7 @@ export class Game {
     this.sellConfirmPending = false;
     this.sellConfirmTroop = null;
     this.seed = Math.floor(Math.random() * 0xffffffff);
+    this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();
     this.start(); // re-start the background loop

@@ -81,6 +81,7 @@ export class Troop {
     this._recomputeStats();
     this.maxHp = this._cachedMaxHp;
     this.healGoldSpent = 0;
+    this._upgradeCostCache = {};
   }
 
   // Scaled stats (1.2x per level). Cached for performance.
@@ -157,7 +158,11 @@ export class Troop {
     if (this.spec.type === 'support') levelMap.slow = this.healTargetLevel;
     const level = levelMap[stat];
     if (level === undefined) return Infinity;
-    return Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
+    const cacheKey = stat + '_' + level;
+    if (this._upgradeCostCache[cacheKey] === undefined) {
+      this._upgradeCostCache[cacheKey] = Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
+    }
+    return this._upgradeCostCache[cacheKey];
   }
 
   // Returns true when the stat is even visible/upgradable for this troop type
@@ -175,6 +180,7 @@ export class Troop {
     if (stat === 'slow' && this.spec.type === 'support') {
       if (this.healTargetLevel >= this.maxUpgradeLevel) return false;
       this.healTargetLevel++;
+      this._upgradeCostCache = {};
       return true;
     }
     const levelProp = STAT_LEVEL_PROPS[stat];
@@ -189,6 +195,7 @@ export class Troop {
     } else {
       this._recomputeStats();
     }
+    this._upgradeCostCache = {};
     return true;
   }
 
@@ -274,7 +281,7 @@ export class Troop {
     return total;
   }
 
-  pickHealTarget(troops) {
+  pickHealTarget(troops, troopIndexMap) {
     if (this.spec.type !== 'support') return null;
     const rangePxSq = this.getHealRangePxSq();
     const maxTargets = this.healTargetLevel;
@@ -319,7 +326,7 @@ export class Troop {
       }
     }
 
-    const troopIndexMap = new Map(troops.map((t, i) => [t, i]));
+    const indexMap = troopIndexMap || new Map(troops.map((t, i) => [t, i]));
     const sorted = this.healTargets.map((a) => {
       const dxA = a.x - this.x;
       const dyA = a.y - this.y;
@@ -328,7 +335,7 @@ export class Troop {
         hpRatio: a.getHpRatio(),
         hp: a.hp,
         distSq: dxA * dxA + dyA * dyA,
-        index: troopIndexMap.get(a),
+        index: indexMap.get(a),
       };
     });
     sorted.sort(compareHealPriority);
@@ -486,7 +493,7 @@ export class Troop {
     // Support troops heal allies instead of attacking monsters.
     if (this.spec.type === 'support') {
       if (this.targetRefresh <= 0) {
-        this.pickHealTarget(game ? game.troops : []);
+        this.pickHealTarget(game ? game.troops : [], game ? game._troopIndexByRef : null);
         this.targetRefresh = CONFIG.TARGET_REFRESH_INTERVAL;
       }
       if (this.cooldown > 0) return;

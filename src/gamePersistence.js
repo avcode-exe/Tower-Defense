@@ -219,6 +219,8 @@ export const GameSnapshotRestorer = {
     game.wave = new WaveManager();
     game.waveCompleteAnim = { active: false, waveNum: 0 };
 
+    game._onProjectileImpact = (proj) => game.applyProjectileImpact(proj);
+
     PARTICLES.clear();
     UI.shopScrollY = 0;
   },

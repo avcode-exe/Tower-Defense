@@ -12,24 +12,24 @@ import {
   fillStrokeRoundedRect,
 } from './utils.js';
 
-export function shopCardRect(i) {
+export function shopCardRect(i, shopScrollY) {
   const gap = LAYOUT.SHOP.CARD_GAP;
   const x = LAYOUT.SHOP.BTN_PAD;
   const cardH = LAYOUT.SHOP.CARD_H;
   const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
   const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
-  return { x, y: baseY - this.shopScrollY, w: cardW, h: cardH };
+  return { x, y: baseY - shopScrollY, w: cardW, h: cardH };
 }
 
 // Zero-allocation variant for rendering loops.
-export function shopCardRectInto(i, out) {
+export function shopCardRectInto(i, out, shopScrollY) {
   const gap = LAYOUT.SHOP.CARD_GAP;
   const x = LAYOUT.SHOP.BTN_PAD;
   const cardH = LAYOUT.SHOP.CARD_H;
   const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
   const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
   out.x = x;
-  out.y = baseY - this.shopScrollY;
+  out.y = baseY - shopScrollY;
   out.w = cardW;
   out.h = cardH;
   return out;
@@ -41,7 +41,7 @@ export function hitShop(px, py) {
   const areaBottom = this._cardAreaBottom || RENDERER.height;
   const r = this._hitShopScratch || (this._hitShopScratch = { x: 0, y: 0, w: 0, h: 0 });
   for (let i = 0; i < TROOP_SPECS.length; i++) {
-    this.shopCardRectInto(i, r);
+    this.shopCardRectInto(i, r, this.shopScrollY);
     if (r.y + r.h < areaTop || r.y > areaBottom) continue;
     if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
   }
@@ -181,7 +181,7 @@ export function drawShop(game) {
   const _shopScratch = this._shopScratch || (this._shopScratch = { x: 0, y: 0, w: 0, h: 0 });
   for (let i = 0; i < TROOP_SPECS.length; i++) {
     const spec = TROOP_SPECS[i];
-    const r = this.shopCardRectInto(i, _shopScratch);
+    const r = this.shopCardRectInto(i, _shopScratch, this.shopScrollY);
     const affordable = game.devMode || game.gold >= spec.cost;
     const isSelected = game.selectedSpec === spec;
     const isHovered = this.hoveredShopIndex === i;
