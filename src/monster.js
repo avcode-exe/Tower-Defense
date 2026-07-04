@@ -1,5 +1,6 @@
 import { CONFIG, MONSTER_SPECS } from './config.js';
 import { clamp, lerp } from './utils.js';
+import { PARTICLES } from './particles.js';
 
 // A monster travels along the waypoint list at a constant rate (tiles per
 // second) defined by its spec. We track `distance` (px travelled along the
@@ -19,7 +20,7 @@ export class Monster {
     // Boss gets an extra 100% HP on top.
     if (level === 'B') this.maxHp *= CONFIG.BOSS_HP_MULTIPLIER;
     this.hp = this.maxHp;
-    this.speed = this.spec.speed;
+    this.speed = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
     this.reward = this.spec.reward;
     this.leak = this.spec.leak;
 
@@ -55,9 +56,15 @@ export class Monster {
     // Passive healing (Boss).
     this.healPerSecond = this.spec.healPerSecond || 0;
 
+    // Active healing (Healer monster).
+    this.healRange = (this.spec.healRange || 0) * CONFIG.TILE_SIZE;
+    this._healRangeSq = this.healRange * this.healRange;
+    this._healing = false;
+    this.healTimer = 0;
+    this.healTickInterval = this.spec.healTickInterval || 1.0;
+
     // Slow / shatter mechanics
     this.slowTimer = 0;
-    this.baseSpeed = this.speed;
     this.shatterArmed = false;
     this.shatterBonus = 0;
     this._slowColorTint = 0; // for visual darkening
@@ -160,11 +167,11 @@ export class Monster {
   }
 
   applySlow(factor, duration, bonus = 0) {
-    // Shielded monsters are immune to slow while shield > 0
     if (this.shield > 0) return false;
-
+    const baseSpd = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
+    const speed = this.level === 'H' && this._healing ? CONFIG.MOVEMENT_SPEEDS['slow'] : baseSpd;
     this.slowTimer = Math.max(this.slowTimer, duration);
-    this.speed = this.baseSpeed * factor;
+    this.speed = speed * factor;
     this.shatterArmed = true;
     this.shatterBonus = bonus;
     this._slowColorTint = 1; // flag for renderer
@@ -278,7 +285,8 @@ export class Monster {
       this.slowTimer -= dt;
       if (this.slowTimer <= 0) {
         this.slowTimer = 0;
-        this.speed = this.baseSpeed;
+        const catSpeed = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
+        this.speed = this.level === 'H' && this._healing ? CONFIG.MOVEMENT_SPEEDS['slow'] : catSpeed;
         this.shatterArmed = false;
         this._slowColorTint = 0;
       }
@@ -288,6 +296,53 @@ export class Monster {
   _updateReviveGlow(dt) {
     if (this._reviveGlowTimer > 0) {
       this._reviveGlowTimer = Math.max(0, this._reviveGlowTimer - dt);
+    }
+  }
+
+  _tryHealAllies(dt, monsters) {
+    if (!this.alive || this.level !== 'H') return;
+
+    const rangeSq = this._healRangeSq;
+    const damaged = [];
+    if (monsters && Array.isArray(monsters)) {
+      for (let j = 0; j < monsters.length; j++) {
+        const target = monsters[j];
+        if (!target.alive || target === this) continue;
+        if (target.hp >= target.maxHp) continue;
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        if (dx * dx + dy * dy <= rangeSq) {
+          damaged.push(target);
+        }
+      }
+    }
+
+    if (damaged.length === 0) {
+      this._healing = false;
+      this.speed = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
+      this.state = 'MOVING';
+      return;
+    }
+
+    if (!this._healing) {
+      this._healing = true;
+      this.speed = CONFIG.MOVEMENT_SPEEDS['slow'];
+      this.healTimer = 0;
+    }
+
+    this.healTimer += dt;
+    const tick = this.healTickInterval;
+    const amount = this.spec.healPerSecond * tick;
+    while (this.healTimer >= tick) {
+      this.healTimer -= tick;
+      for (let k = 0; k < damaged.length; k++) {
+        const target = damaged[k];
+        if (!target.alive || target.hp >= target.maxHp) continue;
+        const heal = Math.min(amount, target.maxHp - target.hp);
+        target.hp += heal;
+        if (target.hp > target.maxHp) target.hp = target.maxHp;
+        PARTICLES.healBurst(target.x, target.y);
+      }
     }
   }
 
@@ -330,7 +385,8 @@ export class Monster {
     const atkSpd = this.spec.attackSpeed;
     const nearTarget = this.findTarget(troopTileIndex);
     if (nearTarget) {
-      const slowModeSpeed = this.baseSpeed * 0.5;
+      const base = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
+      const slowModeSpeed = base * 0.5;
       this.speed = Math.min(this.speed, slowModeSpeed);
       this.attackTimer -= dt;
       if (this.attackTimer <= 0) {
@@ -338,7 +394,7 @@ export class Monster {
         this._pendingAttack = nearTarget;
       }
     } else if (this.slowTimer <= 0) {
-      this.speed = this.baseSpeed;
+      this.speed = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
     }
   }
 
@@ -377,7 +433,7 @@ export class Monster {
     }
   }
 
-  update(dt, troopTileIndex) {
+  update(dt, troopTileIndex, monsters) {
     if (!this.alive) return;
 
     this._updateRegen(dt);
@@ -392,13 +448,29 @@ export class Monster {
     }
 
     const attackMode = this.spec.attackMode || 'stop';
+    const isHealer = this.level === 'H';
 
     if (this.state === 'ATTACKING') {
       this._updateStopMode(dt, troopTileIndex);
     }
 
+    let hasNearbyDamaged = false;
+    if (isHealer && Array.isArray(monsters)) {
+      const rangeSq = this._healRangeSq;
+      for (let j = 0; j < monsters.length; j++) {
+        const target = monsters[j];
+        if (!target.alive || target === this || target.hp >= target.maxHp) continue;
+        const dx = target.x - this.x;
+        const dy = target.y - this.y;
+        if (dx * dx + dy * dy <= rangeSq) {
+          hasNearbyDamaged = true;
+          break;
+        }
+      }
+    }
+
     if (this.state === 'MOVING') {
-      if (attackMode === 'slow' && troopTileIndex) {
+      if (attackMode === 'slow' && troopTileIndex && !isHealer) {
         this._updateSlowMode(dt, troopTileIndex);
       }
 
@@ -413,10 +485,19 @@ export class Monster {
 
       this._updatePosition();
 
-      if (attackMode === 'pass' && troopTileIndex) {
+      if (attackMode === 'pass' && troopTileIndex && !isHealer) {
         this._updatePassMode(troopTileIndex);
-      } else if (attackMode === 'stop' && troopTileIndex) {
+      } else if (attackMode === 'stop' && troopTileIndex && !isHealer) {
         this._updateStopMode(dt, troopTileIndex);
+      }
+    }
+
+    if (isHealer && Array.isArray(monsters)) {
+      if (hasNearbyDamaged) {
+        this._tryHealAllies(dt, monsters);
+      } else {
+        this._healing = false;
+        this.speed = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
       }
     }
   }

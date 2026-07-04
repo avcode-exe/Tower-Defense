@@ -21,7 +21,10 @@ describe('WaveManager.buildQueue', () => {
 
     const queueLevels = wave.queue.map((entry) => entry.level);
     expect(queueLevels.filter((level) => level === 'Y')).toHaveLength(1);
-    expect(queueLevels.filter((level) => level !== 'Y')).toEqual([4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 3, 3]);
+    expect(queueLevels.filter((level) => level === 'H')).toHaveLength(1);
+    expect(queueLevels.filter((level) => level !== 'Y' && level !== 'H')).toEqual([
+      4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 5, 5, 5, 5, 3, 3,
+    ]);
   });
 
   it('builds queue for wave 1', () => {
@@ -632,7 +635,11 @@ describe('WaveManager.getNextWaveEstimate()', () => {
 
     const estimate = wave.getNextWaveEstimate();
     const expectedLeak =
-      10 * MONSTER_SPECS[4].leak + 4 * MONSTER_SPECS[5].leak + 1 * MONSTER_SPECS.Y.leak + 2 * MONSTER_SPECS[3].leak;
+      10 * MONSTER_SPECS[4].leak +
+      4 * MONSTER_SPECS[5].leak +
+      1 * MONSTER_SPECS.Y.leak +
+      1 * MONSTER_SPECS.H.leak +
+      2 * MONSTER_SPECS[3].leak;
 
     expect(estimate.totalLeak).toBe(expectedLeak);
   });
@@ -720,7 +727,7 @@ describe('wave composition validation', () => {
   });
 
   it('every wave entry has valid monster key', () => {
-    const validKeys = new Set(['1', '2', '3', '4', '5', 'Y', 'B', 'S', 'X']);
+    const validKeys = new Set(['1', '2', '3', '4', '5', 'Y', 'B', 'S', 'X', 'H']);
     for (const wave of WAVES) {
       for (const [level, count] of wave) {
         expect(validKeys.has(String(level))).toBe(true);

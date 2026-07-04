@@ -94,7 +94,6 @@ function fakeMonster(level, x, y, overrides = {}) {
     reviveDamageRatio: 1,
     reviveGlow: false,
     _reviveGlowTimer: 0,
-    baseSpeed: spec.speed,
     speed: spec.speed,
     stunTimer: 0,
     slowTimer: 0,
@@ -217,7 +216,7 @@ describe('Shatter mechanic', () => {
     const m = makeMonster(1);
     const ok = m.applySlow(0.5, 2.5, 0.5);
     expect(ok).toBe(true);
-    expect(m.speed).toBe(m.baseSpeed * 0.5);
+    expect(m.speed).toBe((CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5);
     expect(m.shatterArmed).toBe(true);
     expect(m.slowTimer).toBeGreaterThan(0);
   });
@@ -241,7 +240,7 @@ describe('Shield immunity', () => {
     expect(m.shield).toBeGreaterThan(0);
     const ok = m.applySlow(0.5, 2.5);
     expect(ok).toBe(false);
-    expect(m.speed).toBe(m.baseSpeed);
+    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 });
 
@@ -275,7 +274,7 @@ describe('_updateSlowDecay', () => {
     const m = makeMonster(1);
     m.applySlow(0.5, 1.0, 0.5);
     m._updateSlowDecay(1.5);
-    expect(m.speed).toBe(m.baseSpeed);
+    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
     expect(m.shatterArmed).toBe(false);
     expect(m.slowTimer).toBe(0);
   });
@@ -621,16 +620,16 @@ describe('update - slow mode (Spear)', () => {
     const troop = makeTroop(2, 0);
     const tileIndex = buildTileIndex([troop]);
     m.update(0.1, tileIndex);
-    expect(m.speed).toBeLessThan(m.baseSpeed);
+    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 
   it('restores speed when no troop is near', () => {
     const m = makeMonster('X', [[0, 0]], longPath());
     m.state = 'MOVING';
-    m.speed = m.baseSpeed * 0.5;
+    m.speed = (CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5;
     const tileIndex = buildTileIndex([]);
     m.update(0.1, tileIndex);
-    expect(m.speed).toBe(m.baseSpeed);
+    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 });
 
@@ -758,7 +757,7 @@ describe('_updateSlowDecay edge cases', () => {
     const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
     m.slowTimer = 0;
     m._updateSlowDecay(1);
-    expect(m.speed).toBe(m.baseSpeed);
+    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 
   it('resets _slowColorTint when slow expires', () => {
@@ -956,7 +955,7 @@ describe('applySlow edge cases', () => {
     const m = makeMonster('S');
     m.shield = 0;
     expect(m.applySlow(0.5, 1.0)).toBe(true);
-    expect(m.speed).toBeLessThan(m.baseSpeed);
+    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 });
 
@@ -1117,19 +1116,19 @@ describe('_updateSlowMode edge cases', () => {
     const m = makeMonster('X', [[0, 0]], longPath()); // Spear has slow mode
     m.state = 'MOVING';
     m.slowTimer = 2.0; // currently slowed
-    m.speed = m.baseSpeed * 0.5;
+    m.speed = (CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5;
     const emptyIdx = buildTileIndex([]);
     m._updateSlowMode(0.1, emptyIdx);
-    expect(m.speed).toBeLessThan(m.baseSpeed);
+    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 
   it('no near target + slowTimer <= 0: speed restores', () => {
     const m = makeMonster('X', [[0, 0]], longPath());
     m.state = 'MOVING';
     m.slowTimer = 0;
-    m.speed = m.baseSpeed * 0.5;
+    m.speed = (CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5;
     m._updateSlowMode(0.1, buildTileIndex([]));
-    expect(m.speed).toBe(m.baseSpeed);
+    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 
   it('near target + timer fires → sets _pendingAttack', () => {
@@ -1144,10 +1143,10 @@ describe('_updateSlowMode edge cases', () => {
   it('near target + speed capped at baseSpeed * 0.5', () => {
     const m = makeMonster('X', [[0, 0]], longPath());
     m.state = 'MOVING';
-    m.speed = m.baseSpeed;
+    m.speed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;
     const troop = makeTroop(2, 0);
     m._updateSlowMode(0.1, buildTileIndex([troop]));
-    expect(m.speed).toBeLessThanOrEqual(m.baseSpeed * 0.5);
+    expect(m.speed).toBeLessThanOrEqual((CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5);
   });
 });
 
@@ -1311,7 +1310,7 @@ describe('update() integration', () => {
     m.state = 'MOVING';
     const troop = makeTroop(2, 0);
     m.update(0.1, buildTileIndex([troop]));
-    expect(m.speed).toBeLessThan(m.baseSpeed);
+    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 
   it('ATTACKING state at start of update → _updateStopMode runs', () => {
@@ -1364,7 +1363,7 @@ describe('update() integration', () => {
     m.attackTarget = null;
     m.update(1.0, buildTileIndex([]));
     expect(m.slowTimer).toBe(0);
-    expect(m.speed).toBe(m.baseSpeed);
+    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
   });
 
   it('hpMult=undefined defaults to 1 via || 1 fallback', () => {

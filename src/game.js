@@ -453,7 +453,7 @@ export class Game {
         m.alive = false;
         continue;
       }
-      m.update(dt, this._troopTileIndex);
+      m.update(dt, this._troopTileIndex, this.monsters);
       if (!m.reachedEnd) continue;
       m.alive = false;
       if (this.devMode) continue;
@@ -538,7 +538,7 @@ export class Game {
   _resetRevivedMonster(m) {
     m.stunTimer = 0;
     m.slowTimer = 0;
-    m.speed = m.baseSpeed;
+    m.speed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;
     m.shatterArmed = false;
     m.shatterBonus = 0;
     m._slowColorTint = 0;

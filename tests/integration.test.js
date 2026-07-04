@@ -1053,7 +1053,7 @@ describe('Integration: slow decay', () => {
     const grunt = new Monster(1, game.waypoints, game.pathSegments);
     grunt.applySlow(0.5, 1.0, 0.5);
 
-    expect(grunt.speed).toBe(grunt.baseSpeed * 0.5);
+    expect(grunt.speed).toBe((CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed) * 0.5);
     expect(grunt.slowTimer).toBeGreaterThan(0);
 
     for (let i = 0; i < 65; i++) {
@@ -1061,17 +1061,17 @@ describe('Integration: slow decay', () => {
     }
 
     expect(grunt.slowTimer).toBe(0);
-    expect(grunt.speed).toBe(grunt.baseSpeed);
+    expect(grunt.speed).toBe(CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed);
     expect(grunt.shatterArmed).toBe(false);
   });
 
   it('applying a stronger slow overrides a weaker one', () => {
     const grunt = new Monster(1, game.waypoints, game.pathSegments);
     grunt.applySlow(0.8, 2.0, 0.2);
-    expect(grunt.speed).toBe(grunt.baseSpeed * 0.8);
+    expect(grunt.speed).toBe((CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed) * 0.8);
 
     grunt.applySlow(0.5, 1.0, 0.5);
-    expect(grunt.speed).toBe(grunt.baseSpeed * 0.5);
+    expect(grunt.speed).toBe((CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed) * 0.5);
   });
 });
 
@@ -1091,14 +1091,14 @@ describe('Integration: Spear slow mode', () => {
 
     game.spawnMonster('X');
     const spear = game.monsters[0];
-    const baseSpeed = spear.baseSpeed;
+    const baseSpeed = CONFIG.MOVEMENT_SPEEDS[spear.spec.movementSpeed] || spear.spec.speed;
 
     let steps = 0;
     let slowed = false;
     while (steps < 120) {
       game.step(CONFIG.FIXED_TIMESTEP);
       steps++;
-      if (spear.speed < baseSpeed) {
+      if (spear.speed < CONFIG.MOVEMENT_SPEEDS[spear.spec.movementSpeed] || spear.spec.speed) {
         slowed = true;
         break;
       }

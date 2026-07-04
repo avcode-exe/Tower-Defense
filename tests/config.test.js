@@ -18,6 +18,7 @@ const EXPECTED_MONSTER_MOVEMENT_SPEEDS = {
   Shielded: 'medium',
   Spear: 'fast',
   Necromancer: 'slow',
+  Healer: 'fast',
 };
 
 describe('CONFIG', () => {

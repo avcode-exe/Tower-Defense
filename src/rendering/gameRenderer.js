@@ -178,6 +178,18 @@ export function renderGame(game) {
       ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, Math.PI * 2);
       ctx.fill();
     }
+    // Healer healing range indicator.
+    if (m.level === 'H' && m._healing) {
+      const radius = m.healRange || (m.spec.healRange || 1) * CONFIG.TILE_SIZE;
+      ctx.save();
+      ctx.filter = 'blur(8px)';
+      ctx.fillStyle = m.spec.color;
+      ctx.globalAlpha = 0.05;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
   }
 
   // PASS 2: HP bars + Shield bars (merged into 1 loop — was 2 separate loops).

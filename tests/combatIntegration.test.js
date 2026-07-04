@@ -291,21 +291,21 @@ describe('Integration: Ice Wizard splash slow', () => {
     const grunt = new Monster(1, game.waypoints, game.pathSegments);
     grunt.applySlow(0.5, 1.0, 0.5);
 
-    expect(grunt.speed).toBe(grunt.baseSpeed * 0.5);
+    expect(grunt.speed).toBe((CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed) * 0.5);
 
     for (let i = 0; i < 65; i++) grunt._updateSlowDecay(CONFIG.FIXED_TIMESTEP);
 
     expect(grunt.slowTimer).toBe(0);
-    expect(grunt.speed).toBe(grunt.baseSpeed);
+    expect(grunt.speed).toBe(CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed);
   });
 
   it('stronger slow overrides weaker slow', () => {
     const grunt = new Monster(1, game.waypoints, game.pathSegments);
     grunt.applySlow(0.8, 2.0, 0.2);
-    expect(grunt.speed).toBe(grunt.baseSpeed * 0.8);
+    expect(grunt.speed).toBe((CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed) * 0.8);
 
     grunt.applySlow(0.5, 1.0, 0.5);
-    expect(grunt.speed).toBe(grunt.baseSpeed * 0.5);
+    expect(grunt.speed).toBe((CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed) * 0.5);
   });
 
   it('shielded monster is immune to slow', () => {
@@ -1100,7 +1100,7 @@ describe('Integration: Ice Wizard', () => {
   it('slows monster (speed reduced)', () => {
     game.placeTroop(specs.icewiz, 5, 1);
     const grunt = placeMonsterAt(game, 1, 5, 0);
-    const baseSpeed = grunt.baseSpeed;
+    const baseSpeed = CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed;
     for (let i = 0; i < 90; i++) game.step(CONFIG.FIXED_TIMESTEP);
     if (grunt.slowTimer > 0) {
       expect(grunt.speed).toBeLessThan(baseSpeed);
@@ -1128,7 +1128,7 @@ describe('Integration: Ice Wizard', () => {
 
   it('slow expiry restores speed', () => {
     const grunt = new Monster(1, game.waypoints, game.pathSegments);
-    const baseSpeed = grunt.baseSpeed;
+    const baseSpeed = CONFIG.MOVEMENT_SPEEDS[grunt.spec.movementSpeed] || grunt.spec.speed;
     grunt.applySlow(0.5, 0.3, 0.5);
     expect(grunt.speed).toBe(baseSpeed * 0.5);
     for (let i = 0; i < 24; i++) grunt.update(CONFIG.FIXED_TIMESTEP, []);

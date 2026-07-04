@@ -398,7 +398,7 @@ describe('Monster: combat', () => {
   it('slow reduces monster speed', () => {
     game.spawnMonster(1);
     const m = game.monsters[0];
-    const baseSpeed = m.baseSpeed;
+    const baseSpeed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;
     m.applySlow(0.5, 2.0, 0.5);
     expect(m.speed).toBe(baseSpeed * 0.5);
   });
@@ -406,7 +406,7 @@ describe('Monster: combat', () => {
   it('slow expires and speed restores', () => {
     game.spawnMonster(1);
     const m = game.monsters[0];
-    const baseSpeed = m.baseSpeed;
+    const baseSpeed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;
     m.applySlow(0.5, 0.3, 0.5);
     for (let i = 0; i < 30; i++) m.update(CONFIG.FIXED_TIMESTEP, []);
     expect(m.speed).toBe(baseSpeed);
@@ -698,11 +698,11 @@ describe('Monster: spear mechanics', () => {
     game.placeTroop(swordsmanSpec, 1, 0);
     game.spawnMonster('X');
     const spear = game.monsters[0];
-    const baseSpeed = spear.baseSpeed;
+    const baseSpeed = CONFIG.MOVEMENT_SPEEDS[spear.spec.movementSpeed] || spear.spec.speed;
     let slowed = false;
     for (let s = 0; s < 120; s++) {
       game.step(CONFIG.FIXED_TIMESTEP);
-      if (spear.speed < baseSpeed) {
+      if (spear.speed < CONFIG.MOVEMENT_SPEEDS[spear.spec.movementSpeed] || spear.spec.speed) {
         slowed = true;
         break;
       }

@@ -600,8 +600,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       stats.appendChild(statSpan('HP: ' + spec.hp));
       stats.appendChild(statSpan('Spd: ' + spec.speed));
       stats.appendChild(statSpan('+' + spec.reward + 'g'));
-      stats.appendChild(statSpan('Dmg: ' + spec.damage));
-      stats.appendChild(statSpan('Leak: ' + spec.leak));
+      if (spec.damage > 0) {
+        stats.appendChild(statSpan('Dmg: ' + spec.damage));
+      }
+      if (spec.leak) {
+        stats.appendChild(statSpan('Leak: ' + spec.leak));
+      }
       if (spec.shield)
         stats.appendChild(statSpan('Shield: ' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
       const mode = spec.attackMode || 'stop';
@@ -609,6 +613,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         stats.appendChild(statSpan('Slow: slows near troops, attacks closest'));
       } else if (mode === 'pass') {
         stats.appendChild(statSpan('Pass: penetration, hits each troop once'));
+      } else if (mode === 'heal' || mode === 'support') {
+        stats.appendChild(statSpan('Heal: heals nearby allies'));
       }
       row.appendChild(dot);
       row.appendChild(name);

@@ -272,6 +272,23 @@ export const MONSTER_SPECS = {
     reviveMaxTargets: CONFIG.MONSTER_REVIVE_MAX_TARGETS,
     reviveGlowDuration: CONFIG.MONSTER_REVIVE_GLOW_DURATION,
   },
+  H: {
+    name: 'Healer',
+    hp: 400,
+    speed: 2.0,
+    movementSpeed: 'fast',
+    reward: 28,
+    leak: 1,
+    color: '#4ecdc4',
+    size: 14,
+    damage: 0,
+    attackSpeed: 0,
+    attackRange: 0,
+    attackMode: 'support',
+    healRange: 2.5,
+    healPerSecond: 6,
+    healTickInterval: 1.0,
+  },
 };
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).
@@ -484,7 +501,7 @@ for (let i = 0; i < TROOP_SPECS.length; i++) {
 }
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.
-export const MONSTER_DEV_ORDER = [1, 2, 3, 4, 5, 'Y', 'B', 'S', 'X'];
+export const MONSTER_DEV_ORDER = [1, 2, 3, 4, 5, 'Y', 'B', 'S', 'X', 'H'];
 
 export const WAVES = [
   [[1, 8]], // Wave 1: 8 Grunts (272 HP)
@@ -522,13 +539,15 @@ export const WAVES = [
     [4, 10],
     [5, 4],
     ['Y', 1],
+    ['H', 1],
     [3, 2],
-  ], // Wave 9: 10 Elite + 4 Champion + 1 Necromancer + 2 Brute
+  ], // Wave 9: 8 Elite + 4 Champion + 1 Necromancer + 1 Healer + 2 Brute
   [
-    [5, 6],
-    ['S', 4],
+    [5, 5],
+    ['S', 3],
+    ['H', 2],
     ['B', 1],
-  ], // Wave 10: 6 Champion + 4 Shielded + 1 Boss
+  ], // Wave 10: 5 Champion + 3 Shielded + 2 Healer + Boss
 ];
 
 // Projectile visuals per troop id (small set of shapes).
