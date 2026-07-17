@@ -81,8 +81,13 @@ export class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroop = null;
+    this.sellConfirmationEnabled = true;
     this.devMonsterCounts = this._defaultDevCounts();
     this._needsSaveCleanup = false;
+
+    // Drag-to-place: when the user holds the mouse button after selecting a
+    // troop from the shop, placement is deferred until release on a valid tile.
+    this._dragState = null;
   }
 
   _getPopup(text, x, y, t, color) {
@@ -890,6 +895,7 @@ export class Game {
     if (button === 2) {
       this.selectedSpec = null;
       this.selectedTroopIndex = -1;
+      this._dragState = null;
       return;
     }
     if (UI.handleToggleClick(px, py)) return;
@@ -905,6 +911,14 @@ export class Game {
     this._handleSellClick(px, py);
     this._handleUpgradeClicks(px, py);
     this._handleMapClick(px, py);
+  }
+
+  onMouseUp(px, py) {
+    if (!this._dragState) return;
+    const { spec } = this._dragState;
+    this._dragState = null;
+    if (!spec) return;
+    this._tryPlaceFromPointer(px, py, spec);
   }
 
   _hitBox(px, py, box) {
@@ -993,8 +1007,13 @@ export class Game {
     const shopIdx = UI.hitShop(px, py);
     if (shopIdx >= 0) {
       const spec = TROOP_SPECS[shopIdx];
-      this.selectedSpec = this.selectedSpec === spec ? null : spec;
-      this.selectedTroopIndex = -1;
+      if (this.selectedSpec === spec) {
+        // Clicking the already-selected card starts drag-to-place.
+        this._dragState = { spec, started: true };
+      } else {
+        this.selectedSpec = spec;
+        this.selectedTroopIndex = -1;
+      }
     }
   }
 
@@ -1155,6 +1174,31 @@ export class Game {
     window.electron.saveGame(this.getSaveData());
   }
 
+  _tryPlaceFromPointer(px, py, spec) {
+    const shieldShopRight = RENDERER.width - UI_LAYOUT.shieldShopWidth;
+    if (
+      px < UI_LAYOUT.shopWidth ||
+      py < UI_LAYOUT.hudHeight ||
+      py > RENDERER.height - UI_LAYOUT.previewHeight ||
+      px > shieldShopRight
+    ) {
+      return;
+    }
+    RENDERER.toWorldInto(px, py, this._centerScratch);
+    pixelToTile(this._centerScratch.x, this._centerScratch.y, this._tileScratch);
+    const tile = this._tileScratch;
+    if (!inBounds(tile.gx, tile.gy)) return;
+    if (this.placeTroop(spec, tile.gx, tile.gy)) {
+      this.selectedSpec = spec;
+    } else {
+      const reason = this.getPlacementInvalidReason(tile.gx, tile.gy, spec) || 'Invalid!';
+      tileCenterInto(tile.gx, tile.gy, this._centerScratch);
+      this._getPopup(reason, this._centerScratch.x, this._centerScratch.y, 1.0, '#da3633');
+      this.selectedSpec = null;
+    }
+  }
+
+  // ===== Popup/shortcuts =====
   onKeyDown(e) {
     // Restart.
     if ((e.key === 'r' || e.key === 'R') && this.state === 'DEFEAT') {

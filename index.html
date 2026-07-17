@@ -48,7 +48,8 @@
   <div id="controls-popup" class="bar-popup bar-popup--closed game-panel">
     <strong>Controls</strong>
     <ul>
-      <li>Click a shop card then click a tile to place</li>
+      <li>Click a shop card, then click a tile to place</li>
+      <li>Click a shop card again to start drag-to-place; release on a tile</li>
       <li>Click an existing troop to select; press Sell to remove (30% refund)</li>
       <li>Right-click or Esc to cancel selection</li>
       <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
@@ -81,6 +82,9 @@
         </label>
         <label style="display:block; margin:8px 0; cursor:pointer;">
           <input type="checkbox" id="settings-auto-download" checked aria-label="Auto-download updates when confirmed"> Auto-download when confirmed
+        </label>
+        <label style="display:block; margin:4px 0; cursor:pointer;">
+          <input type="checkbox" id="settings-sell-confirmation" checked aria-label="Confirm before selling troops"> Sell confirmation
         </label>
         <label style="display:block; margin:4px 0;">
           Check interval (min): <input type="number" id="settings-interval" value="60" min="15" step="15" aria-label="Update check interval in minutes" style="width:60px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#e6edf3; padding:2px 4px; border-radius:4px; font-size:10px;">
