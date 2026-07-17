@@ -12,17 +12,20 @@ describe('beta release versioning', () => {
     expect(packageLockJson.packages[''].version).toBe('1.6.0-beta.2');
   });
 
-  it('serializes beta 1.6.0-beta.2 saves', () => {
-    const data = SaveSerializer.fromGame({
-      gold: 100,
-      lives: 25,
-      seed: 42,
-      speed: 1,
-      devMode: false,
-      devMonsterCounts: {},
-      wave: { currentWave: 0 },
-      troops: [],
-    });
+  it('serializes saves with provided version', () => {
+    const data = SaveSerializer.fromGame(
+      {
+        gold: 100,
+        lives: 25,
+        seed: 42,
+        speed: 1,
+        devMode: false,
+        devMonsterCounts: {},
+        wave: { currentWave: 0 },
+        troops: [],
+      },
+      '1.6.0-beta.2'
+    );
 
     expect(data.version).toBe('1.6.0-beta.2');
   });

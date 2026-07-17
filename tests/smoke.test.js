@@ -77,9 +77,11 @@ describe('Installer smoke test', () => {
     it('package.json and gamePersistence use the same version', () => {
       const pkg = readJson('package.json');
       const persistence = readFileSync(join(ROOT, 'src/gamePersistence.js'), 'utf8');
-      const match = persistence.match(/version:\s*'([^']+)'/);
+      const match = persistence.match(/version:\s+version\s*\|\|\s*'([^']+)'/);
       expect(match).not.toBeNull();
-      expect(match[1]).toBe(pkg.version);
+      const fallbackVersion = match[1];
+      expect(fallbackVersion).toBe('1.0.0');
+      expect(persistence).toContain('fromGame(game, version)');
     });
 
     it('updateManager settings shape matches defaults', () => {

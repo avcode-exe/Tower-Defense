@@ -100,7 +100,7 @@ export class UpdateManager {
   }
 
   _showProgress(version, pct) {
-    const p = Math.round(pct || 0);
+    const p = Math.min(100, Math.round(pct || 0));
     if (!this.els.progressWrap || !this.els.progressPct || !this.els.progressVer || !this.els.progressFill) return;
     this.els.progressWrap.style.display = 'block';
     this.els.progressPct.textContent = p + '%';

@@ -411,6 +411,6 @@ describe('Performance: memory stability', () => {
       for (let s = 0; s < 150; s++) game.step(CONFIG.FIXED_TIMESTEP);
     }
     expect(game.popups.length).toBe(0);
-    expect(game._popupPool.length).toBeLessThanOrEqual(100);
+    expect(game._popupPool.length).toBeLessThanOrEqual(200);
   });
 });

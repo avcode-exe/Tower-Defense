@@ -4,8 +4,8 @@ import { Monster } from './monster.js';
 const NECROMANCER_LEVEL = 'Y';
 const HEALER_LEVEL = 'H';
 
-export function shuffleNecromancersInWave(entries, random = Math.random) {
-  const nonNecromancers = [];
+export function shuffleSpecialMonstersInWave(entries, random = Math.random) {
+  const nonSpecials = [];
   const necromancers = [];
   const healers = [];
 
@@ -15,7 +15,7 @@ export function shuffleNecromancersInWave(entries, random = Math.random) {
     } else if (level === HEALER_LEVEL) {
       healers.push(level);
     } else {
-      nonNecromancers.push(level);
+      nonSpecials.push(level);
     }
   }
 
@@ -23,25 +23,25 @@ export function shuffleNecromancersInWave(entries, random = Math.random) {
     return entries.slice();
   }
 
-  if (nonNecromancers.length === 0) {
+  if (nonSpecials.length === 0) {
     const result = [...necromancers, ...healers];
     return result;
   }
 
-  const slots = Array.from({ length: nonNecromancers.length + 1 }, () => []);
+  const slots = Array.from({ length: nonSpecials.length + 1 }, () => []);
   for (const necromancer of necromancers) {
     slots[Math.floor(random() * slots.length)].push(necromancer);
   }
 
   const base = [];
-  for (let i = 0; i < nonNecromancers.length; i += 1) {
+  for (let i = 0; i < nonSpecials.length; i += 1) {
     if (slots[i].length > 0) {
       base.push(...slots[i]);
     }
-    base.push(nonNecromancers[i]);
+    base.push(nonSpecials[i]);
   }
-  if (slots[nonNecromancers.length].length > 0) {
-    base.push(...slots[nonNecromancers.length]);
+  if (slots[nonSpecials.length].length > 0) {
+    base.push(...slots[nonSpecials.length]);
   }
 
   if (healers.length === 0) {
@@ -108,11 +108,14 @@ export class WaveManager {
     const order = MONSTER_DEV_ORDER;
     const levels = [];
     for (const level of order) {
-      const count = counts[level] || 0;
+      const count = Math.max(0, counts[level] || 0);
       for (let i = 0; i < count; i += 1) {
         levels.push(level);
       }
     }
+    this.queue = [];
+    this.currentPreview = [];
+    if (levels.length === 0) return;
     this._buildSpawnQueue(levels);
     const previewMap = {};
     for (const entry of this.queue) {
@@ -131,7 +134,7 @@ export class WaveManager {
     const cycle = Math.floor(this.currentWave / this.waves.length);
     const hpMult = this._getScaling(cycle).hpMult;
     let t = CONFIG.WAVE_START_DELAY;
-    for (const level of shuffleNecromancersInWave(levels)) {
+    for (const level of shuffleSpecialMonstersInWave(levels)) {
       const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
       this.queue.push({ level, spawnAt: t, hpMult });
       t += interval;

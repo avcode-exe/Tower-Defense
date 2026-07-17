@@ -1548,3 +1548,176 @@ describe('Necromancer milestone 3 acceptance', () => {
     expect(Object.keys(counts)).toContain('Y');
   });
 });
+
+// ─── Healer monster (level H) ────────────────────────────────────────────────
+
+describe('Healer monster (level H)', () => {
+  function healerPath() {
+    const T = CONFIG.TILE_SIZE;
+    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
+  }
+
+  function makeDamagedAlly(gx, gy, hp, maxHp) {
+    const ally = makeMonsterAt(1, gx, gy);
+    ally.hp = hp;
+    ally.maxHp = maxHp;
+    return ally;
+  }
+
+  it('starts at fast speed', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['fast']);
+    expect(h._healing).toBe(false);
+  });
+
+  it('_tryHealAllies heals damaged allies in range', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    const allies = [ally];
+    h._tryHealAllies(1.0, allies);
+    expect(ally.hp).toBeGreaterThan(10);
+    expect(h._healing).toBe(true);
+  });
+
+  it('_tryHealAllies heals multiple damaged allies', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally1 = makeDamagedAlly(1, 0, 10, 100);
+    const ally2 = makeDamagedAlly(1, 0, 20, 100);
+    const allies = [ally1, ally2];
+    h._tryHealAllies(1.0, allies);
+    expect(ally1.hp).toBeGreaterThan(10);
+    expect(ally2.hp).toBeGreaterThan(20);
+  });
+
+  it('_tryHealAllies caps heal at maxHp - hp', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 95, 100);
+    const allies = [ally];
+    h._tryHealAllies(1.0, allies);
+    expect(ally.hp).toBeLessThanOrEqual(100);
+  });
+
+  it('_tryHealAllies ignores self', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    h.hp = 50;
+    h.maxHp = 100;
+    const allies = [h];
+    h._tryHealAllies(1.0, allies);
+    expect(h._healing).toBe(false);
+  });
+
+  it('_tryHealAllies ignores full-HP monsters', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 100, 100);
+    const allies = [ally];
+    h._tryHealAllies(1.0, allies);
+    expect(h._healing).toBe(false);
+  });
+
+  it('_tryHealAllies ignores dead monsters', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const dead = makeDamagedAlly(1, 0, 10, 100);
+    dead.alive = false;
+    const allies = [dead];
+    h._tryHealAllies(1.0, allies);
+    expect(h._healing).toBe(false);
+  });
+
+  it('_tryHealAllies ignores monsters outside range', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const far = makeDamagedAlly(10, 0, 10, 100);
+    const allies = [far];
+    h._tryHealAllies(1.0, allies);
+    expect(far.hp).toBe(10);
+    expect(h._healing).toBe(false);
+  });
+
+  it('transitions to slow speed when healing begins', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    h._tryHealAllies(1.0, [ally]);
+    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['slow']);
+  });
+
+  it('resumes fast speed when no damaged allies remain', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    h._tryHealAllies(0.5, [ally]);
+    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['slow']);
+    ally.hp = ally.maxHp;
+    h._tryHealAllies(0.5, [ally]);
+    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['fast']);
+  });
+
+  it('_healing flag is cleared when no damaged allies in range', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    h._tryHealAllies(0.5, [ally]);
+    expect(h._healing).toBe(true);
+    ally.hp = ally.maxHp;
+    h._tryHealAllies(0.5, [ally]);
+    expect(h._healing).toBe(false);
+  });
+
+  it('_healing flag persists on death (not cleared by update)', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    h._tryHealAllies(0.5, [ally]);
+    expect(h._healing).toBe(true);
+    h.alive = false;
+    h.update(0.1, [], []);
+    expect(h._healing).toBe(true);
+  });
+
+  it('heals at correct interval, not every frame', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    const tick = h.healTickInterval;
+    const initialHp = ally.hp;
+    h._tryHealAllies(tick - 0.01, [ally]);
+    expect(ally.hp).toBe(initialHp);
+    h._tryHealAllies(0.02, [ally]);
+    const hpAfterTick = ally.hp;
+    expect(hpAfterTick).toBeGreaterThan(initialHp);
+    expect(hpAfterTick).toBeLessThanOrEqual(ally.maxHp);
+  });
+
+  it('healer + slow interaction: speed is slow * slowFactor while healing', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    h._tryHealAllies(0.1, [ally]);
+    h.applySlow(0.5, 2.0, 0);
+    expect(h.speed).toBeCloseTo(CONFIG.MOVEMENT_SPEEDS['slow'] * 0.5);
+  });
+
+  it('healer + slow interaction: after slow expires, returns to slow if still healing', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    h._tryHealAllies(0.1, [ally]);
+    h.applySlow(0.5, 0.3, 0);
+    for (let i = 0; i < 30; i++) h._updateSlowDecay(CONFIG.FIXED_TIMESTEP);
+    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['slow']);
+  });
+
+  it('healer + slow interaction: after slow expires and healing stops, returns to fast', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const ally = makeDamagedAlly(1, 0, 10, 100);
+    h._tryHealAllies(0.1, [ally]);
+    h.applySlow(0.5, 0.3, 0);
+    ally.hp = ally.maxHp;
+    h._tryHealAllies(0.1, [ally]);
+    for (let i = 0; i < 30; i++) h._updateSlowDecay(CONFIG.FIXED_TIMESTEP);
+    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['fast']);
+  });
+
+  it('healer does not heal dead allies', () => {
+    const h = makeMonster('H', [[0, 0]], healerPath());
+    const dead = makeMonsterAt(1, 1, 0);
+    dead.alive = false;
+    dead.hp = 0;
+    dead.maxHp = 100;
+    const allies = [dead];
+    h._tryHealAllies(1.0, allies);
+    expect(h._healing).toBe(false);
+  });
+});

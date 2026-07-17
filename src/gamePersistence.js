@@ -49,9 +49,9 @@ function isValidTroop(t) {
 // adding new persistent fields requires only one touch-point per operation.
 
 export const SaveSerializer = {
-  fromGame(game) {
+  fromGame(game, version) {
     return {
-      version: '1.6.0-beta.2',
+      version: version || '1.0.0',
       gold: game.gold === Infinity ? null : game.gold,
       lives: game.lives === Infinity ? null : game.lives,
       seed: game.seed,

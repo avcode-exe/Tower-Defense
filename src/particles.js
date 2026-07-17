@@ -3,6 +3,9 @@
 // world space during the render pass.
 import { CONFIG } from './config.js';
 
+const ALPHA_LEVELS = 10;
+const BUCKET_STRIDE = ALPHA_LEVELS + 1;
+
 export class Particle {
   constructor() {
     this.x = 0;
@@ -267,8 +270,8 @@ export const PARTICLES = {
     for (let i = 0; i < this._activeCount; i++) {
       const p = this._pool[i];
       const ci = this._getColorIndex(p.color);
-      const aq = p.maxLife > 0 ? Math.min(10, Math.round((p.life / p.maxLife) * 10)) : 0;
-      const key = ci * 11 + aq;
+      const aq = p.maxLife > 0 ? Math.min(ALPHA_LEVELS, Math.round((p.life / p.maxLife) * ALPHA_LEVELS)) : 0;
+      const key = ci * BUCKET_STRIDE + aq;
       if (!buckets[key]) {
         buckets[key] = [];
         keys.push(key);
@@ -277,8 +280,8 @@ export const PARTICLES = {
     }
     for (let k = 0; k < keys.length; k++) {
       const key = keys[k];
-      const colorIdx = (key / 11) | 0;
-      const alpha = (key % 11) / 10;
+      const colorIdx = (key / BUCKET_STRIDE) | 0;
+      const alpha = (key % BUCKET_STRIDE) / ALPHA_LEVELS;
       ctx.globalAlpha = alpha;
       ctx.fillStyle = this._colorByIndex[colorIdx];
       const batch = buckets[key];

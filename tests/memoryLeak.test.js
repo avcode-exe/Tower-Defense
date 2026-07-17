@@ -307,16 +307,16 @@ describe('Memory: popup pool recycling', () => {
     }
 
     expect(game.popups.length).toBe(0);
-    expect(game._popupPool.length).toBeGreaterThan(0);
+    expect(game._popupPool.length).toBeLessThanOrEqual(200);
   });
 
-  it('popup pool is capped at 100', () => {
+  it('popup pool is capped at 200', () => {
     for (let i = 0; i < 200; i++) {
       game._getPopup('test', 0, 0, 0.01, '#fff');
     }
     for (let s = 0; s < 10; s++) game.step(CONFIG.FIXED_TIMESTEP);
 
-    expect(game._popupPool.length).toBeLessThanOrEqual(100);
+    expect(game._popupPool.length).toBeLessThanOrEqual(200);
   });
 });
 

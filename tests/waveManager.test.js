@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { shuffleNecromancersInWave, WaveManager } from '../src/waveManager.js';
+import { shuffleSpecialMonstersInWave, WaveManager } from '../src/waveManager.js';
 import { CONFIG, WAVES, MONSTER_SPECS } from '../src/config.js';
 
 // ─── buildQueue ────────────────────────────────────────────────────────────
@@ -51,68 +51,68 @@ describe('WaveManager.buildQueue', () => {
   });
 });
 
-// ─── shuffleNecromancersInWave ──────────────────────────────────────────────
+// ─── shuffleSpecialMonstersInWave ──────────────────────────────────────────────
 
-describe('shuffleNecromancersInWave', () => {
+describe('shuffleSpecialMonstersInWave', () => {
   it('preserves non-Necromancer order', () => {
-    const result = shuffleNecromancersInWave([1, 2, 'Y', 3, 'Y', 4], () => 0.5);
+    const result = shuffleSpecialMonstersInWave([1, 2, 'Y', 3, 'Y', 4], () => 0.5);
 
     expect(result.filter((level) => level !== 'Y')).toEqual([1, 2, 3, 4]);
   });
 
   it('keeps Necromancer count', () => {
-    const result = shuffleNecromancersInWave([1, 'Y', 2, 'Y', 'Y', 3], () => 0.25);
+    const result = shuffleSpecialMonstersInWave([1, 'Y', 2, 'Y', 'Y', 3], () => 0.25);
 
     expect(result.filter((level) => level === 'Y')).toHaveLength(3);
     expect(result).toHaveLength(6);
   });
 
   it('can move Necromancer before the first non-Necromancer with deterministic random', () => {
-    const result = shuffleNecromancersInWave([1, 2, 3, 'Y'], () => 0);
+    const result = shuffleSpecialMonstersInWave([1, 2, 3, 'Y'], () => 0);
 
     expect(result).toEqual(['Y', 1, 2, 3]);
   });
 
   it('preserves total count of all entries', () => {
     const input = [1, 2, 'Y', 3, 'Y', 4, 'Y'];
-    const result = shuffleNecromancersInWave(input, () => 0.5);
+    const result = shuffleSpecialMonstersInWave(input, () => 0.5);
     expect(result.length).toBe(input.length);
   });
 
   it('does not change non-Necromancer order', () => {
     const input = [1, 2, 3, 4, 'Y'];
-    const result = shuffleNecromancersInWave(input, () => 0.5);
+    const result = shuffleSpecialMonstersInWave(input, () => 0.5);
     const nonNecros = result.filter((x) => x !== 'Y');
     expect(nonNecros).toEqual([1, 2, 3, 4]);
   });
 
   it('handles all-Necromancer input (no change)', () => {
     const input = ['Y', 'Y', 'Y'];
-    const result = shuffleNecromancersInWave(input, () => 0.5);
+    const result = shuffleSpecialMonstersInWave(input, () => 0.5);
     expect(result).toEqual(['Y', 'Y', 'Y']);
   });
 
   it('handles all-non-Necromancer input (no change)', () => {
     const input = [1, 2, 3];
-    const result = shuffleNecromancersInWave(input, () => 0.5);
+    const result = shuffleSpecialMonstersInWave(input, () => 0.5);
     expect(result).toEqual([1, 2, 3]);
   });
 
   it('handles empty input', () => {
-    const result = shuffleNecromancersInWave([], () => 0.5);
+    const result = shuffleSpecialMonstersInWave([], () => 0.5);
     expect(result).toEqual([]);
   });
 
   it('handles single Necromancer', () => {
-    const result = shuffleNecromancersInWave(['Y'], () => 0.5);
+    const result = shuffleSpecialMonstersInWave(['Y'], () => 0.5);
     expect(result).toEqual(['Y']);
   });
 
   it('deterministic with same random function', () => {
     const input = [1, 2, 'Y', 3, 'Y'];
     const rng = () => 0.3;
-    const r1 = shuffleNecromancersInWave(input, rng);
-    const r2 = shuffleNecromancersInWave(input, rng);
+    const r1 = shuffleSpecialMonstersInWave(input, rng);
+    const r2 = shuffleSpecialMonstersInWave(input, rng);
     expect(r1).toEqual(r2);
   });
 });
@@ -1027,18 +1027,18 @@ describe('buildCustomFromCounts with scaling', () => {
   });
 });
 
-// ─── shuffleNecromancersInWave edge case ────────────────────────────────────
+// ─── shuffleSpecialMonstersInWave edge case ────────────────────────────────────
 
-describe('shuffleNecromancersInWave edge cases', () => {
+describe('shuffleSpecialMonstersInWave edge cases', () => {
   it('places necromancer at end when random=0.99', () => {
-    const result = shuffleNecromancersInWave([1, 2, 3, 'Y'], () => 0.99);
+    const result = shuffleSpecialMonstersInWave([1, 2, 3, 'Y'], () => 0.99);
     const necroIdx = result.indexOf('Y');
     // With 3 non-necros, slots = 4 (indices 0-3), floor(0.99*4)=3 → last slot
     expect(result[3]).toBe('Y');
   });
 
   it('multiple necromancers distributed across slots', () => {
-    const result = shuffleNecromancersInWave([1, 2, 'Y', 'Y'], () => 0.5);
+    const result = shuffleSpecialMonstersInWave([1, 2, 'Y', 'Y'], () => 0.5);
     const necros = result.filter((x) => x === 'Y');
     expect(necros).toHaveLength(2);
     expect(result.filter((x) => x !== 'Y')).toEqual([1, 2]);

@@ -106,6 +106,7 @@ export class Game {
   }
 
   canPlace(gx, gy, spec) {
+    if (gx < 0 || gx >= CONFIG.GRID_SIZE || gy < 0 || gy >= CONFIG.GRID_SIZE) return false;
     if (!this.devMode && this.gold < spec.cost) return false;
     if (!this.grid.isBuildable(gx, gy)) return false;
     // O(1) tile index lookup instead of linear scan.
@@ -252,6 +253,8 @@ export class Game {
     }
     const r = m.takeDamage(amount);
     if (r.killed) {
+      // Bonus gold per kill is baked into the kill reward path rather than
+      // individual MONSTER_SPECS values so wave-estimate math stays simple.
       const awardedGold = r.reward + 1;
       this._addGold(awardedGold);
       AUDIO.goldEarned();
@@ -324,14 +327,15 @@ export class Game {
   }
 
   // DRY: Find closest alive monster near (x,y) using the tile index.
-  _findClosestMonsterNear(x, y) {
+  _findClosestMonsterNear(x, y, rangeTiles = 1) {
     let closest = null;
     let closestDist = Infinity;
     const gx0 = (x / CONFIG.TILE_SIZE) | 0;
     const gy0 = (y / CONFIG.TILE_SIZE) | 0;
     const G = CONFIG.GRID_SIZE;
-    for (let dgy = -1; dgy <= 1; dgy++) {
-      for (let dgx = -1; dgx <= 1; dgx++) {
+    const r = Math.ceil(rangeTiles);
+    for (let dgy = -r; dgy <= r; dgy++) {
+      for (let dgx = -r; dgx <= r; dgx++) {
         const gx = gx0 + dgx;
         const gy = gy0 + dgy;
         if (gx < 0 || gx >= G || gy < 0 || gy >= G) continue;
@@ -414,8 +418,11 @@ export class Game {
   _stepWaveSpawning(dt) {
     this.wave.update(dt);
     let spawnData = this.wave.popDueMonster();
-    while (spawnData != null) {
+    let spawnsThisFrame = 0;
+    const MAX_SPAWNS_PER_FRAME = 50;
+    while (spawnData != null && spawnsThisFrame < MAX_SPAWNS_PER_FRAME) {
       this.spawnMonster(spawnData.level, spawnData.hpMult);
+      spawnsThisFrame++;
       spawnData = this.wave.popDueMonster();
     }
   }
@@ -436,6 +443,8 @@ export class Game {
     }
   }
 
+  // This loop only marks monsters dead; actual array compaction happens later
+  // in _cleanupDead, so mutating this.monsters here would break iteration.
   _stepMonsters(dt) {
     const monsterCount = this.monsters.length;
     for (let i = 0; i < monsterCount; i++) {
@@ -474,6 +483,8 @@ export class Game {
       if (!m.alive || !m._pendingAttack) continue;
       const target = m._pendingAttack;
       m._pendingAttack = null;
+      // Re-check target validity: monster may have moved out of range or died
+      // after setting _pendingAttack in _updateStopMode.
       if (target.alive) {
         this.damageTroop(m, target);
       }
@@ -621,7 +632,7 @@ export class Game {
       p.t -= dt;
       if (p.t > 0) {
         this.popups[ppw++] = p;
-      } else if (this._popupPool.length < 100) {
+      } else if (this._popupPool.length < CONFIG.MAX_POPUP_POOL) {
         this._popupPool.push(p);
       }
     }
@@ -724,7 +735,7 @@ export class Game {
         for (let i = 0; i < hit.length; i++) this._applySlowToMonster(hit[i], troop);
       }
     } else {
-      const closest = this._findClosestMonsterNear(x, y);
+      const closest = this._findClosestMonsterNear(x, y, troop._cachedRange);
       if (closest) {
         const killed = this.damageMonster(closest, dmg);
         if (hasSlow && !killed) this._applySlowToMonster(closest, troop);
@@ -778,7 +789,7 @@ export class Game {
     };
 
     // Find primary target using tile index.
-    let closest = this._findClosestMonsterNear(x, y);
+    let closest = this._findClosestMonsterNear(x, y, troop._cachedRange);
     if (!closest) return;
 
     let lastX = closest.x,
@@ -1118,7 +1129,7 @@ export class Game {
   }
 
   getSaveData() {
-    return SaveSerializer.fromGame(this);
+    return SaveSerializer.fromGame(this, this.appVersion);
   }
 
   restore(data) {
@@ -1229,6 +1240,8 @@ export class Game {
     this.sellConfirmPending = false;
     this.sellConfirmTroop = null;
     this.seed = Math.floor(Math.random() * 0xffffffff);
+    // Assign the projectile-impact callback BEFORE resetting transient state so
+    // any impacts during reset reference the current game instance.
     this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();

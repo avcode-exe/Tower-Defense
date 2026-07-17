@@ -234,7 +234,7 @@ export class Monster {
     return this.slowTimer > 0;
   }
 
-  findTarget(troopTileIndex) {
+  findTarget(monsterTileIndex) {
     const gx = this._tileGx;
     const gy = this._tileGy;
     let bestTroop = null;
@@ -247,7 +247,7 @@ export class Monster {
         const tx = gx + dx;
         const ty = gy + dy;
         if (tx < 0 || tx >= gs || ty < 0 || ty >= gs) continue;
-        const tileTroops = troopTileIndex[ty * gs + tx];
+        const tileTroops = monsterTileIndex[ty * gs + tx];
         if (!tileTroops) continue;
         for (let i = 0; i < tileTroops.length; i++) {
           const t = tileTroops[i];
@@ -394,16 +394,15 @@ export class Monster {
         this._pendingAttack = nearTarget;
       }
     } else if (this.slowTimer <= 0) {
-      this.speed = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
+      const base = CONFIG.MOVEMENT_SPEEDS[this.spec.movementSpeed] || this.spec.speed;
+      this.speed = this.level === 'H' && this._healing ? CONFIG.MOVEMENT_SPEEDS['slow'] : base;
     }
   }
 
   _updatePassMode(troopTileIndex) {
     if (!this._hitTroops) this._hitTroops = new Set();
-    if (this._hitTroops.size > 16) {
-      for (const t of this._hitTroops) {
-        if (!t.alive) this._hitTroops.delete(t);
-      }
+    for (const t of this._hitTroops) {
+      if (!t.alive) this._hitTroops.delete(t);
     }
     const gx = this._tileGx;
     const gy = this._tileGy;

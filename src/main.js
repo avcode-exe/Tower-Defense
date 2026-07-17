@@ -310,11 +310,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
-  let appVersion = '1.6.0-beta.2'; // fallback
+  let appVersion = '';
   if (window.electron && window.electron.getVersion) {
     try {
       appVersion = await window.electron.getVersion();
     } catch (_) {}
+  }
+  if (!appVersion) {
+    appVersion = '1.0.0';
+  }
+  if (game) {
+    game.appVersion = appVersion;
   }
   if (typeof UpdateManager === 'function') {
     const settings = (await loadSettings()) || {};
@@ -346,7 +352,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const notifyBtn = document.getElementById('bar-notify-btn');
 
   function timeAgo() {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
   // ── Notification list management ────────────────────────────────────────
@@ -534,8 +540,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ],
             silent: true,
           });
-          // Also show a brief toast to draw attention
-          showToast('Update available: ' + label, 'info', 5000);
           break;
         }
         case 'not-available':

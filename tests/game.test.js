@@ -1215,11 +1215,11 @@ describe('_stepPopups', () => {
     expect(game.popups[0].t).toBeCloseTo(0.5);
   });
 
-  it('recycles to pool only up to 100 entries', () => {
-    game._popupPool = Array.from({ length: 100 }, () => ({ text: 'x' }));
+  it('recycles to pool only up to 200 entries', () => {
+    game._popupPool = Array.from({ length: 200 }, () => ({ text: 'x' }));
     game.popups = [{ text: 'a', x: 0, y: 0, t: -0.1, color: '#fff' }];
     game._stepPopups(0.2);
-    expect(game._popupPool.length).toBe(100);
+    expect(game._popupPool.length).toBe(200);
   });
 
   it('handles empty popups array', () => {

@@ -12,6 +12,10 @@ export const CONFIG = {
   MAX_GOLD: 1000000,
   STARTING_LIVES: 25,
 
+  // UI / quality of life
+  SHIELD_SHOP_WIDTH: 250,
+  MAX_POPUP_POOL: 200,
+
   // Selling
   SELL_REFUND_RATIO: 0.3,
   SELL_COOLDOWN: 3.0, // seconds before selling again
@@ -285,8 +289,8 @@ export const MONSTER_SPECS = {
     attackSpeed: 0,
     attackRange: 0,
     attackMode: 'support',
-    healRange: 2.5,
-    healPerSecond: 6,
+    healRange: 2.0,
+    healPerSecond: 8,
     healTickInterval: 1.0,
   },
 };
@@ -545,9 +549,8 @@ export const WAVES = [
   [
     [5, 5],
     ['S', 3],
-    ['H', 2],
     ['B', 1],
-  ], // Wave 10: 5 Champion + 3 Shielded + 2 Healer + Boss
+  ], // Wave 10: 5 Champion + 3 Shielded + Boss
 ];
 
 // Projectile visuals per troop id (small set of shapes).

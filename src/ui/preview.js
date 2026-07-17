@@ -55,7 +55,7 @@ function previewHasNecromancer(preview) {
   return preview?.some((entry) => {
     const level = Array.isArray(entry) ? entry[0] : entry?.level;
     const key = level === 'B' ? 'B' : level;
-    return MONSTER_SPECS[key]?.name === 'Necromancer';
+    return key === 'Y';
   });
 }
 

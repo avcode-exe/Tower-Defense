@@ -48,17 +48,61 @@ export function hitShop(px, py) {
   return -1;
 }
 
+export function computeSelectedTroopPanelHeight(t) {
+  const statLines = [];
+  if (t.spec.type === 'support') {
+    statLines.push(
+      'HEAL ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
+    );
+    statLines.push(
+      'RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + '  TGT ' + t.getHealTargetCount() + ' Lv.' + t.healTargetLevel
+    );
+  } else {
+    statLines.push(
+      'DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
+    );
+    statLines.push(
+      'RNG ' +
+        t.getRange() +
+        ' Lv.' +
+        t.rangeLevel +
+        (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : '')
+    );
+    if (t.spec.slowFactor) {
+      statLines.push(
+        'SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel
+      );
+    }
+    if (t.spec.burnStacks) {
+      const tickDamage = Math.max(1, Math.round(t.getDamage() * t.spec.burnDamageRatio));
+      const burnDps = (tickDamage * t.spec.burnStacks) / t.spec.burnTickInterval;
+      statLines.push('BRN ' + burnDps.toFixed(1) + ' Lv.' + t.dmgLevel);
+    }
+  }
+  const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
+  statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
+  if (t.spec.type === 'support') {
+    statLines.push({
+      text: 'HPS ' + t.getHps().toFixed(1),
+      color: '#2ecc71',
+      bold: true,
+    });
+  } else {
+    statLines.push({
+      text: 'DPS ' + t.getDps().toFixed(1),
+      color: UI_COLORS.accent,
+      bold: true,
+    });
+  }
+  const lineH = 14;
+  return 14 + statLines.length * lineH + 8;
+}
+
 export function _updateCardAreaBottom(game) {
   if (game.selectedTroopIndex >= 0) {
     const t = game.troops[game.selectedTroopIndex];
     if (t && t.alive) {
-      // Build stat lines to calculate panel height (same logic as draw)
-      let lineCount = 2; // DMG/SPD + RNG/CHN
-      if (t.spec.slowFactor) lineCount++;
-      if (t.spec.burnStacks) lineCount++;
-      lineCount += 2; // HP + DPS
-      const lineH = 14;
-      const panelH = 14 + lineCount * lineH + 8;
+      const panelH = computeSelectedTroopPanelHeight(t);
       const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
       const panelY = upgradeBtnY - panelH - 4;
       this._cardAreaBottom = panelY - 4; // 4px gap above panel
@@ -294,6 +338,29 @@ export function drawShop(game) {
   if (game.selectedTroopIndex >= 0) {
     const t = game.troops[game.selectedTroopIndex];
     if (t && t.alive) {
+      const panelH = computeSelectedTroopPanelHeight(t);
+      const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
+      const panelY = upgradeBtnY - panelH - 4;
+
+      fillStrokeRoundedRect(
+        c,
+        8,
+        panelY,
+        UI_LAYOUT.SHOP_WIDTH - 16,
+        panelH,
+        8,
+        UI_COLORS.cardBg,
+        UI_COLORS.panelBorder
+      );
+
+      c.fillStyle = UI_COLORS.textBright;
+      c.font = 'bold 12px system-ui, sans-serif';
+      c.textAlign = 'left';
+      c.textBaseline = 'middle';
+      c.fillText(t.spec.name, 18, panelY + 14);
+
+      c.font = '10px system-ui, sans-serif';
+      c.textBaseline = 'middle';
       const statLines = [];
       if (t.spec.type === 'support') {
         statLines.push(
@@ -324,7 +391,6 @@ export function drawShop(game) {
           statLines.push('BRN ' + burnDps.toFixed(1) + ' Lv.' + t.dmgLevel);
         }
       }
-      // HP + HPS/DPS lines
       const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
       statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
       if (t.spec.type === 'support') {
@@ -340,32 +406,8 @@ export function drawShop(game) {
           bold: true,
         });
       }
-
       const lineH = 14;
       const startY = 26;
-      const panelH = 14 + statLines.length * lineH + 8; // name(14) + lines + padding
-      // Position panel just above upgrade buttons with 4px gap
-      const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
-      const panelY = upgradeBtnY - panelH - 4;
-
-      fillStrokeRoundedRect(
-        c,
-        8,
-        panelY,
-        UI_LAYOUT.SHOP_WIDTH - 16,
-        panelH,
-        8,
-        UI_COLORS.cardBg,
-        UI_COLORS.panelBorder
-      );
-
-      c.fillStyle = UI_COLORS.textBright;
-      c.font = 'bold 12px system-ui, sans-serif';
-      c.textAlign = 'left';
-      c.textBaseline = 'middle';
-      c.fillText(t.spec.name, 18, panelY + 14);
-
-      c.font = '10px system-ui, sans-serif';
       c.textBaseline = 'middle';
       for (let i = 0; i < statLines.length; i++) {
         const line = statLines[i];

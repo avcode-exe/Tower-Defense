@@ -14,7 +14,7 @@ import {
 import { parseUpdateInfo } from './src/updateYamlParser.js';
 
 const { autoUpdater } = electronUpdater;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const __dirname = path.dirname(fileURLToPath(import.meta?.url || ''));
 
 Menu.setApplicationMenu(null);
 
@@ -66,23 +66,28 @@ function normalizeCheckIntervalMinutes(value) {
 function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null;
 
-  const ALLOWED_TOP_KEYS = ['update', 'collapsed', 'audio', 'quality'];
+  const ALLOWED_TOP_KEYS = ['update', 'collapsed'];
   const sanitized = {
     update: { ...DEFAULT_SETTINGS.update },
     collapsed: { ...DEFAULT_SETTINGS.collapsed },
   };
 
+  function validateUpdate(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
+  function validateCollapsed(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
   for (const key of Object.keys(settings)) {
     if (!ALLOWED_TOP_KEYS.includes(key)) continue;
-    if (key === 'update' && settings.update && typeof settings.update === 'object' && !Array.isArray(settings.update)) {
-    } else if (
-      key === 'collapsed' &&
-      settings.collapsed &&
-      typeof settings.collapsed === 'object' &&
-      !Array.isArray(settings.collapsed)
-    ) {
-    } else {
-      sanitized[key] = settings[key];
+    if (key === 'update' && validateUpdate(settings.update)) {
+      sanitized.update = settings.update;
+    } else if (key === 'collapsed' && validateCollapsed(settings.collapsed)) {
+      sanitized.collapsed = settings.collapsed;
     }
   }
 
@@ -217,7 +222,8 @@ function applyAutoUpdaterSettings() {
   const settings = readSettings();
   const update = settings.update || {};
   autoUpdater.autoDownload = update.autoDownload !== false;
-  autoUpdater.autoInstallOnAppQuit = update.autoDownload !== false;
+  // autoUpdater.autoInstallOnAppQuit is NOT set automatically;
+  // user clicks "Restart & Install" manually after download completes.
   // Enable pre-release detection when channel is set to pre-release
   autoUpdater.allowPrerelease = update.channel === 'pre-release';
 }
@@ -294,6 +300,7 @@ function requestText(url, redirects = 0) {
       {
         headers: {
           'User-Agent': 'Tower-Defense-Updater',
+          Accept: 'application/atom+xml, application/xml, text/xml',
         },
       },
       (res) => {
@@ -326,7 +333,7 @@ function requestText(url, redirects = 0) {
         let totalSize = 0;
         res.on('data', (chunk) => {
           totalSize += Buffer.byteLength(chunk);
-          if (totalSize > 1024 * 512) {
+          if (totalSize > 1024 * 2048) {
             res.destroy(new Error(`Response body too large for ${url}`));
             return;
           }

@@ -827,3 +827,119 @@ describe('Monster: lifecycle', () => {
     }
   });
 });
+
+// ─── Healer monster (level H) ───────────────────────────────────────────────
+
+describe('Monster: Healer', () => {
+  let game;
+  beforeEach(() => {
+    game = makeGame({ devMode: true });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('heals nearby damaged monsters', () => {
+    game.spawnMonster('H');
+    const healer = game.monsters[0];
+    game.spawnMonster(3);
+    const m = game.monsters[game.monsters.length - 1];
+    m.hp = m.maxHp - 50;
+    m.x = healer.x;
+    m.y = healer.y;
+    const hpBefore = m.hp;
+    for (let s = 0; s < 120; s++) game.step(CONFIG.FIXED_TIMESTEP);
+    expect(m.hp).toBeGreaterThan(hpBefore);
+  });
+
+  it('does not heal monsters outside range', () => {
+    const sp = longPath();
+    game.pathSegments = sp;
+    game.spawnMonster('H');
+    const healer = game.monsters[0];
+    healer.x = CONFIG.TILE_SIZE * 0.5;
+    healer.y = CONFIG.TILE_SIZE * 0.5;
+    healer.distance = 0;
+    healer._updatePosition();
+    const farAlly = game.spawnMonster(1);
+    const m = game.monsters[game.monsters.length - 1];
+    m.x = CONFIG.TILE_SIZE * 8;
+    m.y = CONFIG.TILE_SIZE * 0.5;
+    m.distance = CONFIG.TILE_SIZE * 8;
+    m._updatePosition();
+    m.hp = m.maxHp - 50;
+    const hpBefore = m.hp;
+    for (let s = 0; s < 120; s++) game.step(CONFIG.FIXED_TIMESTEP);
+    expect(m.hp).toBeCloseTo(hpBefore);
+  });
+
+  it('does not create infinite sustain', () => {
+    game.spawnMonster('H');
+    const healer = game.monsters[0];
+    const ally = game.spawnMonster(1);
+    const m = game.monsters[game.monsters.length - 1];
+    m.hp = m.maxHp - 50;
+    const steps = 600;
+    for (let s = 0; s < steps; s++) game.step(CONFIG.FIXED_TIMESTEP);
+    expect(game.monsters.length).toBeGreaterThan(0);
+    expect(healer.hp).toBeLessThanOrEqual(healer.maxHp);
+  });
+
+  it('slows to slow category while healing', () => {
+    game.spawnMonster('H');
+    const healer = game.monsters[0];
+    const ally = game.spawnMonster(1);
+    const m = game.monsters[game.monsters.length - 1];
+    m.hp = m.maxHp - 50;
+    const baseSpeed = CONFIG.MOVEMENT_SPEEDS['fast'];
+    let wasSlow = false;
+    for (let s = 0; s < 120; s++) {
+      game.step(CONFIG.FIXED_TIMESTEP);
+      if (healer.speed === CONFIG.MOVEMENT_SPEEDS['slow']) {
+        wasSlow = true;
+        break;
+      }
+    }
+    expect(wasSlow).toBe(true);
+  });
+
+  it('resumes fast speed after healing stops', () => {
+    game.spawnMonster('H');
+    const healer = game.monsters[0];
+    const ally = game.spawnMonster(1);
+    const m = game.monsters[game.monsters.length - 1];
+    m.hp = m.maxHp - 10;
+    for (let s = 0; s < 60; s++) game.step(CONFIG.FIXED_TIMESTEP);
+    expect(healer.speed).toBeCloseTo(CONFIG.MOVEMENT_SPEEDS['slow']);
+    m.hp = m.maxHp;
+    for (let s = 0; s < 60; s++) game.step(CONFIG.FIXED_TIMESTEP);
+    expect(healer.speed).toBeCloseTo(CONFIG.MOVEMENT_SPEEDS['fast']);
+  });
+
+  it('wave with Healer is completable', () => {
+    const sp = longPath();
+    game.pathSegments = sp;
+    game.placeTroop(archerSpec, 1, 0);
+    game.placeTroop(archerSpec, 2, 0);
+    game.spawnMonster('H');
+    const healer = game.monsters[0];
+    healer.hp = healer.maxHp - 50;
+    const helper = game.spawnMonster(1);
+    const helperM = game.monsters[game.monsters.length - 1];
+    helperM.hp = helperM.maxHp - 30;
+    for (let s = 0; s < 3000; s++) game.step(CONFIG.FIXED_TIMESTEP);
+    expect(game.monsters.every((m) => !m.alive)).toBe(true);
+  });
+
+  it('killing Healer awards correct gold and leak', () => {
+    game.spawnMonster('H');
+    const healer = game.monsters[0];
+    game.devMode = false;
+    game.gold = 0;
+    const goldBefore = game.gold;
+    game.damageMonster(healer, healer.hp + 10);
+    expect(healer.alive).toBe(false);
+    expect(game.gold).toBe(goldBefore + healer.reward + 1);
+    expect(healer.leak).toBe(1);
+  });
+});

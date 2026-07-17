@@ -367,7 +367,7 @@ describe('SaveSerializer.fromGame', () => {
         },
       ],
     };
-    const data = SaveSerializer.fromGame(game);
+    const data = SaveSerializer.fromGame(game, '1.6.0-beta.2');
 
     expect(data.version).toBe('1.6.0-beta.2');
     expect(data.gold).toBe(500);

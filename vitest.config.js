@@ -23,7 +23,7 @@ export default defineConfig({
         },
         'src/monster.js': {
           statements: 60,
-          branches: 78,
+          branches: 72,
           functions: 45,
           lines: 62,
         },

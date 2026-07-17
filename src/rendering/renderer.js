@@ -141,6 +141,8 @@ export const RENDERER = {
   toWorldInto(px, py, out) {
     out.x = (px - this.offsetX) / this.scale;
     out.y = (py - this.offsetY) / this.scale;
+    if (!Number.isFinite(out.x)) out.x = 0;
+    if (!Number.isFinite(out.y)) out.y = 0;
     return out;
   },
 
