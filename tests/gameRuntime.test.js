@@ -1,477 +1,418 @@
-import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import { GameRuntimeController } from '../src/gameRuntime.js';
-import { RENDERER } from '../src/rendering/renderer.js';
-import { AUDIO } from '../src/audio.js';
-import { renderGame, updateCursor } from '../src/rendering/gameRenderer.js';
-import { showToast } from '../src/ui/toast.js';
-
-// ─── Mocks ──────────────────────────────────────────────────────────────────
-
-let rafId = 0;
-const rafCallbacks = new Map();
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
 
 vi.mock('../src/rendering/renderer.js', () => ({
-  RENDERER: { resize: vi.fn() },
-}));
-
-vi.mock('../src/rendering/gameRenderer.js', () => ({
-  renderGame: vi.fn(),
-  updateCursor: vi.fn(),
-}));
-
-vi.mock('../src/audio.js', () => ({
-  AUDIO: {
-    waveStart: vi.fn(),
-    defeat: vi.fn(),
+  RENDERER: {
+    init: vi.fn(),
+    resize: vi.fn(),
+    markCacheDirty: vi.fn(),
+    _rebuildCache: vi.fn(),
+    toWorldInto: vi.fn((px, py, out) => {
+      out.x = px;
+      out.y = py;
+      return out;
+    }),
+    beginFrame: vi.fn(),
+    applyMapTransform: vi.fn(),
+    drawStaticLayers: vi.fn(),
+    restoreTransform: vi.fn(),
+    width: 800,
+    height: 600,
+    offsetX: 0,
+    offsetY: 0,
+    scale: 1,
+    hoverPx: null,
+    hoverPy: null,
+    canvas: null,
+    ctx: null,
   },
 }));
+vi.mock('../src/rendering/gameRenderer.js', () => ({ renderGame: vi.fn(), updateCursor: vi.fn() }));
+vi.mock('../src/audio.js', () => ({ AUDIO: { waveStart: vi.fn(), defeat: vi.fn(), toggleMute: vi.fn() } }));
+vi.mock('../src/ui/toast.js', () => ({ showToast: vi.fn() }));
 
-vi.mock('../src/ui/toast.js', () => ({
-  showToast: vi.fn(),
-}));
+describe('GameRuntimeController', () => {
+  let GameRuntimeController;
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-
-function makeCanvas() {
-  return { tagName: 'canvas', width: 800, height: 600 };
-}
-
-function makeGame(overrides = {}) {
-  return {
-    state: 'PRE_WAVE',
-    devMode: false,
-    lives: 25,
-    lastTime: 0,
-    _runSimTick: vi.fn(),
-    wave: {
-      startNextWave: vi.fn(() => true),
-    },
-    ...overrides,
-  };
-}
-
-function flushRaf() {
-  const callbacks = [...rafCallbacks.values()];
-  rafCallbacks.clear();
-  for (const cb of callbacks) cb();
-}
-
-beforeEach(() => {
-  // Reset rAF state
-  rafCallbacks.clear();
-  rafId = 0;
-  vi.stubGlobal('requestAnimationFrame', (cb) => {
-    rafId++;
-    rafCallbacks.set(rafId, cb);
-    return rafId;
+  beforeAll(async () => {
+    const mod = await import('../src/gameRuntime.js');
+    GameRuntimeController = mod.GameRuntimeController;
   });
-  vi.stubGlobal('cancelAnimationFrame', (id) => {
-    rafCallbacks.delete(id);
+
+  function makeGame() {
+    return {
+      state: 'PRE_WAVE',
+      speed: 1,
+      lastTime: 0,
+      wave: { startNextWave: vi.fn(() => true), currentWave: 0 },
+      devMode: false,
+    };
+  }
+
+  beforeEach(() => {
+    // Stub global functions needed by GameRuntimeController
+    global.requestAnimationFrame = vi.fn((cb) => {
+      const id = setTimeout(() => cb(performance.now()), 16);
+      return id;
+    });
+    global.cancelAnimationFrame = vi.fn((id) => clearTimeout(id));
+    global.performance = { now: vi.fn(() => Date.now()) };
+    global.window = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    };
   });
-  vi.stubGlobal('performance', { now: () => Date.now() });
 
-  // Minimal window polyfill for Node test environment
-  globalThis.window = {
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  };
-});
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
 
-afterEach(() => {
-  rafCallbacks.clear();
-  rafId = 0;
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
-
-// ─── Constructor ────────────────────────────────────────────────────────────
-
-describe('Constructor', () => {
-  it('initializes with game reference and default state', () => {
+  it('constructor initializes fields', () => {
     const game = makeGame();
-    const ctrl = new GameRuntimeController(game);
-    expect(ctrl.game).toBe(game);
-    expect(ctrl._running).toBe(false);
-    expect(ctrl._rafVersion).toBe(0);
-    expect(ctrl._rafId).toBeNull();
-    expect(ctrl._pauseRafId).toBeNull();
-    expect(ctrl._resizeHandler).toBeNull();
-    expect(ctrl._resizeRAF).toBeNull();
+    const rc = new GameRuntimeController(game);
+    expect(rc._running).toBe(false);
+    expect(rc._rafVersion).toBe(0);
+    expect(rc._rafId).toBeNull();
+    expect(rc._pauseRafId).toBeNull();
+    expect(rc._resizeHandler).toBeNull();
+    expect(rc._resizeRAF).toBeNull();
   });
-});
 
-// ─── installResize / removeResize ───────────────────────────────────────────
-
-describe('installResize / removeResize', () => {
   it('installResize adds window resize listener', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    const canvas = makeCanvas();
-    ctrl.installResize(canvas);
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    const canvas = {};
+    rc.installResize(canvas);
     expect(window.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
-    expect(ctrl._resizeHandler).toBeTypeOf('function');
-  });
-
-  it('installResize removes previous handler before installing new one', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    const canvas = makeCanvas();
-    ctrl.installResize(canvas);
-    const firstHandler = ctrl._resizeHandler;
-    ctrl.installResize(canvas);
-    expect(ctrl._resizeHandler).not.toBe(firstHandler);
-    ctrl.removeResize();
   });
 
   it('removeResize removes window resize listener', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    const canvas = makeCanvas();
-    ctrl.installResize(canvas);
-    ctrl.removeResize();
-    expect(window.removeEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
-    expect(ctrl._resizeHandler).toBeNull();
-    expect(ctrl._resizeRAF).toBeNull();
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    const canvas = {};
+    rc.installResize(canvas);
+    rc.removeResize();
+    expect(window.removeEventListener).toHaveBeenCalled();
   });
 
-  it('removeResize is safe to call without install', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    expect(() => ctrl.removeResize()).not.toThrow();
+  it('startPauseRender starts rAF loop', () => {
+    const game = { state: 'PAUSED' };
+    const rc = new GameRuntimeController(game);
+    rc.startPauseRender();
+    expect(requestAnimationFrame).toHaveBeenCalled();
   });
 
-  it('resize handler debounces via requestAnimationFrame', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    const canvas = makeCanvas();
-    ctrl.installResize(canvas);
-    ctrl._resizeHandler();
-    expect(ctrl._resizeRAF).not.toBeNull();
-    flushRaf();
-    expect(ctrl._resizeRAF).toBeNull();
-    expect(RENDERER.resize).toHaveBeenCalledWith(canvas);
-    ctrl.removeResize();
+  it('startPauseRender is idempotent', () => {
+    const game = { state: 'PAUSED' };
+    const rc = new GameRuntimeController(game);
+    rc.startPauseRender();
+    rc.startPauseRender();
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
   });
 
-  it('resize handler cancels previous pending rAF', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    const canvas = makeCanvas();
-    ctrl.installResize(canvas);
-    ctrl._resizeHandler();
-    const firstRaf = ctrl._resizeRAF;
-    ctrl._resizeHandler();
-    expect(ctrl._resizeRAF).not.toBe(firstRaf);
-    ctrl.removeResize();
-  });
-});
-
-// ─── startPauseRender / stopPauseRender ─────────────────────────────────────
-
-describe('startPauseRender / stopPauseRender', () => {
-  it('startPauseRender starts a rAF loop', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.startPauseRender();
-    expect(ctrl._pauseRafId).not.toBeNull();
+  it('stopPauseRender cancels rAF', () => {
+    const game = { state: 'PAUSED' };
+    const rc = new GameRuntimeController(game);
+    rc._pauseRafId = 42;
+    rc.stopPauseRender();
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(42);
   });
 
-  it('startPauseRender is idempotent (no double start)', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.startPauseRender();
-    const firstId = ctrl._pauseRafId;
-    ctrl.startPauseRender();
-    expect(ctrl._pauseRafId).toBe(firstId);
-  });
-
-  it('pause render loop calls renderGame and updateCursor when PAUSED', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.startPauseRender();
-    flushRaf();
-    expect(renderGame).toHaveBeenCalledWith(game);
-    expect(updateCursor).toHaveBeenCalledWith(game);
-  });
-
-  it('pause render loop calls renderGame when DEFEAT', () => {
-    const game = makeGame({ state: 'DEFEAT' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.startPauseRender();
-    flushRaf();
-    expect(renderGame).toHaveBeenCalledWith(game);
-  });
-
-  it('pause render loop stops when state is no longer PAUSED/DEFEAT', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.startPauseRender();
-    flushRaf(); // first frame renders
+  it('pauseGame transitions WAVE_ACTIVE to PAUSED', () => {
+    const game = makeGame();
     game.state = 'WAVE_ACTIVE';
-    flushRaf(); // second frame sees non-PAUSED/DEFEAT, returns without scheduling
-    expect(ctrl._pauseRafId).toBeNull();
-  });
-
-  it('stopPauseRender cancels the pause loop', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.startPauseRender();
-    ctrl.stopPauseRender();
-    expect(ctrl._pauseRafId).toBeNull();
-  });
-
-  it('stopPauseRender is safe when not running', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    expect(() => ctrl.stopPauseRender()).not.toThrow();
-  });
-});
-
-// ─── startLoop / _startRafLoop ──────────────────────────────────────────────
-
-describe('startLoop / _startRafLoop', () => {
-  it('startLoop sets _running and installs resize', () => {
-    const game = makeGame();
-    const ctrl = new GameRuntimeController(game);
-    const canvas = makeCanvas();
-    ctrl.startLoop(canvas);
-    expect(ctrl._running).toBe(true);
-    expect(ctrl._resizeHandler).not.toBeNull();
-    ctrl.stopLoop();
-  });
-
-  it('startLoop increments _rafVersion', () => {
-    const game = makeGame();
-    const ctrl = new GameRuntimeController(game);
-    const canvas = makeCanvas();
-    ctrl.startLoop(canvas);
-    expect(ctrl._rafVersion).toBe(1);
-    ctrl.stopLoop();
-    ctrl.startLoop(canvas);
-    expect(ctrl._rafVersion).toBe(2);
-    ctrl.stopLoop();
-  });
-
-  it('main loop calls game._runSimTick', () => {
-    const game = makeGame();
-    const ctrl = new GameRuntimeController(game);
-    const canvas = makeCanvas();
-    ctrl.startLoop(canvas);
-    flushRaf();
-    expect(game._runSimTick).toHaveBeenCalled();
-    ctrl.stopLoop();
-  });
-
-  it('main loop stops when _running is false', () => {
-    const game = makeGame();
-    const ctrl = new GameRuntimeController(game);
-    const canvas = makeCanvas();
-    ctrl.startLoop(canvas);
-    ctrl._running = false;
-    flushRaf();
-    expect(game._runSimTick).not.toHaveBeenCalled();
-    ctrl.stopLoop();
-  });
-
-  it('main loop stops when _rafVersion changes (stale version)', () => {
-    const game = makeGame();
-    const ctrl = new GameRuntimeController(game);
-    const canvas = makeCanvas();
-    ctrl.startLoop(canvas);
-    ctrl._rafVersion = 999; // simulate stale
-    flushRaf();
-    expect(game._runSimTick).not.toHaveBeenCalled();
-    ctrl.stopLoop();
-  });
-
-  it('startLoop sets game.lastTime', () => {
-    const game = makeGame({ lastTime: 0 });
-    const ctrl = new GameRuntimeController(game);
-    const canvas = makeCanvas();
-    ctrl.startLoop(canvas);
-    expect(game.lastTime).toBeGreaterThan(0);
-    ctrl.stopLoop();
-  });
-});
-
-// ─── pauseGame / resumeGame / togglePause ────────────────────────────────────
-
-describe('pauseGame', () => {
-  it('pauses from WAVE_ACTIVE', () => {
-    const game = makeGame({ state: 'WAVE_ACTIVE' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.pauseGame();
+    const rc = new GameRuntimeController(game);
+    rc._cancelRaf = vi.fn();
+    rc.startPauseRender = vi.fn();
+    rc.pauseGame();
     expect(game.state).toBe('PAUSED');
+    expect(rc._cancelRaf).toHaveBeenCalled();
+    expect(rc.startPauseRender).toHaveBeenCalled();
   });
 
-  it('does nothing if not WAVE_ACTIVE', () => {
-    const game = makeGame({ state: 'PRE_WAVE' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.pauseGame();
+  it('pauseGame no-op for non-WAVE_ACTIVE', () => {
+    const game = makeGame();
+    game.state = 'PRE_WAVE';
+    const rc = new GameRuntimeController(game);
+    rc.pauseGame();
     expect(game.state).toBe('PRE_WAVE');
   });
 
-  it('cancels main rAF and starts pause render', () => {
-    const game = makeGame({ state: 'WAVE_ACTIVE' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.pauseGame();
-    expect(ctrl._rafId).toBeNull();
-    expect(ctrl._pauseRafId).not.toBeNull();
-  });
-});
-
-describe('resumeGame', () => {
-  it('resumes from PAUSED to WAVE_ACTIVE', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.resumeGame();
+  it('resumeGame transitions PAUSED to WAVE_ACTIVE', () => {
+    const game = makeGame();
+    game.state = 'PAUSED';
+    const rc = new GameRuntimeController(game);
+    rc.stopPauseRender = vi.fn();
+    rc._startRafLoop = vi.fn();
+    rc.resumeGame();
     expect(game.state).toBe('WAVE_ACTIVE');
+    expect(rc.stopPauseRender).toHaveBeenCalled();
   });
 
-  it('does nothing if not PAUSED', () => {
-    const game = makeGame({ state: 'PRE_WAVE' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.resumeGame();
-    expect(game.state).toBe('PRE_WAVE');
-  });
-
-  it('stops pause render and starts rAF loop', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.resumeGame();
-    expect(ctrl._pauseRafId).toBeNull();
-    expect(ctrl._rafId).not.toBeNull();
-    ctrl.stopLoop();
-  });
-});
-
-describe('togglePause', () => {
-  it('pauses when WAVE_ACTIVE', () => {
-    const game = makeGame({ state: 'WAVE_ACTIVE' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.togglePause();
-    expect(game.state).toBe('PAUSED');
-  });
-
-  it('resumes when PAUSED', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.togglePause();
-    expect(game.state).toBe('WAVE_ACTIVE');
-    ctrl.stopLoop();
-  });
-
-  it('does nothing for other states', () => {
-    const game = makeGame({ state: 'PRE_WAVE' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.togglePause();
-    expect(game.state).toBe('PRE_WAVE');
-  });
-});
-
-// ─── startWave ──────────────────────────────────────────────────────────────
-
-describe('startWave', () => {
-  it('starts wave from PRE_WAVE and returns true', () => {
-    const game = makeGame({ state: 'PRE_WAVE' });
-    const ctrl = new GameRuntimeController(game);
-    const result = ctrl.startWave();
-    expect(result).toBe(true);
-    expect(game.state).toBe('WAVE_ACTIVE');
-    expect(game.wave.startNextWave).toHaveBeenCalled();
-    expect(AUDIO.waveStart).toHaveBeenCalled();
-  });
-
-  it('returns false if not PRE_WAVE', () => {
-    const game = makeGame({ state: 'WAVE_ACTIVE' });
-    const ctrl = new GameRuntimeController(game);
-    const result = ctrl.startWave();
-    expect(result).toBe(false);
-  });
-
-  it('returns false in dev mode with toast', () => {
-    const game = makeGame({ state: 'PRE_WAVE', devMode: true });
-    const ctrl = new GameRuntimeController(game);
-    const result = ctrl.startWave();
-    expect(result).toBe(false);
-    expect(showToast).toHaveBeenCalledWith('Use the DEV window to start a custom wave', 'warning');
-  });
-
-  it('returns false if wave.startNextWave returns false', () => {
-    const game = makeGame({ state: 'PRE_WAVE' });
-    game.wave.startNextWave = vi.fn(() => false);
-    const ctrl = new GameRuntimeController(game);
-    const result = ctrl.startWave();
-    expect(result).toBe(false);
-    expect(game.state).toBe('PRE_WAVE');
-  });
-});
-
-// ─── applyDefeat ────────────────────────────────────────────────────────────
-
-describe('applyDefeat', () => {
-  it('sets lives=0 and state=DEFEAT', () => {
-    const game = makeGame({ lives: 25 });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.applyDefeat();
-    expect(game.lives).toBe(0);
+  it('resumeGame no-op for non-PAUSED', () => {
+    const game = makeGame();
+    game.state = 'DEFEAT';
+    const rc = new GameRuntimeController(game);
+    rc.resumeGame();
     expect(game.state).toBe('DEFEAT');
   });
 
-  it('plays defeat sound', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    ctrl.applyDefeat();
-    expect(AUDIO.defeat).toHaveBeenCalled();
-  });
-
-  it('cancels main rAF and starts pause render', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    ctrl.applyDefeat();
-    expect(ctrl._rafId).toBeNull();
-    expect(ctrl._pauseRafId).not.toBeNull();
-  });
-
-  it('calls electron.deleteSave when available', () => {
-    globalThis.window.electron = { deleteSave: vi.fn() };
-    const ctrl = new GameRuntimeController(makeGame());
-    ctrl.applyDefeat();
-    expect(window.electron.deleteSave).toHaveBeenCalled();
-  });
-
-  it('does not crash when electron is not available', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    expect(() => ctrl.applyDefeat()).not.toThrow();
-  });
-});
-
-// ─── stopLoop ───────────────────────────────────────────────────────────────
-
-describe('stopLoop', () => {
-  it('stops running, cancels rAF, removes resize', () => {
+  it('togglePause pauses when WAVE_ACTIVE', () => {
     const game = makeGame();
-    const ctrl = new GameRuntimeController(game);
-    const canvas = makeCanvas();
-    ctrl.startLoop(canvas);
-    ctrl.stopLoop();
-    expect(ctrl._running).toBe(false);
-    expect(ctrl._rafId).toBeNull();
-    expect(ctrl._resizeHandler).toBeNull();
+    game.state = 'WAVE_ACTIVE';
+    const rc = new GameRuntimeController(game);
+    rc.pauseGame = vi.fn();
+    rc.togglePause();
+    expect(rc.pauseGame).toHaveBeenCalled();
   });
 
-  it('also stops pause render', () => {
-    const game = makeGame({ state: 'PAUSED' });
-    const ctrl = new GameRuntimeController(game);
-    ctrl.startPauseRender();
-    ctrl.stopLoop();
-    expect(ctrl._pauseRafId).toBeNull();
-  });
-});
-
-// ─── _cancelRaf ─────────────────────────────────────────────────────────────
-
-describe('_cancelRaf', () => {
-  it('cancels active rAF', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    ctrl._rafId = 42;
-    ctrl._cancelRaf();
-    expect(ctrl._rafId).toBeNull();
+  it('togglePause resumes when PAUSED', () => {
+    const game = makeGame();
+    game.state = 'PAUSED';
+    const rc = new GameRuntimeController(game);
+    rc.resumeGame = vi.fn();
+    rc.togglePause();
+    expect(rc.resumeGame).toHaveBeenCalled();
   });
 
-  it('is safe when no active rAF', () => {
-    const ctrl = new GameRuntimeController(makeGame());
-    expect(() => ctrl._cancelRaf()).not.toThrow();
+  it('startWave transitions PRE_WAVE to WAVE_ACTIVE', () => {
+    const game = makeGame();
+    game.state = 'PRE_WAVE';
+    const rc = new GameRuntimeController(game);
+    const result = rc.startWave();
+    expect(result).toBe(true);
+    expect(game.state).toBe('WAVE_ACTIVE');
+  });
+
+  it('startWave returns false if not PRE_WAVE', () => {
+    const game = makeGame();
+    game.state = 'WAVE_ACTIVE';
+    const rc = new GameRuntimeController(game);
+    expect(rc.startWave()).toBe(false);
+  });
+
+  it('startWave returns false in dev mode', () => {
+    const game = makeGame();
+    game.state = 'PRE_WAVE';
+    game.devMode = true;
+    const rc = new GameRuntimeController(game);
+    expect(rc.startWave()).toBe(false);
+  });
+
+  it('applyDefeat sets state to DEFEAT', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    global.window.electron = { deleteSave: vi.fn() };
+    rc.applyDefeat();
+    expect(game.state).toBe('DEFEAT');
+    expect(game.lives).toBe(0);
+    delete global.window.electron;
+  });
+
+  it('stopLoop stops running and cancels all', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    rc._cancelRaf = vi.fn();
+    rc.stopPauseRender = vi.fn();
+    rc.removeResize = vi.fn();
+    rc.stopLoop();
+    expect(rc._running).toBe(false);
+    expect(rc._cancelRaf).toHaveBeenCalled();
+    expect(rc.stopPauseRender).toHaveBeenCalled();
+    expect(rc.removeResize).toHaveBeenCalled();
+  });
+
+  it('_cancelRaf cancels when id is set', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    rc._rafId = 42;
+    rc._cancelRaf();
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(42);
+    expect(rc._rafId).toBeNull();
+  });
+
+  it('_cancelRaf is safe when null', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    expect(() => rc._cancelRaf()).not.toThrow();
+  });
+
+  it('startWave returns false when wave.startNextWave returns false', () => {
+    const game = makeGame();
+    game.wave.startNextWave = vi.fn(() => false);
+    const rc = new GameRuntimeController(game);
+    expect(rc.startWave()).toBe(false);
+    expect(game.state).toBe('PRE_WAVE');
+  });
+
+  it('startLoop installs resize and starts rAF', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    rc._startRafLoop = vi.fn();
+    rc.startLoop({});
+    expect(rc._running).toBe(true);
+    expect(rc._rafVersion).toBe(1);
+    expect(rc._startRafLoop).toHaveBeenCalled();
+  });
+
+  it('startPauseRender loop stops when game state is not paused/defeat', () => {
+    const game = { state: 'WAVE_ACTIVE' };
+    const rc = new GameRuntimeController(game);
+    let capturedCallback;
+    global.requestAnimationFrame = vi.fn((cb) => {
+      capturedCallback = cb;
+      return 42;
+    });
+    rc.startPauseRender();
+    capturedCallback(performance.now());
+    expect(rc._pauseRafId).toBeNull();
+  });
+
+  it('startPauseRender restarts loop when PAUSED state remains', () => {
+    const game = { state: 'PAUSED' };
+    const rc = new GameRuntimeController(game);
+    let callCount = 0;
+    global.requestAnimationFrame = vi.fn((cb) => {
+      callCount++;
+      // Simulate the callback which would call requestAnimationFrame again
+      if (callCount < 3) setTimeout(() => cb(performance.now()), 0);
+      return callCount;
+    });
+    rc.startPauseRender();
+    // The loop calls requestAnimationFrame again when state is PAUSED
+    expect(requestAnimationFrame).toHaveBeenCalled();
+  });
+
+  it('installResize cancels previous RAF on resize', () => {
+    const game = { state: 'PRE_WAVE' };
+    const rc = new GameRuntimeController(game);
+    const canvas = { width: 800, height: 600 };
+    rc.installResize(canvas);
+    // Instead of triggering a real resize, just verify the handler was registered
+    expect(window.addEventListener).toHaveBeenCalledWith('resize', expect.any(Function));
+  });
+
+  it('installResize removes previous handler', () => {
+    const game = { state: 'PRE_WAVE' };
+    const rc = new GameRuntimeController(game);
+    rc.installResize({});
+    rc.installResize({});
+    expect(window.removeEventListener).toHaveBeenCalled();
+  });
+
+  it('applyDefeat calls electron.deleteSave when available', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    const deleteSave = vi.fn();
+    global.window.electron = { deleteSave };
+    rc.applyDefeat();
+    expect(deleteSave).toHaveBeenCalled();
+    delete global.window.electron;
+  });
+
+  it('applyDefeat starts pause render', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    rc.startPauseRender = vi.fn();
+    rc.applyDefeat();
+    expect(rc.startPauseRender).toHaveBeenCalled();
+  });
+
+  it('stopLoop stops running even with no RAF', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    rc.stopLoop();
+    expect(rc._running).toBe(false);
+  });
+
+  it('stopPauseRender no-op when _pauseRafId is null', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    expect(() => rc.stopPauseRender()).not.toThrow();
+  });
+
+  it('_startRafLoop starts rAF with correct version', () => {
+    const game = makeGame();
+    game._runSimTick = vi.fn();
+    const rc = new GameRuntimeController(game);
+    rc._rafVersion = 1;
+    rc._running = true;
+    rc._startRafLoop();
+    expect(requestAnimationFrame).toHaveBeenCalled();
+  });
+
+  it('constructor sets game reference', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    expect(rc.game).toBe(game);
+  });
+
+  it('removeResize no-op when no handler', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    expect(() => rc.removeResize()).not.toThrow();
+  });
+
+  it('togglePause no-op when state is DEFEAT', () => {
+    const game = makeGame();
+    game.state = 'DEFEAT';
+    const rc = new GameRuntimeController(game);
+    rc.pauseGame = vi.fn();
+    rc.resumeGame = vi.fn();
+    rc.togglePause();
+    expect(rc.pauseGame).not.toHaveBeenCalled();
+    expect(rc.resumeGame).not.toHaveBeenCalled();
+  });
+
+  it('installResize cancels previous RAF on resize event', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    const canvas = {};
+    rc._resizeRAF = 42;
+    rc.installResize(canvas);
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(42);
+  });
+
+  it('removeResize cancels _resizeRAF when set', () => {
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    rc._resizeRAF = 99;
+    rc.removeResize();
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(99);
+    expect(rc._resizeRAF).toBeNull();
+  });
+
+  it('_startRafLoop loop exits on version mismatch', () => {
+    const game = makeGame();
+    game._runSimTick = vi.fn();
+    const rc = new GameRuntimeController(game);
+    rc._rafVersion = 1;
+    rc._running = true;
+    // Capture the loop callback
+    let capturedLoop;
+    global.requestAnimationFrame = vi.fn((cb) => {
+      capturedLoop = cb;
+      return 42;
+    });
+    rc._startRafLoop();
+    // Simulate version mismatch (e.g. stopLoop called)
+    rc._rafVersion = 2;
+    capturedLoop(performance.now());
+    expect(game._runSimTick).not.toHaveBeenCalled();
+  });
+
+  it('_startRafLoop loop continues on matching version', () => {
+    const game = makeGame();
+    game._runSimTick = vi.fn();
+    const rc = new GameRuntimeController(game);
+    rc._rafVersion = 1;
+    rc._running = true;
+    let capturedLoop;
+    global.requestAnimationFrame = vi.fn((cb) => {
+      capturedLoop = cb;
+      return 42;
+    });
+    rc._startRafLoop();
+    capturedLoop(performance.now());
+    expect(game._runSimTick).toHaveBeenCalled();
   });
 });

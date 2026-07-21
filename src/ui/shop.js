@@ -48,7 +48,8 @@ export function hitShop(px, py) {
   return -1;
 }
 
-export function computeSelectedTroopPanelHeight(t) {
+/** Build the stat-lines array for a troop — shared between height calculation and rendering. */
+export function _buildStatLines(t) {
   const statLines = [];
   if (t.spec.type === 'support') {
     statLines.push(
@@ -94,6 +95,12 @@ export function computeSelectedTroopPanelHeight(t) {
       bold: true,
     });
   }
+  return statLines;
+}
+
+/** Compute the panel height for a troop's stats display. */
+export function computeSelectedTroopPanelHeight(t) {
+  const statLines = _buildStatLines(t);
   const lineH = 14;
   return 14 + statLines.length * lineH + 8;
 }
@@ -361,51 +368,7 @@ export function drawShop(game) {
 
       c.font = '10px system-ui, sans-serif';
       c.textBaseline = 'middle';
-      const statLines = [];
-      if (t.spec.type === 'support') {
-        statLines.push(
-          'HEAL ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
-        );
-        statLines.push(
-          'RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + '  TGT ' + t.getHealTargetCount() + ' Lv.' + t.healTargetLevel
-        );
-      } else {
-        statLines.push(
-          'DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
-        );
-        statLines.push(
-          'RNG ' +
-            t.getRange() +
-            ' Lv.' +
-            t.rangeLevel +
-            (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : '')
-        );
-        if (t.spec.slowFactor) {
-          statLines.push(
-            'SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel
-          );
-        }
-        if (t.spec.burnStacks) {
-          const tickDamage = Math.max(1, Math.round(t.getDamage() * t.spec.burnDamageRatio));
-          const burnDps = (tickDamage * t.spec.burnStacks) / t.spec.burnTickInterval;
-          statLines.push('BRN ' + burnDps.toFixed(1) + ' Lv.' + t.dmgLevel);
-        }
-      }
-      const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
-      statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
-      if (t.spec.type === 'support') {
-        statLines.push({
-          text: 'HPS ' + t.getHps().toFixed(1),
-          color: '#2ecc71',
-          bold: true,
-        });
-      } else {
-        statLines.push({
-          text: 'DPS ' + t.getDps().toFixed(1),
-          color: UI_COLORS.accent,
-          bold: true,
-        });
-      }
+      const statLines = _buildStatLines(t);
       const lineH = 14;
       const startY = 26;
       c.textBaseline = 'middle';

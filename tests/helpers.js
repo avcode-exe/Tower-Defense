@@ -1,11 +1,15 @@
+// Shared test utilities for Tower Defense test suite
 import { vi } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { Game } from '../src/game.js';
 import { CONFIG, TROOP_SPECS } from '../src/config.js';
 import { Grid, TILE } from '../src/grid.js';
 import { Troop } from '../src/troop.js';
 import { WaveManager } from '../src/waveManager.js';
 
-// ─── Path data (shared across all integration tests) ──────────────────────
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export const TEST_WAYPOINTS = [
   [0, 0],
@@ -15,7 +19,6 @@ export const TEST_WAYPOINTS = [
   [10, 10],
   [15, 10],
 ];
-
 export const TEST_PATH_SEGMENTS = {
   segments: [
     { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
@@ -27,19 +30,10 @@ export const TEST_PATH_SEGMENTS = {
   totalLength: 2438,
 };
 
-// ─── Helper: makeTileIndex ────────────────────────────────────────────────
-
 export function makeTileIndex() {
   return Array.from({ length: CONFIG.GRID_SIZE * CONFIG.GRID_SIZE }, () => []);
 }
 
-// ─── Helper: makeGame ─────────────────────────────────────────────────────
-
-/**
- * Create a minimal Game instance for integration tests.
- * Uses Object.create(Game.prototype) to avoid the real constructor.
- * Mocks (vi.mock) must be set up in each test file before calling this.
- */
 export function makeGame({ devMode = false, gold = 100000 } = {}) {
   const game = Object.create(Game.prototype);
   game.state = 'WAVE_ACTIVE';
@@ -81,19 +75,23 @@ export function makeGame({ devMode = false, gold = 100000 } = {}) {
   game.resetConfirmPending = false;
   game.sellConfirmPending = false;
   game.sellConfirmTroop = null;
-  game.runtime = { applyDefeat: vi.fn() };
+  game.sellConfirmationEnabled = true;
+  game.runtime = {
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
+    stopLoop: vi.fn(),
+    startLoop: vi.fn(),
+    installResize: vi.fn(),
+  };
   game._autoSave = vi.fn();
   game.devMonsterCounts = {};
+  game._needsSaveCleanup = false;
+  game._dragState = null;
+  game.appVersion = '1.6.0-beta.2';
   return game;
 }
 
-// ─── Helper: placeMonsterAt ───────────────────────────────────────────────
-
-/**
- * Spawn a monster and position it at a specific tile with correct path distance.
- * Projects the position onto the closest path segment to compute the distance,
- * preventing the monster from teleporting back to distance=0 on the next step.
- */
 export function placeMonsterAt(game, level, gx, gy) {
   game.spawnMonster(level);
   const m = game.monsters[game.monsters.length - 1];
@@ -104,20 +102,19 @@ export function placeMonsterAt(game, level, gx, gy) {
   m.y = py;
   m._tileGx = gx;
   m._tileGy = gy;
-  // Compute distance along path by projecting position onto closest segment
-  let bestDist = Infinity;
-  let bestDistance = 0;
+  let bestDist = Infinity,
+    bestDistance = 0;
   const segs = game.pathSegments.segments;
   for (let i = 0; i < segs.length; i++) {
     const seg = segs[i];
-    const dx = seg.bx - seg.ax;
-    const dy = seg.by - seg.ay;
+    const dx = seg.bx - seg.ax,
+      dy = seg.by - seg.ay;
     const lenSq = dx * dx + dy * dy;
     if (lenSq === 0) continue;
     const t = Math.max(0, Math.min(1, ((px - seg.ax) * dx + (py - seg.ay) * dy) / lenSq));
-    const projX = seg.ax + t * dx;
-    const projY = seg.ay + t * dy;
-    const dSq = (px - projX) * (px - projX) + (py - projY) * (py - projY);
+    const projX = seg.ax + t * dx,
+      projY = seg.ay + t * dy;
+    const dSq = (px - projX) ** 2 + (py - projY) ** 2;
     if (dSq < bestDist) {
       bestDist = dSq;
       bestDistance = seg.cumStart + t * seg.len;
@@ -128,13 +125,46 @@ export function placeMonsterAt(game, level, gx, gy) {
   return m;
 }
 
-// ─── Helper: setProgressKeepPosition ──────────────────────────────────────
+let _Monster;
+export async function ensureMonsterModule() {
+  if (!_Monster) {
+    const mod = await import('../src/monster.js');
+    _Monster = mod.Monster;
+  }
+}
 
-/**
- * Set monster progress (0..1) via distance, preserving x/y/tile position.
- * Useful for chain lightning tests where you need specific progress ordering
- * but monsters must stay at their placed positions for distance checks.
- */
+export function makeMonster(level, hpMult = 1) {
+  if (!_Monster) throw new Error('Call ensureMonsterModule() before makeMonster()');
+  const waypoints = [
+    [0, 0],
+    [5, 0],
+    [5, 5],
+    [10, 5],
+    [10, 10],
+    [15, 10],
+  ];
+  const pathSegments = {
+    segments: [
+      { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
+      { ax: 848, ay: 26.5, bx: 848, by: 291.5, len: 265, cumStart: 848 },
+    ],
+    totalLength: 1113,
+  };
+  return new _Monster(level, waypoints, pathSegments, hpMult);
+}
+
+export function placeTroopOnGrid(game, spec, gx, gy) {
+  const t = new Troop(spec, gx, gy);
+  game.troops.push(t);
+  game.grid.set(gx, gy, TILE.BLOCKED);
+  game._buildTroopTileIndex();
+  return t;
+}
+
+export function makeTroop(spec) {
+  return new Troop(spec, 0, 0);
+}
+
 export function setProgressKeepPosition(m, progress) {
   const x = m.x,
     y = m.y,
@@ -147,39 +177,154 @@ export function setProgressKeepPosition(m, progress) {
   m._tileGy = gy;
 }
 
-// ─── Helper: makeTroop ────────────────────────────────────────────────────
-
-/**
- * Create a Troop instance from a spec for direct use with chainHitAt/splashAt.
- */
-export function makeTroop(spec) {
-  return new Troop(spec, 0, 0);
-}
-
-// ─── Helper: longPath ───────────────────────────────────────────────────
-
-/**
- * Long straight path for tests where monsters need to travel across the map.
- * Uses a single horizontal segment of 12 tiles.
- */
 export function longPath() {
   const T = CONFIG.TILE_SIZE;
+  return { segments: [{ ax: 0, ay: 0, bx: T * 12, by: 0, len: T * 12, cumStart: 0 }], totalLength: T * 12 };
+}
+
+export function makeElectronStub(overrides = {}) {
   return {
-    segments: [{ ax: 0, ay: 0, bx: T * 12, by: 0, len: T * 12, cumStart: 0 }],
-    totalLength: T * 12,
+    saveGame: vi.fn(async () => true),
+    loadGame: vi.fn(async () => null),
+    deleteSave: vi.fn(async () => true),
+    getSettings: vi.fn(async () =>
+      JSON.parse(
+        JSON.stringify({
+          update: {
+            channel: 'release',
+            autoDownload: false,
+            checkOnStartup: true,
+            checkIntervalMinutes: 60,
+            skippedVersions: [],
+            showProgressBar: true,
+            availableVersion: null,
+            releaseType: null,
+          },
+          collapsed: {
+            hud: false,
+            shop: false,
+            preview: false,
+            shieldShop: false,
+            help: true,
+            monsterInfo: true,
+            settings: true,
+            about: false,
+          },
+        })
+      )
+    ),
+    saveSettings: vi.fn(async () => true),
+    getVersion: vi.fn(async () => '1.6.0-beta.2'),
+    sendManualCheck: vi.fn(),
+    downloadUpdate: vi.fn(),
+    requestRestartToUpdate: vi.fn(),
+    skipUpdate: vi.fn(),
+    cancelUpdate: vi.fn(),
+    setAutoDownload: vi.fn(),
+    setUpdateChannel: vi.fn(),
+    onUpdateStatus: vi.fn(() => () => {}),
+    ...overrides,
   };
 }
 
-// ─── Common spec lookups ──────────────────────────────────────────────────
-
-export const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
-export const lightningSpec = TROOP_SPECS.find((s) => s.id === 'lightning');
 export const swordsmanSpec = TROOP_SPECS.find((s) => s.id === 'swordsman');
-export const archerSpec = TROOP_SPECS.find((s) => s.id === 'archer');
-export const mageSpec = TROOP_SPECS.find((s) => s.id === 'mage');
 export const knightSpec = TROOP_SPECS.find((s) => s.id === 'knight');
-export const sniperSpec = TROOP_SPECS.find((s) => s.id === 'sniper');
+export const flameSpec = TROOP_SPECS.find((s) => s.id === 'flame');
+export const archerSpec = TROOP_SPECS.find((s) => s.id === 'archer');
 export const machinegunSpec = TROOP_SPECS.find((s) => s.id === 'machinegun');
-export const mortarSpec = TROOP_SPECS.find((s) => s.id === 'mortar');
+export const mageSpec = TROOP_SPECS.find((s) => s.id === 'mage');
+export const sniperSpec = TROOP_SPECS.find((s) => s.id === 'sniper');
 export const valkyrieSpec = TROOP_SPECS.find((s) => s.id === 'valkyrie');
+export const lightningSpec = TROOP_SPECS.find((s) => s.id === 'lightning');
+export const mortarSpec = TROOP_SPECS.find((s) => s.id === 'mortar');
 export const icewizSpec = TROOP_SPECS.find((s) => s.id === 'icewiz');
+export const healerSpec = TROOP_SPECS.find((s) => s.id === 'healer');
+
+export function loadFixture(name) {
+  const p = path.join(__dirname, 'fixtures', 'saves', name);
+  try {
+    return JSON.parse(fs.readFileSync(p, 'utf-8'));
+  } catch (e) {
+    return null;
+  }
+}
+
+export function makeCtx() {
+  return {
+    calls: [],
+    fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
+    font: '',
+    textAlign: '',
+    textBaseline: '',
+    globalAlpha: 1,
+    filter: 'none',
+    setTransform: vi.fn(),
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    beginPath: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    quadraticCurveTo: vi.fn(),
+    arc: vi.fn(),
+    closePath: vi.fn(),
+    fill: vi.fn(),
+    stroke: vi.fn(),
+    save: vi.fn(),
+    restore: vi.fn(),
+    translate: vi.fn(),
+    scale: vi.fn(),
+    rotate: vi.fn(),
+    drawImage: vi.fn(),
+    clip: vi.fn(),
+    rect: vi.fn(),
+    setLineDash: vi.fn(),
+    clearRect: vi.fn(),
+    measureText: vi.fn((text) => ({ width: text.length * 6 })),
+    fillText: vi.fn(),
+    strokeText: vi.fn(),
+    createLinearGradient: vi.fn(() => ({ addColorStop: vi.fn() })),
+    shadowColor: '',
+    shadowBlur: 0,
+    shadowOffsetX: 0,
+    shadowOffsetY: 0,
+    canvas: null,
+  };
+}
+
+export function makeCanvas() {
+  return {
+    getContext: vi.fn(() => makeCtx()),
+    getBoundingClientRect: vi.fn(() => ({ left: 0, top: 0, width: 800, height: 600 })),
+    style: {},
+    width: 800,
+    height: 600,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  };
+}
+
+export function makeElement(tag = 'div') {
+  return {
+    tagName: tag.toUpperCase(),
+    style: {},
+    classList: { add: vi.fn(), remove: vi.fn(), contains: vi.fn(), toggle: vi.fn() },
+    appendChild: vi.fn(),
+    removeChild: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    querySelector: vi.fn(),
+    querySelectorAll: vi.fn(() => []),
+    getElementById: vi.fn(),
+    parentNode: null,
+    textContent: '',
+    getAttribute: vi.fn(),
+    setAttribute: vi.fn(),
+    focus: vi.fn(),
+    blur: vi.fn(),
+  };
+}
+
+// Tripwire comment convention — used by all (known limitation: ...) tests
+export const KNOWN_LIMITATION = 'known limitation:';

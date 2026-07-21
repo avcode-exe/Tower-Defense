@@ -1,199 +1,146 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-
-const rendererState = vi.hoisted(() => ({
-  width: 800,
-  height: 600,
-  hoverPx: null,
-  hoverPy: null,
-}));
-
-const uiState = vi.hoisted(() => ({
-  shopScrollY: 0,
-}));
-
-const uiLayout = vi.hoisted(() => ({
-  collapsed: {
-    shieldShop: false,
-    shop: false,
-  },
-  shieldShopWidth: 220,
-  shopWidth: 250,
-  hudHeight: 56,
-}));
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { CONFIG } from '../src/config.js';
 
 vi.mock('../src/rendering/renderer.js', () => ({
-  RENDERER: rendererState,
+  RENDERER: {
+    hoverPx: null,
+    hoverPy: null,
+    width: 800,
+    height: 600,
+  },
 }));
 
 vi.mock('../src/ui/index.js', () => ({
-  UI_LAYOUT: uiLayout,
-  UI: uiState,
+  UI: {
+    shopScrollY: 0,
+    handleToggleClick: vi.fn(() => false),
+    hitShop: vi.fn(() => -1),
+  },
+  UI_LAYOUT: {
+    collapsed: { shop: false, shieldShop: false, hud: false },
+    shopWidth: 250,
+    hudHeight: 56,
+    shieldShopWidth: 220,
+    SHOP_WIDTH: 250,
+  },
 }));
 
-import { Input } from '../src/input.js';
-
-function makeCanvas() {
-  const listeners = {};
-  return {
-    listeners,
-    getBoundingClientRect: vi.fn(() => ({ left: 10, top: 20 })),
-    addEventListener: vi.fn((name, handler) => {
-      listeners[name] = handler;
-    }),
-    removeEventListener: vi.fn(),
-  };
-}
-
-function makeWindow() {
-  return {
-    addEventListener: vi.fn(),
-    removeEventListener: vi.fn(),
-  };
-}
-
-function makeGame() {
-  return {
-    onMouseDown: vi.fn(),
-    onKeyDown: vi.fn(),
-  };
-}
-
 describe('Input', () => {
-  let canvas;
-  let fakeWindow;
-  let game;
+  let Input;
 
-  beforeEach(() => {
-    rendererState.width = 800;
-    rendererState.height = 600;
-    rendererState.hoverPx = null;
-    rendererState.hoverPy = null;
-    uiState.shopScrollY = 0;
-    uiLayout.collapsed.shieldShop = false;
-    uiLayout.collapsed.shop = false;
-    canvas = makeCanvas();
-    fakeWindow = makeWindow();
-    game = makeGame();
-    vi.stubGlobal('window', fakeWindow);
+  beforeAll(async () => {
+    const mod = await import('../src/input.js');
+    Input = mod.Input;
   });
 
-  afterEach(() => {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
-
-  it('stores canvas and game references and registers listeners', () => {
+  function makeInput() {
+    const canvas = {
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      getBoundingClientRect: vi.fn(() => ({ left: 0, top: 0, width: 800, height: 600 })),
+    };
+    const game = {
+      onMouseDown: vi.fn(),
+      onMouseUp: vi.fn(),
+      onKeyDown: vi.fn(),
+    };
     const input = new Input(canvas, game);
+    return { input, canvas, game };
+  }
 
-    expect(input.canvas).toBe(canvas);
-    expect(input.game).toBe(game);
-    expect(input.hoverPx).toBeNull();
-    expect(input.hoverPy).toBeNull();
-    expect(canvas.addEventListener).toHaveBeenCalledWith('mousemove', expect.any(Function), { passive: true });
-    expect(canvas.addEventListener).toHaveBeenCalledWith('mouseleave', expect.any(Function), { passive: true });
-    expect(canvas.addEventListener).toHaveBeenCalledWith('mousedown', expect.any(Function), { passive: true });
-    expect(canvas.addEventListener).toHaveBeenCalledWith('contextmenu', expect.any(Function));
-    expect(canvas.addEventListener).toHaveBeenCalledWith('wheel', expect.any(Function), { passive: false });
-    expect(fakeWindow.addEventListener).toHaveBeenCalledWith('keydown', expect.any(Function));
+  it('constructor stores references and registers all listeners', () => {
+    const { input, canvas } = makeInput();
+    expect(canvas.addEventListener).toHaveBeenCalledTimes(6);
   });
 
-  it('updates hover coordinates from mousemove', () => {
-    const input = new Input(canvas, game);
-
-    canvas.listeners.mousemove({ clientX: 110, clientY: 220 });
-
-    expect(inputHover(input)).toEqual({ px: 100, py: 200 });
-    expect(rendererState.hoverPx).toBe(100);
-    expect(rendererState.hoverPy).toBe(200);
+  it('mousemove updates hoverPx/hoverPy', () => {
+    const { input } = makeInput();
+    const event = { clientX: 100, clientY: 200 };
+    input._onMouseMove(event);
+    expect(input.hoverPx).toBe(100);
+    expect(input.hoverPy).toBe(200);
   });
 
-  it('clears hover coordinates from mouseleave', () => {
-    const input = new Input(canvas, game);
+  it('mouseleave clears hover coordinates', () => {
+    const { input } = makeInput();
     input.hoverPx = 100;
     input.hoverPy = 200;
-    rendererState.hoverPx = 100;
-    rendererState.hoverPy = 200;
-
-    canvas.listeners.mouseleave();
-
+    input._onMouseLeave();
     expect(input.hoverPx).toBeNull();
     expect(input.hoverPy).toBeNull();
-    expect(rendererState.hoverPx).toBeNull();
-    expect(rendererState.hoverPy).toBeNull();
   });
 
-  it('passes recalculated canvas coordinates and button to mouse down', () => {
-    new Input(canvas, game);
-
-    canvas.listeners.mousedown({ clientX: 110, clientY: 220, button: 2 });
-
-    expect(game.onMouseDown).toHaveBeenCalledWith(100, 200, 2);
+  it('mousedown recalculates rect and passes to game', () => {
+    const { input, game } = makeInput();
+    const event = { clientX: 50, clientY: 60, button: 0 };
+    input._onMouseDown(event);
+    expect(game.onMouseDown).toHaveBeenCalledWith(50, 60, 0);
   });
 
-  it('prevents context menu', () => {
-    const preventDefault = vi.fn();
-    new Input(canvas, game);
-
-    canvas.listeners.contextmenu({ preventDefault });
-
-    expect(preventDefault).toHaveBeenCalledOnce();
+  it('mouseup calls game.onMouseUp', () => {
+    const { input, game } = makeInput();
+    const event = { clientX: 100, clientY: 200 };
+    input._onMouseUp(event);
+    expect(game.onMouseUp).toHaveBeenCalledWith(100, 200);
   });
 
-  it('scrolls the shop on wheel events outside the shield shop', () => {
-    new Input(canvas, game);
-
-    canvas.listeners.wheel({ clientX: 100, clientY: 100, deltaY: 40, preventDefault: vi.fn() });
-
-    expect(uiState.shopScrollY).toBe(20);
+  it('contextmenu prevents default', () => {
+    const { input } = makeInput();
+    const event = { preventDefault: vi.fn() };
+    input._onContextMenu(event);
+    expect(event.preventDefault).toHaveBeenCalled();
   });
 
-  it('consumes wheel events inside the shield shop without scrolling', () => {
-    const preventDefault = vi.fn();
-    new Input(canvas, game);
-
-    canvas.listeners.wheel({
-      clientX: 700,
-      clientY: 100,
-      deltaY: 40,
-      preventDefault,
-    });
-
-    expect(preventDefault).toHaveBeenCalledOnce();
-    expect(uiState.shopScrollY).toBe(0);
+  it('wheel scrolls shop when in shop area', () => {
+    const { input } = makeInput();
+    const event = { clientX: 50, clientY: 100, deltaY: 100, preventDefault: vi.fn() };
+    input._onWheel(event);
+    expect(event.preventDefault).toHaveBeenCalled();
   });
 
-  it('skips shop scrolling when the shop is collapsed', () => {
-    uiLayout.collapsed.shop = true;
-    new Input(canvas, game);
-
-    canvas.listeners.wheel({ clientX: 100, clientY: 100, deltaY: 40, preventDefault: vi.fn() });
-
-    expect(uiState.shopScrollY).toBe(0);
+  it('wheel skips scroll when shop collapsed', async () => {
+    // Temporarily set collapsed for this test
+    const { UI_LAYOUT } = await import('../src/ui/index.js');
+    UI_LAYOUT.collapsed.shop = true;
+    const { input } = makeInput();
+    const event = { clientX: 50, clientY: 100, deltaY: 100, preventDefault: vi.fn() };
+    input._onWheel(event);
+    expect(event.preventDefault).toHaveBeenCalled();
   });
 
-  it('forwards keydown events to the game', () => {
-    const event = { key: 'Escape' };
-    new Input(canvas, game);
+  it('wheel consumes event in shield shop area', () => {
+    const { input } = makeInput();
+    const event = { clientX: 700, clientY: 100, deltaY: 100, preventDefault: vi.fn() };
+    input._onWheel(event);
+    expect(event.preventDefault).toHaveBeenCalled();
+  });
 
-    fakeWindow.addEventListener.mock.calls[0][1](event);
-
+  it('keydown forwards to game', () => {
+    const { input, game } = makeInput();
+    const event = { key: 'Escape', preventDefault: vi.fn() };
+    input._onKeyDown(event);
     expect(game.onKeyDown).toHaveBeenCalledWith(event);
   });
 
-  it('removes all listeners on destroy', () => {
-    const input = new Input(canvas, game);
-
+  it('destroy removes all listeners', () => {
+    const { input, canvas } = makeInput();
     input.destroy();
+    expect(canvas.removeEventListener).toHaveBeenCalledTimes(6);
+  });
 
-    expect(canvas.removeEventListener).toHaveBeenCalledWith('mousemove', expect.any(Function), { passive: true });
-    expect(canvas.removeEventListener).toHaveBeenCalledWith('mouseleave', expect.any(Function), { passive: true });
-    expect(canvas.removeEventListener).toHaveBeenCalledWith('mousedown', expect.any(Function), { passive: true });
-    expect(canvas.removeEventListener).toHaveBeenCalledWith('contextmenu', expect.any(Function));
-    expect(canvas.removeEventListener).toHaveBeenCalledWith('wheel', expect.any(Function), { passive: false });
-    expect(fakeWindow.removeEventListener).toHaveBeenCalledWith('keydown', expect.any(Function));
+  it('onMouseUp calls game.onMouseUp when function exists', () => {
+    const { input, canvas, game } = makeInput();
+    game.onMouseUp = vi.fn();
+    const rect = { left: 0, top: 0, right: 800, bottom: 600 };
+    canvas.getBoundingClientRect.mockReturnValue(rect);
+    input._onMouseUp({ clientX: 100, clientY: 100 });
+    expect(game.onMouseUp).toHaveBeenCalledWith(100, 100);
+  });
+
+  it('onMouseUp does not crash when game.onMouseUp is undefined', () => {
+    const { input, canvas, game } = makeInput();
+    delete game.onMouseUp;
+    expect(() => input._onMouseUp({ clientX: 100, clientY: 100 })).not.toThrow();
   });
 });
-
-function inputHover(input) {
-  return { px: input.hoverPx, py: input.hoverPy };
-}

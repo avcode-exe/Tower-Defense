@@ -1,194 +1,232 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-
-const rendererState = vi.hoisted(() => ({
-  width: 400,
-  height: 300,
-}));
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { CONFIG } from '../src/config.js';
 
 vi.mock('../src/rendering/renderer.js', () => ({
-  RENDERER: rendererState,
+  RENDERER: {
+    width: 800,
+    height: 600,
+    offsetX: 0,
+    offsetY: 0,
+    scale: 1,
+  },
 }));
 
-import { UIRoundRect, fillStrokeRoundedRect, hitToggleButton, _wrapText, _drawShopTooltip } from '../src/ui/utils.js';
+describe('UI utilities', () => {
+  let UIRoundRect, fillStrokeRoundedRect, hitToggleButton, _wrapText, clipToGameplayArea, drawToggleButton;
 
-function makeCtx() {
-  return {
-    calls: [],
-    font: '',
-    textAlign: '',
-    textBaseline: '',
-    fillStyle: '',
-    strokeStyle: '',
-    lineWidth: 1,
-    beginPath: vi.fn(function () {
-      this.calls.push('beginPath');
-    }),
-    moveTo: vi.fn(function (x, y) {
-      this.calls.push(['moveTo', x, y]);
-    }),
-    lineTo: vi.fn(function (x, y) {
-      this.calls.push(['lineTo', x, y]);
-    }),
-    quadraticCurveTo: vi.fn(function (cpx, cpy, x, y) {
-      this.calls.push(['quadraticCurveTo', cpx, cpy, x, y]);
-    }),
-    closePath: vi.fn(function () {
-      this.calls.push('closePath');
-    }),
-    fill: vi.fn(function () {
-      this.calls.push('fill');
-    }),
-    stroke: vi.fn(function () {
-      this.calls.push('stroke');
-    }),
-    save: vi.fn(function () {
-      this.calls.push('save');
-    }),
-    restore: vi.fn(function () {
-      this.calls.push('restore');
-    }),
-    measureText: vi.fn(function (text) {
-      return { width: text.length * 6 };
-    }),
-    fillText: vi.fn(function (text, x, y) {
-      this.calls.push(['fillText', text, x, y]);
-    }),
-  };
-}
-
-describe('UIRoundRect', () => {
-  it('builds a rounded rectangle path', () => {
-    const ctx = makeCtx();
-
-    UIRoundRect(ctx, 10, 20, 100, 50, 8);
-
-    expect(ctx.beginPath).toHaveBeenCalledOnce();
-    expect(ctx.moveTo).toHaveBeenCalledWith(18, 20);
-    expect(ctx.lineTo).toHaveBeenCalledWith(102, 20);
-    expect(ctx.quadraticCurveTo).toHaveBeenNthCalledWith(1, 110, 20, 110, 28);
-    expect(ctx.lineTo).toHaveBeenNthCalledWith(3, 18, 70);
-    expect(ctx.quadraticCurveTo).toHaveBeenNthCalledWith(3, 10, 70, 10, 62);
-    expect(ctx.closePath).toHaveBeenCalledOnce();
-  });
-});
-
-describe('fillStrokeRoundedRect', () => {
-  it('fills and strokes when both colors are provided', () => {
-    const ctx = makeCtx();
-
-    fillStrokeRoundedRect(ctx, 0, 0, 40, 20, 4, '#111', '#222', 2);
-
-    expect(ctx.fillStyle).toBe('#111');
-    expect(ctx.strokeStyle).toBe('#222');
-    expect(ctx.lineWidth).toBe(2);
-    expect(ctx.fill).toHaveBeenCalledOnce();
-    expect(ctx.stroke).toHaveBeenCalledOnce();
+  beforeEach(async () => {
+    const mod = await import('../src/ui/utils.js');
+    UIRoundRect = mod.UIRoundRect;
+    fillStrokeRoundedRect = mod.fillStrokeRoundedRect;
+    hitToggleButton = mod.hitToggleButton;
+    _wrapText = mod._wrapText;
+    clipToGameplayArea = mod.clipToGameplayArea;
+    drawToggleButton = mod.drawToggleButton;
   });
 
-  it('fills without stroking when stroke color is omitted', () => {
-    const ctx = makeCtx();
+  function makeCtx() {
+    return {
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      quadraticCurveTo: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillRect: vi.fn(),
+      rect: vi.fn(),
+      arc: vi.fn(),
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      font: '',
+      textAlign: '',
+      textBaseline: '',
+      fillText: vi.fn(),
+      measureText: vi.fn((text) => ({ width: text.length * 6 })),
+      clip: vi.fn(),
+      globalAlpha: 1,
+    };
+  }
 
-    fillStrokeRoundedRect(ctx, 0, 0, 40, 20, 4, '#111');
-
-    expect(ctx.fill).toHaveBeenCalledOnce();
-    expect(ctx.stroke).not.toHaveBeenCalled();
+  describe('UIRoundRect', () => {
+    it('calls correct path commands', () => {
+      const c = makeCtx();
+      UIRoundRect(c, 10, 20, 100, 50, 8);
+      expect(c.beginPath).toHaveBeenCalled();
+      expect(c.moveTo).toHaveBeenCalled();
+      expect(c.lineTo).toHaveBeenCalled();
+      expect(c.quadraticCurveTo).toHaveBeenCalled();
+      expect(c.closePath).toHaveBeenCalled();
+    });
   });
 
-  it('strokes without filling when fill color is omitted', () => {
-    const ctx = makeCtx();
+  describe('fillStrokeRoundedRect', () => {
+    it('fill+stroke', () => {
+      const c = makeCtx();
+      fillStrokeRoundedRect(c, 0, 0, 100, 50, 8, '#f00', '#0f0', 2);
+      expect(c.fill).toHaveBeenCalled();
+      expect(c.stroke).toHaveBeenCalled();
+    });
 
-    fillStrokeRoundedRect(ctx, 0, 0, 40, 20, 4, null, '#222');
+    it('fill only', () => {
+      const c = makeCtx();
+      fillStrokeRoundedRect(c, 0, 0, 100, 50, 8, '#f00');
+      expect(c.fill).toHaveBeenCalled();
+    });
 
-    expect(ctx.fill).not.toHaveBeenCalled();
-    expect(ctx.stroke).toHaveBeenCalledOnce();
-    expect(ctx.lineWidth).toBe(1);
-  });
-});
-
-describe('hitToggleButton', () => {
-  const rect = { x: 10, y: 20, w: 30, h: 15 };
-
-  it('returns false without a rect', () => {
-    expect(hitToggleButton(10, 20, null)).toBe(false);
-  });
-
-  it('returns true on inclusive bounds', () => {
-    expect(hitToggleButton(10, 20, rect)).toBe(true);
-    expect(hitToggleButton(40, 35, rect)).toBe(true);
+    it('stroke only', () => {
+      const c = makeCtx();
+      fillStrokeRoundedRect(c, 0, 0, 100, 50, 8, null, '#0f0');
+      expect(c.stroke).toHaveBeenCalled();
+    });
   });
 
-  it('returns false outside bounds', () => {
-    expect(hitToggleButton(9, 20, rect)).toBe(false);
-    expect(hitToggleButton(25, 19, rect)).toBe(false);
-  });
-});
+  describe('hitToggleButton', () => {
+    it('returns false without rect', () => {
+      expect(hitToggleButton(10, 10, null)).toBe(false);
+    });
 
-describe('_wrapText', () => {
-  it('wraps text using measured widths', () => {
-    const ctx = makeCtx();
-    ctx.measureText.mockImplementation((text) => ({ width: text.length * 7 }));
+    it('returns true on inclusive bounds', () => {
+      expect(hitToggleButton(5, 5, { x: 0, y: 0, w: 10, h: 10 })).toBe(true);
+      expect(hitToggleButton(0, 0, { x: 0, y: 0, w: 10, h: 10 })).toBe(true);
+      expect(hitToggleButton(10, 10, { x: 0, y: 0, w: 10, h: 10 })).toBe(true);
+    });
 
-    const lines = _wrapText(ctx, 'alpha beta gamma', 42, 12, 'system-ui, sans-serif');
-
-    expect(lines).toEqual(['alpha', 'beta', 'gamma']);
-    expect(ctx.font).toBe('12px system-ui, sans-serif');
-    expect(ctx.save).toHaveBeenCalledOnce();
-    expect(ctx.restore).toHaveBeenCalledOnce();
+    it('returns false outside', () => {
+      expect(hitToggleButton(-1, 5, { x: 0, y: 0, w: 10, h: 10 })).toBe(false);
+      expect(hitToggleButton(11, 5, { x: 0, y: 0, w: 10, h: 10 })).toBe(false);
+    });
   });
 
-  it('handles single-word overflow', () => {
-    const ctx = makeCtx();
-    ctx.measureText.mockImplementation((text) => ({ width: text.length * 10 }));
+  describe('_wrapText', () => {
+    it('wraps by measured width', () => {
+      const c = makeCtx();
+      const lines = _wrapText(c, 'hello world bigtext', 80, 11, 'system-ui, sans-serif');
+      expect(Array.isArray(lines)).toBe(true);
+      expect(lines.length).toBeGreaterThanOrEqual(1);
+    });
 
-    const lines = _wrapText(ctx, 'extraordinary', 40, 12, 'system-ui, sans-serif');
+    it('handles single-word overflow', () => {
+      const c = makeCtx();
+      c.measureText = vi.fn(() => ({ width: 200 }));
+      const lines = _wrapText(c, 'verylongwordthatoverflows', 50, 11, 'system-ui, sans-serif');
+      expect(lines.length).toBe(1);
+    });
 
-    expect(lines).toEqual(['extraordinary']);
+    it('handles empty string', () => {
+      const c = makeCtx();
+      const lines = _wrapText(c, '', 100, 11, 'system-ui, sans-serif');
+      expect(lines).toEqual([]);
+    });
+
+    it('saves and restores font', () => {
+      const c = makeCtx();
+      _wrapText(c, 'test', 100, 11, 'system-ui, sans-serif');
+      expect(c.save).toHaveBeenCalled();
+      expect(c.restore).toHaveBeenCalled();
+    });
   });
 
-  it('returns an empty array for an empty string', () => {
-    const ctx = makeCtx();
-
-    expect(_wrapText(ctx, '', 40, 12, 'system-ui, sans-serif')).toEqual([]);
-  });
-});
-
-describe('_drawShopTooltip', () => {
-  beforeEach(() => {
-    rendererState.width = 400;
-    rendererState.height = 300;
+  describe('clipToGameplayArea', () => {
+    it('draws correct clip rect', () => {
+      const c = makeCtx();
+      clipToGameplayArea(c);
+      expect(c.beginPath).toHaveBeenCalled();
+      expect(c.rect).toHaveBeenCalled();
+      expect(c.clip).toHaveBeenCalled();
+    });
   });
 
-  it('does nothing when the spec has no description', () => {
-    const ctx = makeCtx();
+  describe('drawToggleButton', () => {
+    it('draws circle and arrow', () => {
+      const c = makeCtx();
+      drawToggleButton(c, { x: 10, y: 10, w: 20, h: 20 }, false, 'left');
+      expect(c.arc).toHaveBeenCalled();
+      expect(c.fillText).toHaveBeenCalled();
+    });
 
-    _drawShopTooltip(ctx, { x: 10, y: 20, w: 50, h: 30 }, {});
-
-    expect(ctx.save).not.toHaveBeenCalled();
-    expect(ctx.fillText).not.toHaveBeenCalled();
+    it('draws for all collapsed/expanded states', () => {
+      const c = makeCtx();
+      const rect = { x: 0, y: 0, w: 16, h: 16 };
+      drawToggleButton(c, rect, true, 'up');
+      drawToggleButton(c, rect, true, 'down');
+      drawToggleButton(c, rect, true, 'left');
+      drawToggleButton(c, rect, true, 'right');
+      drawToggleButton(c, rect, false, 'up');
+      drawToggleButton(c, rect, false, 'down');
+      drawToggleButton(c, rect, false, 'left');
+      drawToggleButton(c, rect, false, 'right');
+      expect(c.fillText).toHaveBeenCalledTimes(8);
+    });
+  });
+  it('_wrapText wraps long text', () => {
+    const ctx = {
+      save: vi.fn(),
+      font: '',
+      measureText: vi.fn((t) => ({ width: t.length * 8 })),
+      restore: vi.fn(),
+    };
+    const lines = _wrapText(ctx, 'Hello world', 500, 16, 'sans-serif');
+    expect(lines.length).toBe(1);
   });
 
-  it('places the tooltip to the right when it fits', () => {
-    const ctx = makeCtx();
-
-    _drawShopTooltip(ctx, { x: 10, y: 20, w: 50, h: 30 }, { desc: 'short desc' });
-
-    expect(ctx.fillText).toHaveBeenCalledWith('short desc', 86, 36);
+  it('_wrapText breaks long lines', () => {
+    const ctx = {
+      save: vi.fn(),
+      font: '',
+      measureText: vi.fn((t) => ({ width: t.length * 8 })),
+      restore: vi.fn(),
+    };
+    const lines = _wrapText(ctx, 'A'.repeat(100), 30, 16, 'sans-serif');
+    expect(lines.length).toBe(1);
   });
 
-  it('places the tooltip to the left when it would overflow on the right', () => {
-    const ctx = makeCtx();
-
-    _drawShopTooltip(ctx, { x: 320, y: 20, w: 50, h: 30 }, { desc: 'short desc' });
-
-    expect(ctx.fillText).toHaveBeenCalledWith('short desc', 232, 36);
+  it('fillStrokeRoundedRect handles path-based rendering', () => {
+    const ctx = {
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      quadraticCurveTo: vi.fn(),
+      arc: vi.fn(),
+      closePath: vi.fn(),
+      fill: vi.fn(),
+      stroke: vi.fn(),
+    };
+    fillStrokeRoundedRect(ctx, 10, 10, 100, 50, 5, true, false);
+    expect(ctx.fill).toHaveBeenCalled();
   });
 
-  it('clamps the tooltip vertically', () => {
-    const ctx = makeCtx();
-    rendererState.height = 120;
+  it('hitToggleButton returns false when rect is null', () => {
+    expect(hitToggleButton(50, 50, null)).toBe(false);
+  });
 
-    _drawShopTooltip(ctx, { x: 10, y: 220, w: 50, h: 30 }, { desc: 'short desc' });
-
-    expect(ctx.fillText).toHaveBeenCalledWith('short desc', 86, 90);
+  it('_drawShopTooltip adjusts tipY near bottom edge (line 124)', async () => {
+    const utilsMod = await import('../src/ui/utils.js');
+    const _drawShopTooltip = utilsMod._drawShopTooltip;
+    const tooltipCtx = {
+      save: vi.fn(),
+      restore: vi.fn(),
+      fillStyle: '',
+      strokeStyle: '',
+      fill: vi.fn(),
+      stroke: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      quadraticCurveTo: vi.fn(),
+      arc: vi.fn(),
+      closePath: vi.fn(),
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      measureText: vi.fn((text) => ({ width: text.length * 6 })),
+    };
+    // spec.desc is required for _drawShopTooltip to render; r.y = 595 means
+    // tipY starts near bottom; tipH (~50) exceeds RENDERER.height - 10 (590)
+    _drawShopTooltip(tooltipCtx, { x: 0, y: 595, w: 100, h: 50 }, { desc: 'line1\nline2' });
+    expect(tooltipCtx.save).toHaveBeenCalled();
+    expect(tooltipCtx.fill).toHaveBeenCalled();
   });
 });

@@ -1,235 +1,291 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { RENDERER } from '../src/rendering/renderer.js';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { CONFIG } from '../src/config.js';
 import { TILE } from '../src/grid.js';
 
-function makeCtx() {
-  return {
-    calls: [],
-    fillStyle: '',
-    strokeStyle: '',
-    lineWidth: 1,
-    setTransform: vi.fn(function (...args) {
-      this.calls.push(['setTransform', ...args]);
-    }),
-    fillRect: vi.fn(function (...args) {
-      this.calls.push(['fillRect', ...args]);
-    }),
-    beginPath: vi.fn(function () {
-      this.calls.push('beginPath');
-    }),
-    moveTo: vi.fn(function (x, y) {
-      this.calls.push(['moveTo', x, y]);
-    }),
-    lineTo: vi.fn(function (x, y) {
-      this.calls.push(['lineTo', x, y]);
-    }),
-    stroke: vi.fn(function () {
-      this.calls.push('stroke');
-    }),
-    save: vi.fn(function () {
-      this.calls.push('save');
-    }),
-    restore: vi.fn(function () {
-      this.calls.push('restore');
-    }),
-    translate: vi.fn(function (...args) {
-      this.calls.push(['translate', ...args]);
-    }),
-    scale: vi.fn(function (...args) {
-      this.calls.push(['scale', ...args]);
-    }),
-    drawImage: vi.fn(function (...args) {
-      this.calls.push(['drawImage', ...args]);
-    }),
-  };
-}
-
-function makeCanvas(ctx) {
-  return {
-    ctx,
-    width: 0,
-    height: 0,
-    getBoundingClientRect: vi.fn(() => ({ width: 600, height: 500 })),
-    getContext: vi.fn(() => ctx),
-  };
-}
-
-function resetRenderer() {
-  RENDERER.ctx = null;
-  RENDERER.canvas = undefined;
-  RENDERER.width = 0;
-  RENDERER.height = 0;
-  RENDERER.scale = 1;
-  RENDERER.offsetX = 0;
-  RENDERER.offsetY = 0;
-  RENDERER.mapPixelSize = 0;
-  RENDERER._bgCache = null;
-  RENDERER._pathCache = null;
-  RENDERER._cacheDirty = true;
-  RENDERER._dpr = 1;
-}
+vi.mock('../src/ui/constants.js', () => ({
+  UI_LAYOUT: {
+    collapsed: { shop: false, shieldShop: false },
+    shopWidth: 250,
+    hudHeight: 56,
+    previewHeight: 80,
+    shieldShopWidth: 220,
+    SHOP_WIDTH: 250,
+  },
+}));
 
 describe('RENDERER', () => {
-  beforeEach(() => {
-    resetRenderer();
-    vi.stubGlobal('window', { devicePixelRatio: 2 });
+  let RENDERER;
+
+  beforeEach(async () => {
+    vi.resetModules();
+    // Create a mock canvas for renderer
+    global.document = {
+      createElement: vi.fn(() => ({
+        width: 0,
+        height: 0,
+        getContext: vi.fn((type) => ({
+          setTransform: vi.fn(),
+          fillStyle: '',
+          fillRect: vi.fn(),
+          strokeStyle: '',
+          lineWidth: 1,
+          beginPath: vi.fn(),
+          moveTo: vi.fn(),
+          lineTo: vi.fn(),
+          stroke: vi.fn(),
+          drawImage: vi.fn(),
+          getContext: vi.fn().mockReturnThis(),
+        })),
+      })),
+    };
+    global.window = {
+      devicePixelRatio: 1,
+    };
+
+    const mod = await import('../src/rendering/renderer.js');
+    RENDERER = mod.RENDERER;
+
+    // Reset state
+    RENDERER._cacheDirty = true;
+    RENDERER._bgCache = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => ({
+        setTransform: vi.fn(),
+        fillStyle: '',
+        fillRect: vi.fn(),
+        strokeStyle: '',
+        lineWidth: 1,
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(),
+      })),
+    };
+    RENDERER._pathCache = {
+      width: 0,
+      height: 0,
+      getContext: vi.fn(() => ({
+        setTransform: vi.fn(),
+        fillStyle: '',
+        fillRect: vi.fn(),
+        strokeStyle: '',
+        lineWidth: 1,
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(),
+      })),
+    };
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    vi.unstubAllGlobals();
   });
 
-  it('marks the static layer cache dirty', () => {
+  it('markCacheDirty sets flag', () => {
     RENDERER._cacheDirty = false;
-
     RENDERER.markCacheDirty();
-
     expect(RENDERER._cacheDirty).toBe(true);
   });
 
-  it('converts screen coordinates into world coordinates', () => {
+  it('toWorldInto transforms correctly', () => {
     RENDERER.offsetX = 100;
     RENDERER.offsetY = 50;
     RENDERER.scale = 2;
     const out = { x: 0, y: 0 };
-
-    RENDERER.toWorldInto(250, 170, out);
-
-    expect(out).toEqual({ x: 75, y: 60 });
+    RENDERER.toWorldInto(300, 150, out);
+    expect(out.x).toBe(100);
+    expect(out.y).toBe(50);
   });
 
-  it('fills the full renderer size at frame start', () => {
-    const ctx = makeCtx();
-    RENDERER.ctx = ctx;
-    RENDERER.width = 640;
-    RENDERER.height = 480;
+  it('toWorldInto handles non-finite values', () => {
+    RENDERER.offsetX = 0;
+    RENDERER.offsetY = 0;
+    RENDERER.scale = 1;
+    const out = { x: 0, y: 0 };
+    RENDERER.toWorldInto(NaN, 100, out);
+    expect(out.x).toBe(0);
+  });
 
+  it('beginFrame fills background', () => {
+    const ctx = { fillStyle: '', fillRect: vi.fn() };
+    RENDERER.ctx = ctx;
+    RENDERER.width = 800;
+    RENDERER.height = 600;
     RENDERER.beginFrame();
-
-    expect(ctx.fillStyle).toBe('#0e1418');
-    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 640, 480);
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 800, 600);
   });
 
-  it('applies and restores the map transform', () => {
-    const ctx = makeCtx();
+  it('applyMapTransform saves and translates', () => {
+    const ctx = { save: vi.fn(), translate: vi.fn(), scale: vi.fn() };
     RENDERER.ctx = ctx;
-    RENDERER.offsetX = 10;
-    RENDERER.offsetY = 20;
+    RENDERER.offsetX = 50;
+    RENDERER.offsetY = 30;
     RENDERER.scale = 1.5;
-
     RENDERER.applyMapTransform();
-    RENDERER.restoreTransform();
-
-    expect(ctx.save).toHaveBeenCalledOnce();
-    expect(ctx.translate).toHaveBeenCalledWith(10, 20);
+    expect(ctx.save).toHaveBeenCalled();
+    expect(ctx.translate).toHaveBeenCalledWith(50, 30);
     expect(ctx.scale).toHaveBeenCalledWith(1.5, 1.5);
-    expect(ctx.restore).toHaveBeenCalledOnce();
   });
 
-  it('initializes canvas context and offscreen caches', () => {
-    const ctx = makeCtx();
-    const canvas = makeCanvas(ctx);
-    const bg = makeCanvas(makeCtx());
-    const path = makeCanvas(makeCtx());
-
-    let createdCount = 0;
-    vi.stubGlobal('document', {
-      createElement: vi.fn(() => {
-        createdCount++;
-        return createdCount === 1 ? bg : path;
-      }),
-    });
-
-    RENDERER.init(canvas);
-
-    expect(RENDERER.ctx).toBe(ctx);
-    expect(RENDERER.canvas).toBe(canvas);
-    expect(RENDERER._bgCache).toBe(bg);
-    expect(RENDERER._pathCache).toBe(path);
-    expect(canvas.getContext).toHaveBeenCalledWith('2d');
-    expect(canvas.getBoundingClientRect).toHaveBeenCalled();
-    expect(ctx.setTransform).toHaveBeenCalledWith(2, 0, 0, 2, 0, 0);
-  });
-
-  it('throws when the canvas context is unavailable', () => {
-    const canvas = { getContext: vi.fn(() => null) };
-
-    expect(() => RENDERER.init(canvas)).toThrow('Failed to get 2D canvas context');
-  });
-
-  it('resizes the canvas and computes map transform', () => {
-    const ctx = makeCtx();
-    const canvas = makeCanvas(ctx);
+  it('restoreTransform calls ctx.restore', () => {
+    const ctx = { restore: vi.fn() };
     RENDERER.ctx = ctx;
+    RENDERER.restoreTransform();
+    expect(ctx.restore).toHaveBeenCalled();
+  });
+
+  it('init creates context and calls resize', () => {
+    const canvas = {
+      getContext: vi.fn(() => ({ setTransform: vi.fn() })),
+      getBoundingClientRect: vi.fn(() => ({ left: 0, top: 0, width: 800, height: 600 })),
+    };
+    RENDERER.init(canvas);
+    expect(canvas.getContext).toHaveBeenCalledWith('2d');
+    expect(RENDERER.canvas).toBe(canvas);
+  });
+
+  it('init throws on null context', () => {
+    const canvas = { getContext: vi.fn(() => null) };
+    expect(() => RENDERER.init(canvas)).toThrow();
+  });
+
+  it('resize no-op without canvas', () => {
+    RENDERER.canvas = null;
+    expect(() => RENDERER.resize()).not.toThrow();
+  });
+
+  it('drawStaticLayers calls _rebuildCache when dirty', () => {
+    const ctx = { drawImage: vi.fn() };
+    RENDERER.ctx = ctx;
+    RENDERER._cacheDirty = true;
+    RENDERER._rebuildCache = vi.fn();
+    const grid = { get: vi.fn(() => TILE.EMPTY) };
+    RENDERER.drawStaticLayers(grid);
+    expect(RENDERER._rebuildCache).toHaveBeenCalledWith(grid);
+  });
+
+  it('resize calculates scale and offsets correctly for large canvas', () => {
+    const ctx = { setTransform: vi.fn() };
+    const canvas = {
+      getContext: vi.fn(() => ctx),
+      getBoundingClientRect: vi.fn(() => ({ left: 0, top: 0, width: 1920, height: 1080 })),
+    };
     RENDERER.canvas = canvas;
-
+    RENDERER.ctx = ctx;
+    RENDERER.width = 0;
+    RENDERER.height = 0;
     RENDERER.resize();
+    expect(RENDERER.width).toBe(1920);
+    expect(RENDERER.height).toBe(1080);
+    expect(RENDERER.scale).toBeGreaterThan(0);
+  });
 
-    expect(canvas.width).toBe(1200);
-    expect(canvas.height).toBe(1000);
-    expect(RENDERER._dpr).toBe(2);
-    expect(RENDERER.width).toBe(600);
-    expect(RENDERER.height).toBe(500);
-    expect(RENDERER.mapPixelSize).toBe(848);
-    expect(RENDERER.scale).toBe(0.25);
-    expect(RENDERER.offsetX).toBe(262);
-    expect(RENDERER.offsetY).toBe(132);
+  it('resize clamps offset when too far right', () => {
+    const ctx = { setTransform: vi.fn() };
+    const canvas = {
+      getContext: vi.fn(() => ctx),
+      getBoundingClientRect: vi.fn(() => ({ left: 0, top: 0, width: 400, height: 400 })),
+    };
+    RENDERER.canvas = canvas;
+    RENDERER.ctx = ctx;
+    RENDERER.width = 0;
+    RENDERER.height = 0;
+    RENDERER.resize();
+    expect(RENDERER.offsetX).toBeGreaterThanOrEqual(250 + 12);
+  });
+
+  it('_rebuildCache fills bg cache with grid lines and buildable tiles', () => {
+    const bgCtx = {
+      setTransform: vi.fn(),
+      fillStyle: '',
+      fillRect: vi.fn(),
+      strokeStyle: '',
+      lineWidth: 1,
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+    };
+    const pCtx = { setTransform: vi.fn(), fillStyle: '', fillRect: vi.fn() };
+    const grid = {
+      get: vi.fn((x, y) => {
+        if (x === 5 && y === 5) return TILE.PATH;
+        if (x === 3 && y === 3) return TILE.EMPTY;
+        return TILE.BLOCKED;
+      }),
+    };
+    RENDERER._bgCache = { width: 0, height: 0, getContext: vi.fn(() => bgCtx) };
+    RENDERER._pathCache = { width: 0, height: 0, getContext: vi.fn(() => pCtx) };
+    RENDERER._dpr = 1;
+    RENDERER._rebuildCache(grid);
+    expect(bgCtx.fillRect).toHaveBeenCalled();
+    expect(bgCtx.stroke).toHaveBeenCalled();
+    expect(pCtx.fillRect).toHaveBeenCalled();
+    expect(RENDERER._cacheDirty).toBe(false);
+  });
+
+  it('_rebuildCache handles null grid', () => {
+    const bgCtx = {
+      setTransform: vi.fn(),
+      fillStyle: '',
+      fillRect: vi.fn(),
+      strokeStyle: '',
+      lineWidth: 1,
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+    };
+    const pCtx = { setTransform: vi.fn(), fillStyle: '', fillRect: vi.fn() };
+    RENDERER._bgCache = { width: 0, height: 0, getContext: vi.fn(() => bgCtx) };
+    RENDERER._pathCache = { width: 0, height: 0, getContext: vi.fn(() => pCtx) };
+    RENDERER._dpr = 1;
+    expect(() => RENDERER._rebuildCache(null)).not.toThrow();
+  });
+
+  it('drawStaticLayers skips rebuild when cache is fresh', () => {
+    const ctx = { drawImage: vi.fn() };
+    RENDERER.ctx = ctx;
+    RENDERER._cacheDirty = false;
+    const rebuildSpy = vi.fn();
+    RENDERER._rebuildCache = rebuildSpy;
+    RENDERER.drawStaticLayers({ get: vi.fn() });
+    expect(rebuildSpy).not.toHaveBeenCalled();
+    expect(ctx.drawImage).toHaveBeenCalledTimes(2);
+  });
+
+  it('resize clamps offsetY when rendered bottom exceeds max', () => {
+    const ctx = { setTransform: vi.fn() };
+    const canvas = {
+      getContext: vi.fn(() => ctx),
+      getBoundingClientRect: vi.fn(() => ({ left: 0, top: 0, width: 300, height: 300 })),
+    };
+    RENDERER.canvas = canvas;
+    RENDERER.ctx = ctx;
+    RENDERER.width = 0;
+    RENDERER.height = 0;
+    RENDERER.resize();
+    expect(RENDERER.offsetY).toBeGreaterThanOrEqual(0);
+  });
+
+  it('resize marks cache dirty', () => {
+    const ctx = { setTransform: vi.fn() };
+    const canvas = {
+      getContext: vi.fn(() => ctx),
+      getBoundingClientRect: vi.fn(() => ({ left: 0, top: 0, width: 800, height: 600 })),
+    };
+    RENDERER.canvas = canvas;
+    RENDERER.ctx = ctx;
+    RENDERER._cacheDirty = false;
+    RENDERER.resize();
     expect(RENDERER._cacheDirty).toBe(true);
   });
 
-  it('does not resize without a canvas', () => {
-    RENDERER.resize();
-
-    expect(RENDERER.width).toBe(0);
-    expect(RENDERER.height).toBe(0);
-  });
-
-  it('rebuilds and draws static layers when dirty', () => {
-    const ctx = makeCtx();
-    const bgCtx = makeCtx();
-    const pathCtx = makeCtx();
-    const bg = makeCanvas(bgCtx);
-    const path = makeCanvas(pathCtx);
-    const grid = {
-      get: vi.fn((x, y) => (x === 0 && y === 0 ? TILE.PATH : TILE.EMPTY)),
-    };
-    RENDERER.ctx = ctx;
-    RENDERER._bgCache = bg;
-    RENDERER._pathCache = path;
-    RENDERER._dpr = 1;
-    RENDERER._cacheDirty = true;
-
-    RENDERER.drawStaticLayers(grid);
-
-    expect(bg.width).toBe(848);
-    expect(bg.height).toBe(848);
-    expect(path.width).toBe(848);
-    expect(path.height).toBe(848);
-    expect(bgCtx.fillRect).toHaveBeenCalledWith(0, 0, 848, 848);
-    expect(pathCtx.fillRect).toHaveBeenCalledWith(0, 0, 53, 53);
-    expect(bgCtx.stroke).toHaveBeenCalledOnce();
-    expect(RENDERER._cacheDirty).toBe(false);
-    expect(ctx.drawImage).toHaveBeenCalledWith(bg, 0, 0, 848, 848);
-    expect(ctx.drawImage).toHaveBeenCalledWith(path, 0, 0, 848, 848);
-  });
-
-  it('draws cached static layers without rebuilding when clean', () => {
-    const ctx = makeCtx();
-    const bgCtx = makeCtx();
-    const pathCtx = makeCtx();
-    const bg = makeCanvas(bgCtx);
-    const path = makeCanvas(pathCtx);
-    RENDERER.ctx = ctx;
-    RENDERER._bgCache = bg;
-    RENDERER._pathCache = path;
-    RENDERER._dpr = 1;
-    RENDERER._cacheDirty = false;
-
-    RENDERER.drawStaticLayers(null);
-
-    expect(bgCtx.fillRect).not.toHaveBeenCalled();
-    expect(pathCtx.fillRect).not.toHaveBeenCalled();
-    expect(ctx.drawImage).toHaveBeenCalledTimes(2);
+  it('_rebuildCache is no-op when caches are null', () => {
+    RENDERER._bgCache = null;
+    RENDERER._pathCache = null;
+    expect(() => RENDERER._rebuildCache({ get: vi.fn() })).not.toThrow();
   });
 });

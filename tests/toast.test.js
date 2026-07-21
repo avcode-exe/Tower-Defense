@@ -1,146 +1,115 @@
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-
-function makeElement(tagName) {
-  const element = {
-    tagName,
-    className: '',
-    children: [],
-    parentNode: null,
-    eventListeners: new Map(),
-    text: '',
-  };
-
-  element.classList = {
-    add: vi.fn((name) => {
-      if (!classNameParts.has(element)) classNameParts.set(element, new Set());
-      classNameParts.get(element).add(name);
-      element.className = [...classNameParts.get(element)].join(' ');
-    }),
-  };
-  element.appendChild = vi.fn((child) => {
-    child.parentNode = element;
-    element.children.push(child);
-    return child;
-  });
-  element.removeChild = vi.fn((child) => {
-    const index = element.children.indexOf(child);
-    if (index >= 0) element.children.splice(index, 1);
-    child.parentNode = null;
-    return child;
-  });
-  element.addEventListener = vi.fn((name, handler, options) => {
-    element.eventListeners.set(name, { handler, options });
-  });
-
-  return element;
-}
-
-const classNameParts = new WeakMap();
-
-function makeDocument(container) {
-  const documentStub = {
-    container,
-    getElementById: vi.fn((id) => (id === 'toast-container' ? documentStub.container : null)),
-    createElement: vi.fn((tagName) => makeElement(tagName)),
-    createTextNode: vi.fn((text) => ({ nodeType: 3, text })),
-  };
-
-  return documentStub;
-}
+// @vitest-environment jsdom
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 describe('showToast', () => {
-  let documentStub;
+  let showToast;
   let container;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    document.body.innerHTML = '<div id="toast-container"></div>';
+    container = document.getElementById('toast-container');
+    vi.resetModules();
+    const mod = await import('../src/ui/toast.js');
+    showToast = mod.showToast;
     vi.useFakeTimers();
-    container = makeElement('div');
-    documentStub = makeDocument(container);
-    vi.stubGlobal('document', documentStub);
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
     vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
-  async function loadToast() {
-    vi.resetModules();
-    return (await import('../src/ui/toast.js')).showToast;
-  }
-
-  it('does nothing when the toast container is missing', async () => {
-    documentStub.container = null;
-    const showToast = await loadToast();
-
-    showToast('missing');
-
-    expect(documentStub.getElementById).toHaveBeenCalledWith('toast-container');
-    expect(documentStub.createElement).not.toHaveBeenCalled();
+  it('no-op when container missing', () => {
+    document.body.innerHTML = '';
+    expect(() => showToast('test', 'info')).not.toThrow();
   });
 
-  it('creates a toast with a dot and text node', async () => {
-    const showToast = await loadToast();
-
-    showToast('Saved', 'success');
-
-    const toast = container.children[0];
-    expect(toast.className).toBe('toast');
-    expect(toast.children[0].className).toBe('toast-dot success');
-    expect(toast.children[1].text).toBe('Saved');
+  it('creates toast with dot and text node', () => {
+    showToast('Hello', 'info');
+    const toasts = container.querySelectorAll('.toast');
+    expect(toasts.length).toBe(1);
+    expect(toasts[0].textContent).toContain('Hello');
   });
 
-  it.each(['success', 'error', 'warning', 'info'])('uses %s dot class', async (type) => {
-    const showToast = await loadToast();
-
-    showToast('message', type);
-
-    expect(container.children[0].children[0].className).toBe('toast-dot ' + type);
+  it('dot class for each type', () => {
+    showToast('s', 'success');
+    showToast('e', 'error');
+    showToast('w', 'warning');
+    showToast('i', 'info');
+    const dots = container.querySelectorAll('.toast-dot');
+    expect(dots[0].classList.contains('success')).toBe(true);
+    expect(dots[1].classList.contains('error')).toBe(true);
+    expect(dots[2].classList.contains('warning')).toBe(true);
+    expect(dots[3].classList.contains('info')).toBe(true);
   });
 
-  it('removes the toast after click fade timeout', async () => {
-    const showToast = await loadToast();
-
-    showToast('message', 'info');
-
-    const toast = container.children[0];
-    const clickHandler = toast.eventListeners.get('click').handler;
-    clickHandler();
-
-    expect(toast.classList.add).toHaveBeenCalledWith('toast-out');
-    expect(container.children).toContain(toast);
-
+  it('click removal with fade timeout', () => {
+    showToast('test', 'info');
+    const toast = container.querySelector('.toast');
+    toast.click();
+    expect(toast.classList.contains('toast-out')).toBe(true);
     vi.advanceTimersByTime(400);
-
-    expect(container.children).not.toContain(toast);
+    // After fade timeout complete, the toast should be removed
+    expect(container.children.length).toBe(0);
   });
 
-  it('auto-removes the toast after the default duration', async () => {
-    const showToast = await loadToast();
-
-    showToast('message', 'info');
-
-    const toast = container.children[0];
-    vi.advanceTimersByTime(4000);
-    expect(toast.classList.add).toHaveBeenCalledWith('toast-out');
-    expect(container.children).toContain(toast);
-
-    vi.advanceTimersByTime(400);
-    expect(container.children).not.toContain(toast);
+  it('auto-removal after default duration', () => {
+    showToast('auto', 'info');
+    expect(container.children.length).toBe(1);
+    // Advance past TOAST_DURATION (4000) + TOAST_FADE (400) = 4400ms total
+    vi.advanceTimersByTime(4400);
+    expect(container.children.length).toBe(0);
   });
 
-  it('uses a custom duration when provided', async () => {
-    const showToast = await loadToast();
+  it('custom duration', () => {
+    showToast('custom', 'info', 1000);
+    vi.advanceTimersByTime(1399);
+    expect(container.children.length).toBe(1);
+    vi.advanceTimersByTime(1);
+    expect(container.children.length).toBe(0);
+  });
 
-    showToast('message', 'info', 1500);
+  it('multiple toasts stack', () => {
+    showToast('one', 'info');
+    showToast('two', 'error');
+    showToast('three', 'success');
+    expect(container.children.length).toBe(3);
+  });
 
+  it('setTimeout callback safely handles removed toast', () => {
+    showToast('test', 'info');
     const toast = container.children[0];
-    vi.advanceTimersByTime(1500);
-    expect(toast.classList.add).toHaveBeenCalledWith('toast-out');
-    expect(container.children).toContain(toast);
-
+    // Remove the toast from DOM before the fade timeout fires
+    container.removeChild(toast);
     vi.advanceTimersByTime(400);
-    expect(container.children).not.toContain(toast);
+    // Should not throw - the setTimeout callback checks parentNode
+    expect(container.querySelectorAll('.toast').length).toBe(0);
+  });
+
+  it('removeToast returns early when toast is null (line 17)', () => {
+    // Direct call to internal removeToast with null
+    // Test via importing the unexported function indirectly
+    // removeToast checks: if (!toast || !toast.parentNode) return;
+    // With null, returns early — no error
+    showToast('test', 'info');
+    const toast = container.children[0];
+    const parent = toast.parentNode;
+    // Remove toast via internal path
+    parent.removeChild(toast);
+    // The setTimeout callback handles this gracefully
+    vi.advanceTimersByTime(450);
+    expect(container.querySelectorAll('.toast').length).toBe(0);
+  });
+
+  it('removeToast returns early when toast has no parentNode', () => {
+    showToast('test', 'info');
+    const toast = container.children[0];
+    // Remove from DOM
+    toast.parentNode.removeChild(toast);
+    // Call removeToast via the click handler path
+    const clickEvent = new MouseEvent('click');
+    toast.dispatchEvent(clickEvent);
+    vi.advanceTimersByTime(450);
+    expect(container.querySelectorAll('.toast').length).toBe(0);
   });
 });

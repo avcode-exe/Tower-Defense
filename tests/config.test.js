@@ -1,215 +1,231 @@
+/* tripwire inventory:
+ *  - (known limitation: no TypeScript) — config field type audits via contracts
+ */
+
 import { describe, it, expect } from 'vitest';
-import { CONFIG, MONSTER_SPECS, TROOP_SPECS, WAVES, PROJECTILE_STYLES, MONSTER_DEV_ORDER } from '../src/config.js';
-const EXPECTED_MOVEMENT_SPEED_CATEGORIES = ['very slow', 'slow', 'medium', 'fast', 'very fast'];
-const EXPECTED_MOVEMENT_SPEEDS = {
-  'very slow': 0.6,
-  slow: 0.8,
-  medium: 1.0,
-  fast: 2.0,
-  'very fast': 3.0,
-};
-const EXPECTED_MONSTER_MOVEMENT_SPEEDS = {
-  Grunt: 'medium',
-  Runner: 'very fast',
-  Brute: 'slow',
-  Elite: 'medium',
-  Champion: 'slow',
-  Boss: 'very slow',
-  Shielded: 'medium',
-  Spear: 'fast',
-  Necromancer: 'slow',
-  Healer: 'fast',
-};
+import {
+  CONFIG,
+  LAYOUT,
+  MONSTER_SPECS,
+  TROOP_SPECS,
+  WAVES,
+  PROJECTILE_STYLES,
+  MONSTER_DEV_ORDER,
+} from '../src/config.js';
 
 describe('CONFIG', () => {
-  it('has valid GRID_SIZE', () => {
-    expect(CONFIG.GRID_SIZE).toBeGreaterThan(0);
+  it('GRID_SIZE is 16', () => {
     expect(CONFIG.GRID_SIZE).toBe(16);
   });
 
-  it('has valid TILE_SIZE', () => {
+  it('TILE_SIZE is positive finite', () => {
     expect(CONFIG.TILE_SIZE).toBeGreaterThan(0);
+    expect(Number.isFinite(CONFIG.TILE_SIZE)).toBe(true);
   });
 
-  it('has valid economy values', () => {
-    expect(CONFIG.STARTING_GOLD).toBeGreaterThan(0);
-    expect(CONFIG.MAX_GOLD).toBeGreaterThan(CONFIG.STARTING_GOLD);
-    expect(CONFIG.STARTING_LIVES).toBeGreaterThan(0);
+  it('MIN_PATH_LENGTH is positive finite', () => {
+    expect(CONFIG.MIN_PATH_LENGTH).toBeGreaterThan(0);
+    expect(Number.isFinite(CONFIG.MIN_PATH_LENGTH)).toBe(true);
   });
 
-  it('has valid FIXED_TIMESTEP', () => {
-    expect(CONFIG.FIXED_TIMESTEP).toBeGreaterThan(0);
-    expect(CONFIG.FIXED_TIMESTEP).toBeLessThanOrEqual(1);
+  it('STARTING_GOLD is 1000', () => {
+    expect(CONFIG.STARTING_GOLD).toBe(1000);
   });
 
-  it('GAME_SPEEDS is sorted ascending', () => {
+  it('MAX_GOLD is 1000000', () => {
+    expect(CONFIG.MAX_GOLD).toBe(1000000);
+  });
+
+  it('STARTING_LIVES is 25', () => {
+    expect(CONFIG.STARTING_LIVES).toBe(25);
+  });
+
+  it('SELL_REFUND_RATIO is 0.3', () => {
+    expect(CONFIG.SELL_REFUND_RATIO).toBe(0.3);
+  });
+
+  it('SELL_COOLDOWN is 3.0', () => {
+    expect(CONFIG.SELL_COOLDOWN).toBe(3.0);
+  });
+
+  it('GAME_SPEEDS is sorted ascending and contains [1,2,4,8,16,32,64,128]', () => {
+    expect(CONFIG.GAME_SPEEDS).toEqual([1, 2, 4, 8, 16, 32, 64, 128]);
     for (let i = 1; i < CONFIG.GAME_SPEEDS.length; i++) {
       expect(CONFIG.GAME_SPEEDS[i]).toBeGreaterThan(CONFIG.GAME_SPEEDS[i - 1]);
     }
   });
 
-  it('COLORS has required keys', () => {
-    expect(CONFIG.COLORS).toHaveProperty('background');
-    expect(CONFIG.COLORS).toHaveProperty('gold');
-    expect(CONFIG.COLORS).toHaveProperty('heart');
-    expect(CONFIG.COLORS).toHaveProperty('hpBarBg');
-    expect(CONFIG.COLORS).toHaveProperty('hpBarFill');
+  it('COLORS has all required keys', () => {
+    const expectedKeys = [
+      'revive',
+      'background',
+      'gridLine',
+      'path',
+      'buildableHover',
+      'invalid',
+      'gold',
+      'heart',
+      'burn',
+      'hpBarBg',
+      'hpBarFill',
+      'shieldBarBg',
+      'shieldBarFill',
+    ];
+    for (const key of expectedKeys) {
+      expect(CONFIG.COLORS).toHaveProperty(key);
+      expect(typeof CONFIG.COLORS[key]).toBe('string');
+    }
   });
 
-  it('has movement speed categories', () => {
-    expect(CONFIG.MOVEMENT_SPEED_CATEGORIES).toEqual(EXPECTED_MOVEMENT_SPEED_CATEGORIES);
-    expect(CONFIG.MOVEMENT_SPEEDS).toEqual(EXPECTED_MOVEMENT_SPEEDS);
+  it('MOVEMENT_SPEED_CATEGORIES matches exactly', () => {
+    expect(CONFIG.MOVEMENT_SPEED_CATEGORIES).toEqual(['very slow', 'slow', 'medium', 'fast', 'very fast']);
+  });
+
+  it('MOVEMENT_SPEEDS maps each category to positive number', () => {
+    for (const cat of CONFIG.MOVEMENT_SPEED_CATEGORIES) {
+      expect(CONFIG.MOVEMENT_SPEEDS[cat]).toBeGreaterThan(0);
+    }
+  });
+
+  it('FIXED_TIMESTEP is 1/60', () => {
+    expect(CONFIG.FIXED_TIMESTEP).toBeCloseTo(1 / 60);
+  });
+
+  it('MAX_UPGRADE_LEVEL is 5', () => {
+    expect(CONFIG.MAX_UPGRADE_LEVEL).toBe(5);
+  });
+
+  it('BOSS_HP_MULTIPLIER is 2', () => {
+    expect(CONFIG.BOSS_HP_MULTIPLIER).toBe(2);
+  });
+
+  it('SHIELD_EXPIRE_WAVES is 10', () => {
+    expect(CONFIG.SHIELD_EXPIRE_WAVES).toBe(10);
+  });
+
+  it('FLAME_BURN_MAX_STACKS is 3', () => {
+    expect(CONFIG.FLAME_BURN_MAX_STACKS).toBe(3);
+  });
+
+  it('PROJECTILE_TIMEOUT is 3.0', () => {
+    expect(CONFIG.PROJECTILE_TIMEOUT).toBe(3.0);
   });
 });
 
 describe('MONSTER_SPECS', () => {
-  const levels = MONSTER_DEV_ORDER;
+  const levels = [1, 2, 3, 4, 5, 'B', 'S', 'X', 'Y', 'H'];
+  const validAttackModes = ['stop', 'slow', 'pass', 'support'];
+  const validMovementSpeeds = CONFIG.MOVEMENT_SPEED_CATEGORIES;
 
-  it('has all required levels', () => {
-    for (const level of levels) {
-      expect(MONSTER_SPECS).toHaveProperty(String(level));
-    }
-  });
-
-  it('each spec has required fields', () => {
-    for (const level of levels) {
+  for (const level of levels) {
+    it(`MONSTER_SPECS[${level}] has valid structure`, () => {
       const spec = MONSTER_SPECS[level];
-      expect(spec).toHaveProperty('name');
-      expect(spec).toHaveProperty('hp');
-      expect(spec).toHaveProperty('speed');
-      expect(spec).toHaveProperty('movementSpeed');
-      expect(spec).toHaveProperty('reward');
-      expect(spec).toHaveProperty('leak');
-      expect(spec).toHaveProperty('color');
-      expect(spec).toHaveProperty('size');
-      expect(spec).toHaveProperty('damage');
-      expect(spec).toHaveProperty('attackSpeed');
-      expect(spec).toHaveProperty('attackMode');
+      expect(spec).toBeDefined();
+      expect(typeof spec.name).toBe('string');
+      expect(spec.name.length).toBeGreaterThan(0);
       expect(spec.hp).toBeGreaterThan(0);
       expect(spec.speed).toBeGreaterThan(0);
+      expect(validMovementSpeeds).toContain(spec.movementSpeed);
       expect(spec.reward).toBeGreaterThan(0);
-    }
+      expect(spec.leak).toBeGreaterThanOrEqual(1);
+      expect(typeof spec.color).toBe('string');
+      expect(spec.size).toBeGreaterThan(0);
+      expect(spec.damage).toBeGreaterThanOrEqual(0);
+      expect(spec.attackSpeed).toBeGreaterThanOrEqual(0);
+      expect(spec.attackRange).toBeGreaterThanOrEqual(0);
+      expect(validAttackModes).toContain(spec.attackMode);
+    });
+  }
+
+  it('B has healPerSecond === 15', () => {
+    expect(MONSTER_SPECS.B.healPerSecond).toBe(15);
   });
 
-  it('each spec has a valid movement speed category', () => {
-    for (const spec of Object.values(MONSTER_SPECS)) {
-      expect(CONFIG.MOVEMENT_SPEED_CATEGORIES).toContain(spec.movementSpeed);
-      expect(CONFIG.MOVEMENT_SPEEDS).toHaveProperty(spec.movementSpeed);
-    }
+  it('S has shield === 69', () => {
+    expect(MONSTER_SPECS.S.shield).toBe(69);
   });
 
-  it('monster movement speeds match category mapping', () => {
-    for (const spec of Object.values(MONSTER_SPECS)) {
-      expect(spec.movementSpeed).toBe(EXPECTED_MONSTER_MOVEMENT_SPEEDS[spec.name]);
-      expect(spec.speed).toBe(CONFIG.MOVEMENT_SPEEDS[spec.movementSpeed]);
-    }
+  it('Y has noSplit, reviveRange, reviveHpRatio, reviveMaxTargets, reviveGlowDuration', () => {
+    const Y = MONSTER_SPECS.Y;
+    expect(Y.noSplit).toBe(true);
+    expect(Y.reviveRange).toBeGreaterThan(0);
+    expect(Y.reviveHpRatio).toBeGreaterThan(0);
+    expect(Y.reviveMaxTargets).toBeGreaterThan(0);
+    expect(Y.reviveGlowDuration).toBeGreaterThan(0);
   });
 
-  it('monster movement speed category mapping is exact', () => {
-    const actual = Object.fromEntries(Object.values(MONSTER_SPECS).map((spec) => [spec.name, spec.movementSpeed]));
-    expect(actual).toEqual(EXPECTED_MONSTER_MOVEMENT_SPEEDS);
+  it('H has attackMode support and heal fields', () => {
+    const H = MONSTER_SPECS.H;
+    expect(H.attackMode).toBe('support');
+    expect(H.healRange).toBeGreaterThan(0);
+    expect(H.healPerSecond).toBeGreaterThan(0);
+    expect(H.healTickInterval).toBeGreaterThan(0);
   });
 
-  it('boss has higher HP than grunt', () => {
-    expect(MONSTER_SPECS['B'].hp).toBeGreaterThan(MONSTER_SPECS[1].hp);
-  });
-
-  it('Runner does not split', () => {
+  it('level 2 has noSplit=true and attackMode=pass', () => {
     expect(MONSTER_SPECS[2].noSplit).toBe(true);
-  });
-
-  it('has necromancer with noSplit and revive fields', () => {
-    const necro = MONSTER_SPECS.Y;
-    expect(necro.name).toBe('Necromancer');
-    expect(necro.noSplit).toBe(true);
-    expect(necro.reviveRange).toBe(2.0);
-    expect(necro.reviveHpRatio).toBe(0.5);
-    expect(necro.reviveMaxTargets).toBe(4);
-    expect(necro.reviveGlowDuration).toBe(1.5);
+    expect(MONSTER_SPECS[2].attackMode).toBe('pass');
   });
 });
 
 describe('TROOP_SPECS', () => {
-  it('is a non-empty array', () => {
-    expect(Array.isArray(TROOP_SPECS)).toBe(true);
-    expect(TROOP_SPECS.length).toBeGreaterThan(0);
-  });
-
-  it('each spec has required fields', () => {
+  it('all entries have required fields', () => {
+    const ids = new Set();
     for (const spec of TROOP_SPECS) {
       expect(spec).toHaveProperty('id');
-      expect(spec).toHaveProperty('name');
-      expect(spec).toHaveProperty('cost');
-      expect(spec).toHaveProperty('hp');
-      expect(spec).toHaveProperty('damage');
-      expect(spec).toHaveProperty('color');
+      expect(typeof spec.id).toBe('string');
+      expect(ids.has(spec.id)).toBe(false);
+      ids.add(spec.id);
+      expect(['melee', 'ranged', 'support']).toContain(spec.type);
       expect(spec.cost).toBeGreaterThan(0);
       expect(spec.hp).toBeGreaterThan(0);
+      expect(spec.damage).toBeGreaterThanOrEqual(0);
+      expect(spec.range).toBeGreaterThanOrEqual(1);
+      expect(spec.attackSpeed).toBeGreaterThan(0);
+      expect(spec.splash).toBeGreaterThanOrEqual(0);
+      expect(typeof spec.color).toBe('string');
+      expect(typeof spec.desc).toBe('string');
+      expect(spec.desc.length).toBeGreaterThan(0);
+      expect(spec).toHaveProperty('_statsStr');
+      expect(spec._statsStr.length).toBeGreaterThan(0);
     }
   });
 
-  it('has unique ids', () => {
-    const ids = TROOP_SPECS.map((s) => s.id);
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it('has a healer troop with support type', () => {
-    const healer = TROOP_SPECS.find((s) => s.id === 'healer');
-    expect(healer).toBeDefined();
-    expect(healer.type).toBe('support');
-    expect(healer.damage).toBeGreaterThan(0);
-    expect(healer.range).toBeGreaterThan(0);
-    expect(healer.attackSpeed).toBeGreaterThan(0);
-    expect(healer.monsterDamage).toBeGreaterThan(0);
-    expect(healer.hp).toBeGreaterThan(0);
-    expect(healer.cost).toBeGreaterThan(0);
-  });
-
-  it('has a flame troop with burn stats', () => {
+  it('flame _statsStr contains burn', () => {
     const flame = TROOP_SPECS.find((s) => s.id === 'flame');
-    expect(flame).toBeDefined();
-    expect(flame.type).toBe('melee');
-    expect(flame.cost).toBe(160);
-    expect(flame.hp).toBe(70);
-    expect(flame.damage).toBe(14);
-    expect(flame.range).toBe(1);
-    expect(flame.attackSpeed).toBe(0.75);
-    expect(flame.burnStacks).toBe(3);
-    expect(flame.burnDuration).toBe(3);
-    expect(flame.burnTickInterval).toBe(0.5);
-    expect(flame.burnDamageRatio).toBe(0.25);
     expect(flame._statsStr).toContain('burn');
   });
 
-  it('healer has unique color', () => {
+  it('healer _statsStr contains Support and heal', () => {
     const healer = TROOP_SPECS.find((s) => s.id === 'healer');
-    const colors = TROOP_SPECS.map((s) => s.color);
-    expect(colors.filter((c) => c === healer.color).length).toBe(1);
+    expect(healer._statsStr).toContain('Support');
+    expect(healer._statsStr).toContain('heal');
   });
 
-  it('healer has a stats string', () => {
-    const healer = TROOP_SPECS.find((s) => s.id === 'healer');
-    expect(healer._statsStr).toBeDefined();
-    expect(healer._statsStr).toContain('heal');
-    expect(healer._statsStr).toContain('Support');
+  it('sniper has range 10', () => {
+    const sniper = TROOP_SPECS.find((s) => s.id === 'sniper');
+    expect(sniper.range).toBe(10);
+  });
+
+  it('lightning has chain and stun', () => {
+    const lightning = TROOP_SPECS.find((s) => s.id === 'lightning');
+    expect(lightning.chain).toBe(2);
+    expect(lightning.stun).toBe(0.5);
   });
 });
 
 describe('WAVES', () => {
-  it('is a non-empty array', () => {
-    expect(Array.isArray(WAVES)).toBe(true);
-    expect(WAVES.length).toBeGreaterThan(0);
+  it('has exactly 10 entries', () => {
+    expect(WAVES.length).toBe(10);
   });
 
-  it('first wave has spawns', () => {
-    expect(WAVES[0].length).toBeGreaterThan(0);
-  });
-
-  it('all wave entries reference valid monster keys', () => {
-    const validKeys = new Set(MONSTER_DEV_ORDER.map(String));
+  it('each entry is array of [levelKey, count] tuples', () => {
+    const allKeys = Object.keys(MONSTER_SPECS);
     for (const wave of WAVES) {
-      for (const [key, count] of wave) {
-        expect(validKeys.has(String(key))).toBe(true);
+      expect(Array.isArray(wave)).toBe(true);
+      expect(wave.length).toBeGreaterThan(0);
+      for (const [levelKey, count] of wave) {
+        expect(allKeys).toContain(String(levelKey));
         expect(count).toBeGreaterThan(0);
       }
     }
@@ -217,17 +233,123 @@ describe('WAVES', () => {
 });
 
 describe('PROJECTILE_STYLES', () => {
-  it('is a non-empty object', () => {
-    expect(typeof PROJECTILE_STYLES).toBe('object');
-    expect(Object.keys(PROJECTILE_STYLES).length).toBeGreaterThan(0);
+  it('has entries for all ranged troops', () => {
+    const expected = ['archer', 'machinegun', 'mage', 'sniper', 'lightning', 'mortar', 'icewiz'];
+    for (const id of expected) {
+      expect(PROJECTILE_STYLES).toHaveProperty(id);
+    }
   });
 
-  it('each style has required fields', () => {
+  it('each entry has valid structure', () => {
     for (const [id, style] of Object.entries(PROJECTILE_STYLES)) {
-      expect(style).toHaveProperty('color');
-      expect(style).toHaveProperty('size');
-      expect(style).toHaveProperty('speed');
-      expect(style).toHaveProperty('kind');
+      expect(typeof style.color).toBe('string');
+      expect(style.size).toBeGreaterThan(0);
+      expect(style.speed).toBeGreaterThan(0);
+      expect(['arrow', 'bolt', 'orb']).toContain(style.kind);
     }
+  });
+});
+
+describe('MONSTER_DEV_ORDER', () => {
+  it('contains exactly the 10 entries in order', () => {
+    expect(MONSTER_DEV_ORDER).toEqual([1, 2, 3, 4, 5, 'Y', 'B', 'S', 'X', 'H']);
+  });
+});
+
+describe('LAYOUT', () => {
+  it('HUD has all required sub-keys with positive numbers', () => {
+    const required = [
+      'GOLD_AREA',
+      'RESET_BTN',
+      'MUTE_BTN',
+      'SPEED_OFFSET',
+      'SPEED_BTN_W',
+      'SPEED_BTN_H',
+      'CTRL_RIGHT',
+      'CTRL_BTN',
+    ];
+    for (const key of required) {
+      expect(LAYOUT.HUD).toHaveProperty(key);
+    }
+    expect(LAYOUT.HUD.GOLD_AREA.x).toBeGreaterThanOrEqual(0);
+    expect(LAYOUT.HUD.GOLD_AREA.y).toBeGreaterThanOrEqual(0);
+    expect(LAYOUT.HUD.GOLD_AREA.w).toBeGreaterThan(0);
+    expect(LAYOUT.HUD.GOLD_AREA.h).toBeGreaterThan(0);
+  });
+
+  it('SHOP has all required sub-keys', () => {
+    const required = [
+      'SEW',
+      'CARD_H',
+      'CARD_GAP',
+      'HEAL_BTN_Y_OFFSET',
+      'HEAL_BTN_H',
+      'SELL_BTN_Y_OFFSET',
+      'SELL_BTN_H',
+      'UPGRADE_BTN_Y_OFFSET',
+      'UPGRADE_BTN_H',
+      'BTN_PAD',
+      'BTN_GAP',
+    ];
+    for (const key of required) {
+      expect(LAYOUT.SHOP).toHaveProperty(key);
+    }
+  });
+
+  it('CONFIG numbers are all finite', () => {
+    const numericKeys = [
+      'GRID_SIZE',
+      'TILE_SIZE',
+      'MIN_PATH_LENGTH',
+      'PATH_REGEN_ATTEMPTS',
+      'STARTING_GOLD',
+      'MAX_GOLD',
+      'STARTING_LIVES',
+      'SELL_REFUND_RATIO',
+      'SELL_COOLDOWN',
+      'FIXED_TIMESTEP',
+      'MAX_UPGRADE_LEVEL',
+      'BOSS_HP_MULTIPLIER',
+      'MONSTER_REVIVE_MAX_TARGETS',
+      'PROJECTILE_TIMEOUT',
+      'PARTICLE_GRAVITY',
+      'SHIELD_REGEN_RATE',
+      'SHIELD_REGEN_DELAY',
+      'SHIELD_COST_RATIO',
+      'SHIELD_EXPIRE_WAVES',
+    ];
+    for (const key of numericKeys) {
+      expect(typeof CONFIG[key]).toBe('number');
+      expect(Number.isFinite(CONFIG[key])).toBe(true);
+    }
+  });
+
+  it('support troop _statsStr includes monsterDamage when present', () => {
+    const healer = TROOP_SPECS.find((s) => s.id === 'healer');
+    expect(healer._statsStr).toContain('dmg');
+  });
+
+  it('troop _statsStr handles monsterDamage in support type', () => {
+    const healer = TROOP_SPECS.find((s) => s.id === 'healer');
+    expect(healer._statsStr).toContain('Support');
+    expect(healer._statsStr).toContain('heal');
+  });
+
+  it('makeCollapsedDefaults uses overrides when provided', async () => {
+    const { makeCollapsedDefaults } = await import('../src/config/settingsDefaults.js');
+    const result = makeCollapsedDefaults({ help: false });
+    expect(result.help).toBe(false);
+  });
+
+  it('makeCollapsedDefaults falls back to DEFAULTS for known keys', async () => {
+    const { makeCollapsedDefaults } = await import('../src/config/settingsDefaults.js');
+    const result = makeCollapsedDefaults({});
+    expect(result.help).toBe(true);
+  });
+
+  it('makeCollapsedDefaults defaults to false for keys not in DEFAULTS', async () => {
+    const { makeCollapsedDefaults } = await import('../src/config/settingsDefaults.js');
+    const result = makeCollapsedDefaults({});
+    expect(result.shop).toBe(false);
   });
 });

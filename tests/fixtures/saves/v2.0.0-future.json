@@ -1,0 +1,30 @@
+{
+  "version": "2.0.0",
+  "gold": 50000,
+  "lives": 30,
+  "seed": 54321,
+  "speed": 2,
+  "devMode": true,
+  "devMonsterCounts": { "1": 10, "2": 5, "3": 0, "4": 0, "5": 0, "Y": 1, "B": 0, "S": 0, "X": 0, "H": 0 },
+  "wave": { "currentWave": 15 },
+  "migration": { "schema": "2.0", "migratedFrom": "1.0" },
+  "troops": [
+    {
+      "specId": "swordsman",
+      "position": { "x": 3, "y": 4 },
+      "hp": 500,
+      "maxHp": 500,
+      "dmgLevel": 5,
+      "rangeLevel": 1,
+      "speedLevel": 5,
+      "chainLevel": 1,
+      "hpLevel": 5,
+      "slowLevel": 1,
+      "shield": 0,
+      "maxShield": 0,
+      "healCount": 0,
+      "healTargetLevel": 1,
+      "healGoldSpent": 0
+    }
+  ]
+}

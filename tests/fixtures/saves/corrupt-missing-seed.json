@@ -1,0 +1,28 @@
+{
+  "version": "1.6.0",
+  "gold": 1000,
+  "lives": 25,
+  "speed": 1,
+  "devMode": false,
+  "wave": { "currentWave": 1 },
+  "troops": [
+    {
+      "specId": "swordsman",
+      "gx": 3,
+      "gy": 4,
+      "hp": 50,
+      "maxHp": 50,
+      "dmgLevel": 1,
+      "rangeLevel": 1,
+      "speedLevel": 1,
+      "chainLevel": 1,
+      "hpLevel": 1,
+      "slowLevel": 1,
+      "shield": 0,
+      "maxShield": 0,
+      "healCount": 0,
+      "healTargetLevel": 1,
+      "healGoldSpent": 0
+    }
+  ]
+}

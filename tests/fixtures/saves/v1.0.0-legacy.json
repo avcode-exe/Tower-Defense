@@ -1,0 +1,46 @@
+{
+  "version": "1.0.0",
+  "gold": 2000,
+  "lives": 20,
+  "seed": 99999,
+  "devMode": false,
+  "wave": { "currentWave": 3 },
+  "troops": [
+    {
+      "specId": "swordsman",
+      "gx": 3,
+      "gy": 4,
+      "hp": 50,
+      "maxHp": 50,
+      "dmgLevel": 1,
+      "rangeLevel": 1,
+      "speedLevel": 1,
+      "chainLevel": 1,
+      "hpLevel": 1,
+      "slowLevel": 1,
+      "shield": 0,
+      "maxShield": 0,
+      "healCount": 0,
+      "healTargetLevel": 1,
+      "healGoldSpent": 0
+    },
+    {
+      "specId": "knight",
+      "gx": 2,
+      "gy": 5,
+      "hp": 120,
+      "maxHp": 120,
+      "dmgLevel": 1,
+      "rangeLevel": 1,
+      "speedLevel": 1,
+      "chainLevel": 1,
+      "hpLevel": 1,
+      "slowLevel": 1,
+      "shield": 0,
+      "maxShield": 0,
+      "healCount": 0,
+      "healTargetLevel": 1,
+      "healGoldSpent": 0
+    }
+  ]
+}

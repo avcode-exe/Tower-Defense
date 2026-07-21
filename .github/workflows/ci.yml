@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, 'release/**' ]
+    branches: [main, 'release/**']
   pull_request:
-    branches: [ main, 'release/**' ]
+    branches: [main, 'release/**']
 
 jobs:
   test:
@@ -32,5 +32,5 @@ jobs:
       - name: Run format check
         run: npm run format:check
 
-      - name: Run tests
-        run: npm test
+      - name: Run tests with coverage thresholds (≥80% per file)
+        run: npm run test:coverage

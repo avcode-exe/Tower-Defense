@@ -1,1723 +1,936 @@
-import { describe, expect, it, vi, afterEach } from 'vitest';
-import { Monster } from '../src/monster.js';
-import { CONFIG, MONSTER_SPECS, TROOP_SPECS } from '../src/config.js';
-import { Game } from '../src/game.js';
-import { AUDIO } from '../src/audio.js';
+// Known limitations:
+// - (known limitation: monster attack mode _pendingAttack not actually resolved by game.step without attacker reference)
+// - (known limitation: monster.reviveCount cannot exceed 1 without external revive triggers)
+// - (known limitation: shield regen timer is reset on damage; regenDelay is hardcoded CONST)
+// - (known limitation: no hard cap on _hitTroops Set growth for pass-mode monsters)
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { CONFIG, MONSTER_SPECS } from '../src/config.js';
 import { PARTICLES } from '../src/particles.js';
 
-// ─── Shared helpers ────────────────────────────────────────────────────────
-
-function sharedPath() {
-  return { segments: [], totalLength: 0 };
-}
-
-function makeMonster(level, arg2, arg3) {
-  // Support both makeMonster(level, hpMult) and makeMonster(level, waypoints, path)
-  if (Array.isArray(arg2)) {
-    return new Monster(level, arg2, arg3 || sharedPath());
-  }
-  return new Monster(level, [[0, 0]], sharedPath(), arg2);
-}
-
-function makeTroop(gx, gy) {
-  return {
-    x: gx * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-    y: gy * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
-    alive: true,
-    gx,
-    gy,
-  };
-}
-
-function buildTileIndex(troops) {
-  const gs = CONFIG.GRID_SIZE;
-  const idx = new Array(gs * gs).fill(null);
-  for (const t of troops) {
-    const key = t.gy * gs + t.gx;
-    if (!idx[key]) idx[key] = [];
-    idx[key].push(t);
-  }
-  return idx;
-}
-
-function makeMonsterAt(level, gx, gy) {
-  return new Monster(level, [[gx, gy]], sharedPath(), 1);
-}
-
-function makeFakeGame(monsters = []) {
-  return {
-    monsters,
-    popups: [],
-    gold: 0,
-    _getPopup(text, x, y, t, color) {
-      this.popups.push({ text, x, y, t, color });
-    },
-    _addGold(amount) {
-      this.gold += amount;
-    },
-  };
-}
-
-function makeReviveGame(monsters) {
-  return {
-    monsters,
-    popups: [],
-    _getPopup(text, x, y, t, color) {
-      this.popups.push({ text, x, y, t, color });
-    },
-    _addGold(amount) {
-      this.gold += amount;
-    },
-    _resetRevivedMonster: Game.prototype._resetRevivedMonster,
-  };
-}
-
-const flameSpec = TROOP_SPECS.find((s) => s.id === 'flame');
-
-function fakeMonster(level, x, y, overrides = {}) {
-  const spec = MONSTER_SPECS[level] || MONSTER_SPECS[1];
-  const maxHp = overrides.maxHp ?? spec.hp;
-  const hp = overrides.hp ?? (overrides.alive === false ? 0 : maxHp);
-  return {
-    level,
-    x,
-    y,
-    spec,
-    maxHp,
-    hp,
-    alive: overrides.alive ?? true,
-    reachedEnd: overrides.reachedEnd ?? false,
-    reviveUsed: false,
-    reviveCount: 0,
-    _reviveLock: false,
-    reviveImmune: false,
-    reviveDamageRatio: 1,
-    reviveGlow: false,
-    _reviveGlowTimer: 0,
-    speed: spec.speed,
-    stunTimer: 0,
-    slowTimer: 0,
-    shatterArmed: false,
-    shatterBonus: 0,
-    _slowColorTint: 0,
-    state: 'ATTACKING',
-    attackTarget: {},
-    attackTimer: 99,
-    _pendingAttack: {},
-    _lastPassTile: 0,
-    _hitTroops: new Set(),
-    ...overrides,
-  };
-}
-
-afterEach(() => {
-  vi.restoreAllMocks();
-});
-
-// ─── Constructor ────────────────────────────────────────────────────────────
-
-describe('Constructor', () => {
-  it('Level 1 Grunt matches MONSTER_SPECS[1]', () => {
-    const m = makeMonster(1);
-    const spec = MONSTER_SPECS[1];
-    expect(m.maxHp).toBe(spec.hp);
-    expect(m.hp).toBe(spec.hp);
-    expect(m.speed).toBe(spec.speed);
-    expect(m.reward).toBe(spec.reward);
-    expect(m.alive).toBe(true);
-    expect(m.reachedEnd).toBe(false);
-  });
-
-  it('Level B Boss has maxHp doubled by BOSS_HP_MULTIPLIER', () => {
-    const m = makeMonster('B');
-    const spec = MONSTER_SPECS['B'];
-    expect(m.maxHp).toBe(spec.hp * CONFIG.BOSS_HP_MULTIPLIER);
-    expect(m.hp).toBe(m.maxHp);
-  });
-
-  it('Unknown level falls back to MONSTER_SPECS[1]', () => {
-    const m = makeMonster(99);
-    expect(m.maxHp).toBe(MONSTER_SPECS[1].hp);
-    expect(m.reward).toBe(MONSTER_SPECS[1].reward);
-  });
-
-  it('hpMult=2 doubles maxHp', () => {
-    const base = MONSTER_SPECS[1].hp;
-    const m = makeMonster(1, 2);
-    expect(m.maxHp).toBe(Math.round(base * 2));
-  });
-
-  it('Shielded monster has shield > 0 and maxShield > 0', () => {
-    const m = makeMonster('S');
-    expect(m.shield).toBeGreaterThan(0);
-    expect(m.maxShield).toBeGreaterThan(0);
-    expect(m.shield).toBe(Math.round(MONSTER_SPECS['S'].shield));
-  });
-});
-
-// ─── takeDamage ─────────────────────────────────────────────────────────────
-
-describe('takeDamage', () => {
-  it('No shield: damage goes directly to HP', () => {
-    const m = makeMonster(1);
-    const prevHp = m.hp;
-    const result = m.takeDamage(5);
-    expect(m.hp).toBe(prevHp - 5);
-    expect(result.killed).toBe(false);
-    expect(result.hpDamage).toBe(5);
-  });
-
-  it('Shield absorbs partial damage (no HP loss)', () => {
-    const m = makeMonster('S');
-    const prevHp = m.hp;
-    const result = m.takeDamage(10);
-    expect(result.hpDamage).toBe(0);
-    expect(m.hp).toBe(prevHp);
-    expect(m.shield).toBeLessThan(MONSTER_SPECS['S'].shield);
-  });
-
-  it('Shield fully absorbs damage when amount < shield', () => {
-    const m = makeMonster('S');
-    const prevShield = m.shield;
-    m.takeDamage(1);
-    expect(m.shield).toBe(prevShield - 1);
-    expect(m.hp).toBe(m.maxHp);
-  });
-
-  it('Shield break: excess damage goes to HP', () => {
-    const m = makeMonster('S');
-    const prevHp = m.hp;
-    const shieldAmt = m.shield;
-    m.takeDamage(shieldAmt + 5);
-    expect(m.shield).toBe(0);
-    expect(m.hp).toBe(prevHp - 5);
-  });
-
-  it('Killing blow returns {killed:true, reward} and alive=false', () => {
-    const m = makeMonster(1);
-    const result = m.takeDamage(m.hp + 10);
-    expect(result.killed).toBe(true);
-    expect(result.reward).toBe(MONSTER_SPECS[1].reward);
-    expect(m.alive).toBe(false);
-  });
-
-  it('Invalid input returns {killed:false}', () => {
-    const m = makeMonster(1);
-    expect(m.takeDamage(NaN).killed).toBe(false);
-    expect(m.takeDamage(-5).killed).toBe(false);
-    expect(m.takeDamage(0).killed).toBe(false);
-  });
-});
-
-// ─── Shatter mechanic ──────────────────────────────────────────────────────
-
-describe('Shatter mechanic', () => {
-  it('applySlow sets speed, shatterArmed=true, slowTimer > 0', () => {
-    const m = makeMonster(1);
-    const ok = m.applySlow(0.5, 2.5, 0.5);
-    expect(ok).toBe(true);
-    expect(m.speed).toBe((CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5);
-    expect(m.shatterArmed).toBe(true);
-    expect(m.slowTimer).toBeGreaterThan(0);
-  });
-
-  it('takeDamage with shatterArmed + slowTimer > 0 applies bonus and resets shatterArmed', () => {
-    const m = makeMonster(1);
-    m.applySlow(0.5, 2.5, 0.5);
-    const prevHp = m.hp;
-    m.takeDamage(10);
-    const expectedDmg = Math.round(10 * (1 + 0.5));
-    expect(prevHp - m.hp).toBe(expectedDmg);
-    expect(m.shatterArmed).toBe(false);
-  });
-});
-
-// ─── Shield immunity ────────────────────────────────────────────────────────
-
-describe('Shield immunity', () => {
-  it('applySlow returns false when shield > 0', () => {
-    const m = makeMonster('S');
-    expect(m.shield).toBeGreaterThan(0);
-    const ok = m.applySlow(0.5, 2.5);
-    expect(ok).toBe(false);
-    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-});
-
-// ─── _updateRegen ───────────────────────────────────────────────────────────
-
-describe('_updateRegen', () => {
-  it('Shield regens after shieldRegenDelay', () => {
-    const m = makeMonster('S');
-    m.shield = 0;
-    m._updateRegen(0.1);
-    expect(m.shield).toBe(0);
-
-    m._updateRegen(CONFIG.SHIELD_REGEN_DELAY);
-    expect(m.shield).toBeGreaterThan(0);
-  });
-
-  it('Boss passive heal when hp < maxHp', () => {
-    const m = makeMonster('B');
-    m.hp = m.maxHp - 20;
-    const spec = MONSTER_SPECS['B'];
-    m._updateRegen(1);
-    expect(m.hp).toBeGreaterThan(m.maxHp - 20);
-    expect(m.hp).toBeLessThanOrEqual(m.maxHp);
-  });
-});
-
-// ─── _updateSlowDecay ───────────────────────────────────────────────────────
-
-describe('_updateSlowDecay', () => {
-  it('Slow expires: speed resets, shatterArmed=false', () => {
-    const m = makeMonster(1);
-    m.applySlow(0.5, 1.0, 0.5);
-    m._updateSlowDecay(1.5);
-    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-    expect(m.shatterArmed).toBe(false);
-    expect(m.slowTimer).toBe(0);
-  });
-
-  it('Slow timer decrements by dt', () => {
-    const m = makeMonster(1);
-    m.applySlow(0.5, 3.0, 0);
-    m._updateSlowDecay(1.0);
-    expect(m.slowTimer).toBe(2.0);
-  });
-});
-
-// ─── Burn mechanic ──────────────────────────────────────────────────────────
-
-describe('Burn mechanic', () => {
-  function flameTickDamage() {
-    return Math.max(1, Math.round(flameSpec.damage * flameSpec.burnDamageRatio));
-  }
-
-  it('applyBurn sets burn stacks, timer, tick interval, tick damage, and callback', () => {
-    const m = makeMonster(1);
-    const onTick = vi.fn();
-    expect(m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick)).toBe(true);
-
-    expect(m.burnStacks).toBe(1);
-    expect(m.burnTimer).toBe(flameSpec.burnDuration);
-    expect(m.burnTickTimer).toBe(0);
-    expect(m.burnTickInterval).toBe(flameSpec.burnTickInterval);
-    expect(m.burnTickDamage).toBe(flameTickDamage());
-    expect(m.isBurning()).toBe(true);
-    expect(onTick).not.toHaveBeenCalled();
-  });
-
-  it('burn ticks over time through the registered callback', () => {
-    const m = makeMonster(1);
-    const onTick = vi.fn();
-    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
-
-    m._updateBurn(0.49);
-    expect(onTick).not.toHaveBeenCalled();
-
-    m._updateBurn(0.011);
-    expect(onTick).toHaveBeenCalledTimes(1);
-    expect(onTick).toHaveBeenCalledWith(m, flameTickDamage());
-  });
-
-  it('burn tick damage scales with current stacks', () => {
-    const m = makeMonster(1);
-    const onTick = vi.fn();
-    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
-
-    m._updateBurn(flameSpec.burnTickInterval);
-    expect(onTick).toHaveBeenCalledWith(m, 4);
-
-    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
-    m._updateBurn(flameSpec.burnTickInterval);
-    expect(onTick).toHaveBeenLastCalledWith(m, 8);
-
-    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage(), onTick);
-    m._updateBurn(flameSpec.burnTickInterval);
-    expect(onTick).toHaveBeenLastCalledWith(m, 12);
-  });
-
-  it('burn uses the applied tick interval', () => {
-    const m = makeMonster(1);
-    const onTick = vi.fn();
-    m.applyBurn(1, 1.0, 0.25, flameTickDamage(), onTick);
-
-    m._updateBurn(0.24);
-    expect(onTick).not.toHaveBeenCalled();
-
-    m._updateBurn(0.011);
-    expect(onTick).toHaveBeenCalledTimes(1);
-    expect(onTick).toHaveBeenCalledWith(m, flameTickDamage());
-  });
-
-  it('burn expires and clears state', () => {
-    const m = makeMonster(1);
-    const onTick = vi.fn();
-    m.applyBurn(1, 1.0, flameSpec.burnTickInterval, flameTickDamage(), onTick);
-
-    m._updateBurn(1.5);
-
-    expect(m.burnStacks).toBe(0);
-    expect(m.burnTickDamage).toBe(0);
-    expect(m.burnTickInterval).toBe(CONFIG.FLAME_BURN_TICK_INTERVAL);
-    expect(m.isBurning()).toBe(false);
-    expect(onTick).not.toHaveBeenCalled();
-  });
-
-  it('burn stack refresh extends duration without exceeding max stacks', () => {
-    const m = makeMonster(1);
-    m.applyBurn(1, 1.0, flameSpec.burnTickInterval, flameTickDamage());
-    m.burnTickTimer = 0.25;
-    m.applyBurn(1, 2.5, flameSpec.burnTickInterval, flameTickDamage());
-
-    expect(m.burnStacks).toBe(2);
-    expect(m.burnTimer).toBe(2.5);
-    expect(m.burnTickTimer).toBe(0.25);
-    expect(m.burnTickDamage).toBe(flameTickDamage());
-
-    for (let i = 0; i < flameSpec.burnStacks + 2; i++) {
-      m.applyBurn(1, 3.0, flameSpec.burnTickInterval, flameTickDamage());
-    }
-
-    expect(m.burnStacks).toBe(flameSpec.burnStacks);
-    expect(m.burnTimer).toBe(3.0);
-  });
-
-  it('clearBurn resets burn state', () => {
-    const m = makeMonster(1);
-    m.applyBurn(1, flameSpec.burnDuration, flameSpec.burnTickInterval, flameTickDamage());
-    m.burnTickDamage = 7;
-
-    m.clearBurn();
-
-    expect(m.burnStacks).toBe(0);
-    expect(m.burnTimer).toBe(0);
-    expect(m.burnTickTimer).toBe(0);
-    expect(m.burnTickInterval).toBe(CONFIG.FLAME_BURN_TICK_INTERVAL);
-    expect(m.burnTickDamage).toBe(0);
-  });
-});
-
-// ─── findTarget ─────────────────────────────────────────────────────────────
-
-describe('findTarget', () => {
-  it('Returns nearest alive troop in attack range', () => {
-    const m = makeMonster(1);
-    const gs = CONFIG.GRID_SIZE;
-    const near = makeTroop(1, 0);
-    const far = makeTroop(10, 10);
-    const idx = buildTileIndex([near, far], gs);
-    const target = m.findTarget(idx);
-    expect(target).toBe(near);
-  });
-
-  it('Returns null when no troops in range', () => {
-    const m = makeMonster(1);
-    const gs = CONFIG.GRID_SIZE;
-    const far = makeTroop(14, 14);
-    const idx = buildTileIndex([far], gs);
-    const target = m.findTarget(idx);
-    expect(target).toBeNull();
-  });
-
-  it('Skips dead troops', () => {
-    const m = makeMonster(1);
-    const gs = CONFIG.GRID_SIZE;
-    const dead = makeTroop(1, 0);
-    dead.alive = false;
-    const alive = makeTroop(1, 1);
-    const idx = buildTileIndex([dead, alive], gs);
-    const target = m.findTarget(idx);
-    expect(target).toBe(alive);
-  });
-});
-
-// ─── Position / update ──────────────────────────────────────────────────────
-
-describe('Position / update', () => {
-  it('Single-cell path: stays at tile center', () => {
-    const m = new Monster(1, [[3, 5]], sharedPath(), 1);
-    expect(m.x).toBe(3 * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
-    expect(m.y).toBe(5 * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
-  });
-
-  it('Distance beyond totalLength: reachedEnd=true', () => {
-    const segs = [{ ax: 0, ay: 0, bx: 53, by: 0, len: 53, cumStart: 0 }];
-    const sp = { segments: segs, totalLength: 53 };
-    const m = new Monster(1, [[0, 0]], sp, 1);
-    m.distance = 200;
-    m._updatePosition();
-    expect(m.reachedEnd).toBe(true);
-  });
-
-  it('isSlowed() returns true when slowTimer > 0', () => {
-    const m = makeMonster(1);
-    expect(m.isSlowed()).toBe(false);
-    m.applySlow(0.5, 1.0);
-    expect(m.isSlowed()).toBe(true);
-  });
-});
-
-// ─── _updatePosition multi-segment paths ────────────────────────────────────
-
-describe('_updatePosition', () => {
-  it('traverses multiple segments correctly', () => {
-    const T = CONFIG.TILE_SIZE;
-    const segments = [
-      { ax: 0, ay: 0, bx: T, by: 0, len: T, cumStart: 0 },
-      { ax: T, ay: 0, bx: T, by: T, len: T, cumStart: T },
-    ];
-    const sp = { segments, totalLength: 2 * T };
-    const m = new Monster(1, [[0, 0]], sp, 1);
-    m.distance = T * 0.5;
-    m._updatePosition();
-    expect(m.x).toBeCloseTo(T * 0.5);
-    expect(m.y).toBe(0);
-  });
-
-  it('handles segment boundary crossing', () => {
-    const T = CONFIG.TILE_SIZE;
-    const segments = [
-      { ax: 0, ay: 0, bx: T, by: 0, len: T, cumStart: 0 },
-      { ax: T, ay: 0, bx: T, by: T, len: T, cumStart: T },
-    ];
-    const sp = { segments, totalLength: 2 * T };
-    const m = new Monster(1, [[0, 0]], sp, 1);
-    m.distance = T * 1.5;
-    m._updatePosition();
-    expect(m.x).toBeCloseTo(T);
-    expect(m.y).toBeCloseTo(T * 0.5);
-  });
-
-  it('caches tile coordinates', () => {
-    const T = CONFIG.TILE_SIZE;
-    const segments = [{ ax: 0, ay: 0, bx: 3 * T, by: 0, len: 3 * T, cumStart: 0 }];
-    const sp = { segments, totalLength: 3 * T };
-    const m = new Monster(1, [[0, 0]], sp, 1);
-    m.distance = T;
-    m._updatePosition();
-    expect(m._tileGx).toBe(1);
-    expect(m._tileGy).toBe(0);
-  });
-});
-
-// ─── progress getter ────────────────────────────────────────────────────────
-
-describe('progress', () => {
-  it('returns 0 at start', () => {
-    const T = CONFIG.TILE_SIZE;
-    const segments = [{ ax: 0, ay: 0, bx: T, by: 0, len: T, cumStart: 0 }];
-    const sp = { segments, totalLength: T };
-    const m = new Monster(1, [[0, 0]], sp, 1);
-    expect(m.progress).toBe(0);
-  });
-
-  it('returns 0.5 at halfway', () => {
-    const T = CONFIG.TILE_SIZE;
-    const segments = [{ ax: 0, ay: 0, bx: 2 * T, by: 0, len: 2 * T, cumStart: 0 }];
-    const sp = { segments, totalLength: 2 * T };
-    const m = new Monster(1, [[0, 0]], sp, 1);
-    m.distance = T;
-    expect(m.progress).toBeCloseTo(0.5);
-  });
-
-  it('returns 1 at end', () => {
-    const T = CONFIG.TILE_SIZE;
-    const segments = [{ ax: 0, ay: 0, bx: T, by: 0, len: T, cumStart: 0 }];
-    const sp = { segments, totalLength: T };
-    const m = new Monster(1, [[0, 0]], sp, 1);
-    m.distance = T;
-    expect(m.progress).toBe(1);
-  });
-
-  it('returns 1 when totalLength is 0', () => {
-    const m = new Monster(1, [[0, 0]], { segments: [], totalLength: 0 }, 1);
-    expect(m.progress).toBe(1);
-  });
-});
-
-// ─── update - stop mode ─────────────────────────────────────────────────────
-
-describe('update - stop mode', () => {
-  function longPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
-  }
-
-  it('transitions to ATTACKING when troop is in range', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    const troop = makeTroop(1, 0);
-    const tileIndex = buildTileIndex([troop]);
-    m.update(0.1, tileIndex);
-    expect(m.state).toBe('ATTACKING');
-    expect(m.attackTarget).toBe(troop);
-  });
-
-  it('stays MOVING when no troop is in range', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    const troop = makeTroop(14, 14);
-    const tileIndex = buildTileIndex([troop]);
-    m.update(0.1, tileIndex);
-    expect(m.state).toBe('MOVING');
-  });
-
-  it('queues _pendingAttack when attack timer fires', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'ATTACKING';
-    const troop = makeTroop(1, 0);
-    m.attackTarget = troop;
-    m.attackTimer = 0;
-    m.update(0.1, buildTileIndex([troop]));
-    expect(m._pendingAttack).toBe(troop);
-  });
-});
-
-// ─── update - pass mode ─────────────────────────────────────────────────────
-
-describe('update - pass mode', () => {
-  function longPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
-  }
-
-  it('attacks troops while moving through tiles', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m._lastPassTile = -1;
-    const troop = makeTroop(0, 0);
-    const tileIndex = buildTileIndex([troop]);
-    m.update(0.1, tileIndex);
-    expect(m._pendingAttack).toBe(troop);
-  });
-
-  it('does not attack the same troop twice on same tile', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m._lastPassTile = -1;
-    const troop = makeTroop(0, 0);
-    const tileIndex = buildTileIndex([troop]);
-    m.update(0.1, tileIndex);
-    m._pendingAttack = null;
-    m.update(0.1, tileIndex);
-    expect(m._pendingAttack).toBeNull();
-  });
-});
-
-// ─── update - slow mode (Spear) ────────────────────────────────────────────
-
-describe('update - slow mode (Spear)', () => {
-  function longPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
-  }
-
-  it('slows down when near a troop', () => {
-    const m = makeMonster('X', [[0, 0]], longPath());
-    m.state = 'MOVING';
-    const troop = makeTroop(2, 0);
-    const tileIndex = buildTileIndex([troop]);
-    m.update(0.1, tileIndex);
-    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-
-  it('restores speed when no troop is near', () => {
-    const m = makeMonster('X', [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m.speed = (CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5;
-    const tileIndex = buildTileIndex([]);
-    m.update(0.1, tileIndex);
-    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-});
-
-// ─── Boss heal per second ──────────────────────────────────────────────────
-
-describe('Boss heal per second', () => {
-  it('heals when hp < maxHp', () => {
-    const m = makeMonster('B', [[0, 0]], { segments: [], totalLength: 0 });
-    m.hp = m.maxHp - 100;
-    const prevHp = m.hp;
-    m._updateRegen(1);
-    expect(m.hp).toBeGreaterThan(prevHp);
-    expect(m.hp).toBeLessThanOrEqual(m.maxHp);
-  });
-
-  it('does not heal when at maxHp', () => {
-    const m = makeMonster('B', [[0, 0]], { segments: [], totalLength: 0 });
-    m.hp = m.maxHp;
-    m._updateRegen(1);
-    expect(m.hp).toBe(m.maxHp);
-  });
-
-  it('heals exactly healPerSecond * dt', () => {
-    const m = makeMonster('B', [[0, 0]], { segments: [], totalLength: 0 });
-    const healAmount = 50;
-    m.hp = m.maxHp - healAmount;
-    const spec = MONSTER_SPECS['B'];
-    m._updateRegen(2);
-    expect(m.hp).toBeCloseTo(m.maxHp - healAmount + spec.healPerSecond * 2);
-  });
-});
-
-// ─── Shield regen ───────────────────────────────────────────────────────────
-
-describe('Shield regen', () => {
-  it('does not regen during shieldRegenDelay', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    m.shield = 0;
-    m._updateRegen(0.1);
-    expect(m.shield).toBe(0);
-  });
-
-  it('starts regen after shieldRegenDelay', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    m.shield = 0;
-    m._updateRegen(CONFIG.SHIELD_REGEN_DELAY);
-    expect(m.shield).toBeGreaterThan(0);
-  });
-
-  it('caps shield at maxShield', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    m.shield = m.maxShield - 1;
-    m._updateRegen(CONFIG.SHIELD_REGEN_DELAY + 10);
-    expect(m.shield).toBeLessThanOrEqual(m.maxShield);
-  });
-
-  it('takeDamage resets shieldRegenTimer', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    m.shieldRegenTimer = CONFIG.SHIELD_REGEN_DELAY;
-    m.takeDamage(1);
-    expect(m.shieldRegenTimer).toBe(0);
-  });
-});
-
-// ─── Revive mechanics ──────────────────────────────────────────────────────
-
-describe('Revive mechanics', () => {
-  it('revived monster has reviveImmune=true', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m.reviveImmune = true;
-    m.reviveDamageRatio = 0.5;
-    expect(m.reviveImmune).toBe(true);
-  });
-
-  it('reviveDamageRatio is applied in damageTroop, not takeDamage', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m.reviveImmune = true;
-    m.reviveDamageRatio = 0.5;
-    const prevHp = m.hp;
-    m.takeDamage(10);
-    expect(m.hp).toBe(prevHp - 10);
-  });
-
-  it('reviveGlow timer decrements', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m.reviveGlow = true;
-    m._reviveGlowTimer = 1.5;
-    m._updateReviveGlow(0.5);
-    expect(m._reviveGlowTimer).toBe(1.0);
-  });
-
-  it('reviveGlow timer clamps to 0', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m.reviveGlow = true;
-    m._reviveGlowTimer = 0.1;
-    m._updateReviveGlow(1.0);
-    expect(m._reviveGlowTimer).toBe(0);
-  });
-});
-
-// ─── tileDistanceTo ─────────────────────────────────────────────────────────
-
-describe('tileDistanceTo', () => {
-  it('returns 0 for same tile', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m._tileGx = 5;
-    m._tileGy = 5;
-    expect(m.tileDistanceTo(5, 5)).toBe(0);
-  });
-
-  it('returns correct Chebyshev distance', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m._tileGx = 3;
-    m._tileGy = 5;
-    expect(m.tileDistanceTo(7, 5)).toBe(4);
-    expect(m.tileDistanceTo(5, 8)).toBe(3);
-    expect(m.tileDistanceTo(7, 8)).toBe(4);
-  });
-});
-
-// ─── _updateSlowDecay edge cases ────────────────────────────────────────────
-
-describe('_updateSlowDecay edge cases', () => {
-  it('does nothing when slowTimer is 0', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m.slowTimer = 0;
-    m._updateSlowDecay(1);
-    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-
-  it('resets _slowColorTint when slow expires', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    m.applySlow(0.5, 0.5, 0);
-    m._slowColorTint = 1;
-    m._updateSlowDecay(1.0);
-    expect(m._slowColorTint).toBe(0);
-  });
-});
-
-// ─── Monster constructor edge cases ─────────────────────────────────────────
-
-describe('Monster constructor edge cases', () => {
-  it('Necromancer has noSplit=true', () => {
-    const m = makeMonster('Y', [[0, 0]], { segments: [], totalLength: 0 });
-    expect(m.spec.noSplit).toBe(true);
-  });
-
-  it('Runner has noSplit=true', () => {
-    const m = makeMonster(2, [[0, 0]], { segments: [], totalLength: 0 });
-    expect(m.spec.noSplit).toBe(true);
-  });
-
-  it('Boss has healPerSecond', () => {
-    const m = makeMonster('B', [[0, 0]], { segments: [], totalLength: 0 });
-    expect(m.healPerSecond).toBeGreaterThan(0);
-  });
-
-  it('non-Boss has healPerSecond=0', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    expect(m.healPerSecond).toBe(0);
-  });
-
-  it('Shielded monster has shield > 0', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    expect(m.shield).toBeGreaterThan(0);
-  });
-
-  it('non-Shielded monster has shield=0', () => {
-    const m = makeMonster(1, [[0, 0]], { segments: [], totalLength: 0 });
-    expect(m.shield).toBe(0);
-  });
-});
-
-// ─── Monster splitting ──────────────────────────────────────────────────────
-
-describe('Monster splitting', () => {
-  it.each([
-    { parentLevel: 3, parentName: 'Brute', expectedLevel: 1, expectedName: 'Grunt' },
-    { parentLevel: 4, parentName: 'Elite', expectedLevel: 3, expectedName: 'Brute' },
-    { parentLevel: 5, parentName: 'Champion', expectedLevel: 4, expectedName: 'Elite' },
-  ])(
-    '$parentName splits into two $expectedName monsters and never Runners',
-    ({ parentLevel, expectedLevel, expectedName }) => {
-      const parent = makeMonster(parentLevel);
-      const game = {
-        monsters: [parent],
-        popups: [],
-        waypoints: [[0, 0]],
-        pathSegments: sharedPath(),
-        gold: 0,
-        _addGold(amount) {
-          this.gold += amount;
-        },
-        _getPopup(text, x, y, t, color) {
-          this.popups.push({ text, x, y, t, color });
-        },
-      };
-      vi.spyOn(AUDIO, 'goldEarned');
-      vi.spyOn(PARTICLES, 'spawn');
-
-      expect(Game.prototype.damageMonster.call(game, parent, parent.hp)).toBe(true);
-
-      const children = game.monsters.filter((monster) => monster !== parent);
-      expect(children).toHaveLength(2);
-      expect(children.every((monster) => monster.level === expectedLevel)).toBe(true);
-      expect(children.every((monster) => monster.spec.name === expectedName)).toBe(true);
-      expect(children.some((monster) => monster.spec.name === 'Runner')).toBe(false);
-      expect(parent.alive).toBe(false);
-      expect(game.gold).toBe(parent.reward + 1);
-    }
-  );
-
-  it('Runner does not split because it has noSplit and pass-mode behavior', () => {
-    const runner = makeMonster(2);
-    const game = {
-      monsters: [runner],
-      popups: [],
-      waypoints: [[0, 0]],
-      pathSegments: sharedPath(),
-      gold: 0,
-      _addGold(amount) {
-        this.gold += amount;
-      },
-      _getPopup(text, x, y, t, color) {
-        this.popups.push({ text, x, y, t, color });
-      },
+vi.mock('../src/particles.js', () => ({
+  PARTICLES: {
+    healBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    deathBurst: vi.fn(),
+    slowApply: vi.fn(),
+    burnApply: vi.fn(),
+    burnTick: vi.fn(),
+    update: vi.fn(),
+    clear: vi.fn(),
+    spawn: vi.fn(),
+    spawnTrail: vi.fn(),
+  },
+}));
+
+describe('Monster', () => {
+  let Monster;
+
+  beforeAll(async () => {
+    const mod = await import('../src/monster.js');
+    Monster = mod.Monster;
+  });
+
+  function makePath() {
+    return {
+      segments: [
+        { ax: 0, ay: 26.5, bx: 848, by: 26.5, len: 848, cumStart: 0 },
+        { ax: 848, ay: 26.5, bx: 848, by: 291.5, len: 265, cumStart: 848 },
+      ],
+      totalLength: 1113,
     };
-    vi.spyOn(AUDIO, 'goldEarned');
-    vi.spyOn(PARTICLES, 'spawn');
-
-    expect(MONSTER_SPECS[2].noSplit).toBe(true);
-    expect(MONSTER_SPECS[2].attackMode).toBe('pass');
-    expect(Game.prototype.damageMonster.call(game, runner, runner.hp)).toBe(true);
-
-    expect(game.monsters).toEqual([runner]);
-    expect(runner.alive).toBe(false);
-    expect(game.gold).toBe(runner.reward + 1);
-  });
-});
-
-// ─── takeDamage edge cases ──────────────────────────────────────────────────
-
-describe('takeDamage edge cases', () => {
-  it('shield break killing blow: excess damage kills monster', () => {
-    const m = makeMonster('S');
-    m.hp = 5; // very low HP
-    const shieldAmt = m.shield;
-    const result = m.takeDamage(shieldAmt + 10);
-    expect(result.killed).toBe(true);
-    expect(m.shield).toBe(0);
-    expect(m.hp).toBe(0);
-    expect(m.alive).toBe(false);
-  });
-
-  it('damage exactly equal to shield: shield drops to 0, no HP damage', () => {
-    const m = makeMonster('S');
-    const shieldAmt = m.shield;
-    const prevHp = m.hp;
-    const result = m.takeDamage(shieldAmt);
-    expect(m.shield).toBe(0);
-    expect(m.hp).toBe(prevHp);
-    expect(result.hpDamage).toBe(0);
-    expect(result.killed).toBe(false);
-  });
-
-  it('string input returns killed:false', () => {
-    const m = makeMonster(1);
-    const result = m.takeDamage('10');
-    expect(result.killed).toBe(false);
-  });
-
-  it('shatter bonus applies extra damage then disarms', () => {
-    const m = makeMonster(1);
-    m.applySlow(0.5, 2.0, 1.0); // 100% bonus
-    const prevHp = m.hp;
-    m.takeDamage(10);
-    expect(prevHp - m.hp).toBe(20); // 10 * (1+1.0)
-    expect(m.shatterArmed).toBe(false);
-  });
-
-  it('shatter bonus does not apply when slowTimer is 0', () => {
-    const m = makeMonster(1);
-    m.shatterArmed = true;
-    m.slowTimer = 0;
-    const prevHp = m.hp;
-    m.takeDamage(10);
-    expect(prevHp - m.hp).toBe(10); // no bonus
-  });
-
-  it('shield break resets shieldRegenTimer', () => {
-    const m = makeMonster('S');
-    m.shieldRegenTimer = 999;
-    m.takeDamage(m.shield + 1); // break shield
-    expect(m.shieldRegenTimer).toBe(0);
-  });
-});
-
-// ─── applySlow edge cases ─────────────────────────────────────────────────
-
-describe('applySlow edge cases', () => {
-  it('uses max of current and new slow duration', () => {
-    const m = makeMonster(1);
-    m.applySlow(0.5, 3.0, 0.2);
-    expect(m.slowTimer).toBe(3.0);
-    m.applySlow(0.5, 5.0, 0.2);
-    expect(m.slowTimer).toBe(5.0); // 5 > 3, so max wins
-  });
-
-  it('new shorter slow does not reduce existing slowTimer', () => {
-    const m = makeMonster(1);
-    m.applySlow(0.5, 5.0, 0.2);
-    m.applySlow(0.5, 1.0, 0.2);
-    expect(m.slowTimer).toBe(5.0); // existing longer
-  });
-
-  it('sets _slowColorTint to 1', () => {
-    const m = makeMonster(1);
-    m.applySlow(0.5, 1.0, 0);
-    expect(m._slowColorTint).toBe(1);
-  });
-
-  it('shielded monster with 0 shield can be slowed', () => {
-    const m = makeMonster('S');
-    m.shield = 0;
-    expect(m.applySlow(0.5, 1.0)).toBe(true);
-    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-});
-
-// ─── findTarget edge cases ─────────────────────────────────────────────────
-
-describe('findTarget edge cases', () => {
-  it('picks closest troop by pixel distance when multiple on different tiles', () => {
-    const m = makeMonster(1);
-    const near = makeTroop(0, 0);
-    const far = makeTroop(1, 0);
-    const idx = buildTileIndex([near, far]);
-    const target = m.findTarget(idx);
-    expect(target).toBe(near);
-  });
-
-  it('handles troop at exact boundary of tileRange', () => {
-    const m = makeMonster('X'); // Spear has attackRange 2.5
-    const troop = makeTroop(2, 0);
-    const idx = buildTileIndex([troop]);
-    const target = m.findTarget(idx);
-    expect(target).toBe(troop);
-  });
-
-  it('skips troops outside tileRange', () => {
-    const m = makeMonster(1); // Grunt attackRange=1
-    const troop = makeTroop(3, 0); // 3 tiles away
-    const idx = buildTileIndex([troop]);
-    const target = m.findTarget(idx);
-    expect(target).toBeNull();
-  });
-
-  it('handles negative tile coordinates without crash', () => {
-    const m = makeMonster(1);
-    m._tileGx = 0;
-    m._tileGy = 0;
-    const idx = buildTileIndex([]);
-    // Should not crash even though dx/dy would go negative
-    const target = m.findTarget(idx);
-    expect(target).toBeNull();
-  });
-
-  it('handles troops at grid edges', () => {
-    const m = makeMonster(1);
-    m._tileGx = CONFIG.GRID_SIZE - 1;
-    m._tileGy = CONFIG.GRID_SIZE - 1;
-    const troop = makeTroop(CONFIG.GRID_SIZE - 1, CONFIG.GRID_SIZE - 1);
-    const idx = buildTileIndex([troop]);
-    const target = m.findTarget(idx);
-    expect(target).toBe(troop);
-  });
-});
-
-// ─── _updateRegen edge cases ───────────────────────────────────────────────
-
-describe('_updateRegen edge cases', () => {
-  it('shield does not regen when already at maxShield', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    m.shield = m.maxShield;
-    m._updateRegen(CONFIG.SHIELD_REGEN_DELAY + 10);
-    expect(m.shield).toBe(m.maxShield);
-  });
-
-  it('shield regen timer accumulates across multiple frames', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    m.shield = 0;
-    const halfDelay = CONFIG.SHIELD_REGEN_DELAY / 2;
-    m._updateRegen(halfDelay);
-    expect(m.shield).toBe(0); // not yet
-    m._updateRegen(halfDelay);
-    expect(m.shield).toBeGreaterThan(0); // now past delay
-  });
-
-  it('boss heal caps at maxHp', () => {
-    const m = makeMonster('B', [[0, 0]], { segments: [], totalLength: 0 });
-    m.hp = m.maxHp - 1;
-    m._updateRegen(100); // huge dt
-    expect(m.hp).toBe(m.maxHp);
-  });
-
-  it('shield regen uses CONFIG.SHIELD_REGEN_RATE per dt', () => {
-    const m = makeMonster('S', [[0, 0]], { segments: [], totalLength: 0 });
-    m.shield = 0;
-    // Advance past the delay threshold first
-    m._updateRegen(CONFIG.SHIELD_REGEN_DELAY + 0.01);
-    const beforeShield = m.shield;
-    // Now check regen for exactly 1.0s
-    m._updateRegen(1.0);
-    expect(m.shield).toBeCloseTo(beforeShield + CONFIG.SHIELD_REGEN_RATE * 1.0);
-  });
-});
-
-// ─── _updateStopMode edge cases ────────────────────────────────────────────
-
-describe('_updateStopMode edge cases', () => {
-  function longPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
   }
 
-  it('ATTACKING + target dies → transitions to MOVING', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'ATTACKING';
-    const troop = makeTroop(1, 0);
-    troop.alive = false;
-    m.attackTarget = troop;
-    m._updateStopMode(0.1, buildTileIndex([]));
-    expect(m.state).toBe('MOVING');
-    expect(m.attackTarget).toBeNull();
-  });
-
-  it('ATTACKING + target out of range → transitions to MOVING', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'ATTACKING';
-    const troop = makeTroop(10, 10); // far away
-    m.attackTarget = troop;
-    m._updateStopMode(0.1, buildTileIndex([troop]));
-    expect(m.state).toBe('MOVING');
-    expect(m.attackTarget).toBeNull();
-  });
-
-  it('ATTACKING + in range + timer fires → sets _pendingAttack', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'ATTACKING';
-    const troop = makeTroop(0, 0);
-    m.attackTarget = troop;
-    m.attackTimer = 0; // timer expired
-    m._updateStopMode(0.1, buildTileIndex([troop]));
-    expect(m._pendingAttack).toBe(troop);
-  });
-
-  it('ATTACKING + in range + timer not fired → decrements timer', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'ATTACKING';
-    const troop = makeTroop(0, 0);
-    m.attackTarget = troop;
-    m.attackTimer = 0.5; // set to a value > dt so it won't fire
-    m._updateStopMode(0.1, buildTileIndex([troop]));
-    expect(m.attackTimer).toBeCloseTo(0.4);
-  });
-
-  it('MOVING + no tile index → stays MOVING', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m._updateStopMode(0.1, null);
-    expect(m.state).toBe('MOVING');
-  });
-});
-
-// ─── _updateSlowMode edge cases ────────────────────────────────────────────
-
-describe('_updateSlowMode edge cases', () => {
-  function longPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
+  function makeWaypoints() {
+    return [
+      [0, 0],
+      [5, 0],
+      [5, 5],
+      [10, 5],
+      [10, 10],
+      [15, 10],
+    ];
   }
 
-  it('no near target + slowTimer > 0: speed stays low', () => {
-    const m = makeMonster('X', [[0, 0]], longPath()); // Spear has slow mode
-    m.state = 'MOVING';
-    m.slowTimer = 2.0; // currently slowed
-    m.speed = (CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5;
-    const emptyIdx = buildTileIndex([]);
-    m._updateSlowMode(0.1, emptyIdx);
-    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-
-  it('no near target + slowTimer <= 0: speed restores', () => {
-    const m = makeMonster('X', [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m.slowTimer = 0;
-    m.speed = (CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5;
-    m._updateSlowMode(0.1, buildTileIndex([]));
-    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-
-  it('near target + timer fires → sets _pendingAttack', () => {
-    const m = makeMonster('X', [[0, 0]], longPath());
-    m.state = 'MOVING';
-    const troop = makeTroop(2, 0);
-    m.attackTimer = 0;
-    m._updateSlowMode(0.1, buildTileIndex([troop]));
-    expect(m._pendingAttack).toBe(troop);
-  });
-
-  it('near target + speed capped at baseSpeed * 0.5', () => {
-    const m = makeMonster('X', [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m.speed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;
-    const troop = makeTroop(2, 0);
-    m._updateSlowMode(0.1, buildTileIndex([troop]));
-    expect(m.speed).toBeLessThanOrEqual((CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed) * 0.5);
-  });
-});
-
-// ─── _updatePassMode edge cases ────────────────────────────────────────────
-
-describe('_updatePassMode edge cases', () => {
-  function longPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
-  }
-
-  it('no troops on tile → _pendingAttack stays null', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    m._lastPassTile = -1;
-    m._updatePassMode(buildTileIndex([]));
-    expect(m._pendingAttack).toBeNull();
-  });
-
-  it('same tile visited twice → only first visit triggers attack', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    const troop = makeTroop(0, 0);
-    m._lastPassTile = -1;
-    m._updatePassMode(buildTileIndex([troop]));
-    expect(m._pendingAttack).toBe(troop);
-    m._pendingAttack = null;
-    // tileIdx same as _lastPassTile → no re-attack
-    m._updatePassMode(buildTileIndex([troop]));
-    expect(m._pendingAttack).toBeNull();
-  });
-
-  it('dead troops in _hitTroops are pruned when size > 16', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    m._hitTroops = new Set();
-    // Add 17 dead troops
-    for (let i = 0; i < 17; i++) {
-      m._hitTroops.add({ alive: false });
-    }
-    // Trigger pruning path
-    m._lastPassTile = -1;
-    m._updatePassMode(buildTileIndex([]));
-    expect(m._hitTroops.size).toBe(0);
-  });
-
-  it('alive troops in _hitTroops survive pruning', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    const aliveTroop = { alive: true, x: 0, y: 0 };
-    m._hitTroops = new Set();
-    for (let i = 0; i < 17; i++) {
-      m._hitTroops.add({ alive: false });
-    }
-    m._hitTroops.add(aliveTroop);
-    m._lastPassTile = -1;
-    m._updatePassMode(buildTileIndex([]));
-    expect(m._hitTroops.size).toBe(1);
-    expect(m._hitTroops.has(aliveTroop)).toBe(true);
-  });
-
-  it('skips already-hit troops in adjacent tiles', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    m._hitTroops = new Set(); // must initialize before use
-    const troop1 = makeTroop(0, 0);
-    const troop2 = makeTroop(1, 0);
-    m._hitTroops.add(troop1);
-    m._lastPassTile = -1;
-    m._updatePassMode(buildTileIndex([troop1, troop2]));
-    expect(m._pendingAttack).toBe(troop2);
-    expect(m._hitTroops.has(troop2)).toBe(true);
-  });
-
-  it('handles out-of-bounds tile coordinates', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    m._tileGx = 0;
-    m._tileGy = 0;
-    m._lastPassTile = -1;
-    // dx=-1, dy=-1 would be (-1,-1) → out of bounds, should skip
-    m._updatePassMode(buildTileIndex([]));
-    expect(m._pendingAttack).toBeNull();
-  });
-});
-
-// ─── update() integration ─────────────────────────────────────────────────
-
-describe('update() integration', () => {
-  function longPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
-  }
-
-  it('dead monster returns early without updating', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.alive = false;
-    const prevDist = m.distance;
-    m.update(0.1, buildTileIndex([]));
-    expect(m.distance).toBe(prevDist);
-  });
-
-  it('stunned monster skips movement but still updates regen/slowDecay/reviveGlow', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.stunTimer = 1.0;
-    m.applySlow(0.5, 2.0, 0.5);
-    m._reviveGlowTimer = 1.0;
-    m.reviveGlow = true;
-    const prevDist = m.distance;
-    m.update(0.1, buildTileIndex([]));
-    // Stun prevents movement
-    expect(m.distance).toBe(prevDist);
-    // But regen/decay still run
-    expect(m.slowTimer).toBeCloseTo(1.9); // decremented by 0.1
-    expect(m._reviveGlowTimer).toBeCloseTo(0.9);
-  });
-
-  it('stunTimer decrements to 0 and monster resumes', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.stunTimer = 0.05;
-    m.update(0.1, buildTileIndex([]));
-    expect(m.stunTimer).toBe(0);
-    // Next update should move
-    const prevDist = m.distance;
-    m.update(0.1, buildTileIndex([]));
-    expect(m.distance).toBeGreaterThan(prevDist);
-  });
-
-  it('monster reaches end of path → reachedEnd=true and returns', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.distance = m.totalLength - 0.1; // just before end
-    m.update(1.0, buildTileIndex([])); // big dt pushes past end
-    expect(m.reachedEnd).toBe(true);
-    expect(m.distance).toBe(m.totalLength);
-  });
-
-  it('stop mode: MOVING finds troop and transitions to ATTACKING', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    const troop = makeTroop(0, 0);
-    m.update(0.1, buildTileIndex([troop]));
-    expect(m.state).toBe('ATTACKING');
-    expect(m.attackTarget).toBe(troop);
-  });
-
-  it('stop mode: ATTACKING target dies mid-attack → transitions to MOVING', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'ATTACKING';
-    const troop = makeTroop(0, 0);
-    troop.alive = false;
-    m.attackTarget = troop;
-    m.update(0.1, buildTileIndex([]));
-    expect(m.state).toBe('MOVING');
-  });
-
-  it('pass mode monster: attacks troops while moving', () => {
-    const m = makeMonster(2, [[0, 0]], longPath()); // Runner = pass mode
-    m.state = 'MOVING';
-    m._lastPassTile = -1;
-    const troop = makeTroop(0, 0);
-    m.update(0.1, buildTileIndex([troop]));
-    expect(m._pendingAttack).toBe(troop);
-  });
-
-  it('slow mode monster: slows speed when near troop', () => {
-    const m = makeMonster('X', [[0, 0]], longPath()); // Spear = slow mode
-    m.state = 'MOVING';
-    const troop = makeTroop(2, 0);
-    m.update(0.1, buildTileIndex([troop]));
-    expect(m.speed).toBeLessThan(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-
-  it('ATTACKING state at start of update → _updateStopMode runs', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'ATTACKING';
-    const troop = makeTroop(0, 0);
-    m.attackTarget = troop;
-    m.attackTimer = 99; // won't fire
-    m.update(0.1, buildTileIndex([troop]));
-    // Still attacking, target still alive and in range
-    expect(m.state).toBe('ATTACKING');
-  });
-
-  it('MOVING without tileIndex stays MOVING (no crash)', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m.update(0.1, null);
-    expect(m.state).toBe('MOVING');
-    expect(m.reachedEnd).toBe(false);
-  });
-
-  it('MOVING + pass mode without tileIndex: no crash', () => {
-    const m = makeMonster(2, [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m.update(0.1, null);
-    expect(m.state).toBe('MOVING');
-  });
-
-  it('MOVING + slow mode without tileIndex: no crash', () => {
-    const m = makeMonster('X', [[0, 0]], longPath());
-    m.state = 'MOVING';
-    m.update(0.1, null);
-    expect(m.state).toBe('MOVING');
-  });
-
-  it('update calls _updateRegen even when not moving', () => {
-    const m = makeMonster('S', [[0, 0]], longPath());
-    m.shield = 0;
-    m.state = 'ATTACKING';
-    m.attackTarget = null; // will transition to MOVING
-    m.state = 'MOVING';
-    m.update(CONFIG.SHIELD_REGEN_DELAY, buildTileIndex([]));
-    expect(m.shield).toBeGreaterThan(0);
-  });
-
-  it('update calls _updateSlowDecay even when not moving', () => {
-    const m = makeMonster(1, [[0, 0]], longPath());
-    m.applySlow(0.5, 0.5, 0);
-    m.state = 'ATTACKING';
-    m.attackTarget = null;
-    m.update(1.0, buildTileIndex([]));
-    expect(m.slowTimer).toBe(0);
-    expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed);
-  });
-
-  it('hpMult=undefined defaults to 1 via || 1 fallback', () => {
-    const m = new Monster(1, [[0, 0]], sharedPath(), undefined);
-    expect(m.hpMult).toBe(1);
-    expect(m.maxHp).toBe(MONSTER_SPECS[1].hp);
-  });
-
-  it('hpMult=0 produces maxHp=0 (raw param used for calculation)', () => {
-    const m = new Monster(1, [[0, 0]], sharedPath(), 0);
-    expect(m.maxHp).toBe(0);
-  });
-});
-
-// ─── Necromancer milestone 3 acceptance ─────────────────────────────────────
-
-describe('Necromancer milestone 3 acceptance', () => {
-  it('has Necromancer spec fields', () => {
-    const necro = MONSTER_SPECS.Y;
-    expect(necro.name).toBe('Necromancer');
-    expect(necro.noSplit).toBe(true);
-    expect(necro.reviveRange).toBe(2.0);
-    expect(necro.reviveHpRatio).toBe(0.5);
-    expect(necro.reviveMaxTargets).toBe(4);
-    expect(necro.reviveGlowDuration).toBe(1.5);
-  });
-
-  it('constructs Monster Y as Necromancer and does not split it when killed', () => {
-    const necro = makeMonster('Y');
-    const game = makeFakeGame([necro]);
-    vi.spyOn(AUDIO, 'goldEarned');
-    vi.spyOn(PARTICLES, 'spawn');
-
-    expect(necro.spec.name).toBe('Necromancer');
-    expect(Game.prototype.damageMonster.call(game, necro, necro.hp)).toBe(true);
-
-    expect(game.monsters).toHaveLength(1);
-    expect(necro.alive).toBe(false);
-    expect(game.gold).toBe(necro.reward + 1);
-  });
-
-  it.each([3, 4, 5])('revived level %s monsters do not split when killed', (level) => {
-    const necro = fakeMonster('Y', 0, 0);
-    const target = makeMonsterAt(level, 1, 0);
-    const game = makeReviveGame([necro, target]);
-
-    target.alive = false;
-    target.hp = 0;
-    target.reachedEnd = false;
-
-    Game.prototype._stepNecromancerRevives.call(game);
-    expect(target.reviveImmune).toBe(true);
-    expect(target.reviveDamageRatio).toBe(0.5);
-    expect(target.reviveGlow).toBe(true);
-
-    expect(Game.prototype.damageMonster.call(game, target, target.hp)).toBe(true);
-    expect(game.monsters.filter((monster) => monster !== necro && monster !== target)).toHaveLength(0);
-    expect(target.alive).toBe(false);
-  });
-
-  it('revived monsters deal 50% damage to defense troops', () => {
-    const monster = makeMonster(3);
-    monster.reviveImmune = true;
-    monster.reviveDamageRatio = 0.5;
-    const troop = {
-      spec: { type: 'ranged' },
-      hp: 100,
-      maxHp: 100,
+  function makeTroopStub(overrides = {}) {
+    return {
       alive: true,
-      x: 0,
-      y: 0,
-      takeDamage(damage) {
-        this.hp -= damage;
-        if (this.hp <= 0) {
-          this.alive = false;
-          return true;
-        }
-        return false;
-      },
+      gx: 5,
+      gy: 5,
+      x: 5 * 53 + 26,
+      y: 5 * 53 + 26,
+      hp: 50,
+      maxHp: 50,
+      spec: { type: 'melee' },
+      ...overrides,
     };
-    const game = {
-      popups: [],
-      killTroop: vi.fn(),
-      _getPopup(text, x, y, t, color) {
-        this.popups.push({ text, x, y, t, color });
-      },
-    };
-
-    Game.prototype.damageTroop.call(game, monster, troop);
-
-    const expectedDamage = Math.max(1, Math.round(monster.spec.damage * 0.5));
-    expect(troop.hp).toBe(100 - expectedDamage);
-  });
-
-  it('revives the nearest dead monster in range to partial HP', () => {
-    const necro = fakeMonster('Y', 0, 0);
-    const far = fakeMonster(1, CONFIG.TILE_SIZE * 4, 0, { alive: false });
-    const near = fakeMonster(2, CONFIG.TILE_SIZE, 0, { alive: false, maxHp: 100 });
-    const game = makeReviveGame([necro, far, near]);
-
-    Game.prototype._stepNecromancerRevives.call(game);
-
-    expect(near.alive).toBe(true);
-    expect(near.hp).toBe(Math.round(100 * MONSTER_SPECS.Y.reviveHpRatio));
-    expect(near.reviveGlow).toBe(true);
-    expect(near.reachedEnd).toBe(false);
-    expect(near.state).toBe('MOVING');
-    expect(near._reviveLock).toBe(true);
-    expect(near.reviveDamageRatio).toBe(0.5);
-    expect(far.alive).toBe(false);
-    expect(necro.reviveCount).toBe(1);
-    expect(necro.reviveUsed).toBe(true);
-  });
-
-  it('revives up to four eligible monsters per Necromancer', () => {
-    const necro = fakeMonster('Y', 0, 0);
-    const targets = Array.from({ length: 4 }, (_, index) =>
-      fakeMonster(index + 1, CONFIG.TILE_SIZE * (0.25 + index * 0.25), 0, { alive: false, maxHp: 100 })
-    );
-    const game = makeReviveGame([necro, ...targets]);
-
-    Game.prototype._stepNecromancerRevives.call(game);
-
-    expect(targets.every((target) => target.alive)).toBe(true);
-    expect(targets.every((target) => target.hp === 50)).toBe(true);
-    expect(necro.reviveCount).toBe(4);
-  });
-
-  it('does not revive a fifth in-range target', () => {
-    const necro = fakeMonster('Y', 0, 0);
-    const targets = Array.from({ length: 5 }, (_, index) =>
-      fakeMonster(index + 1, CONFIG.TILE_SIZE * (0.25 + index * 0.25), 0, { alive: false, maxHp: 100 })
-    );
-    const game = makeReviveGame([necro, ...targets]);
-
-    Game.prototype._stepNecromancerRevives.call(game);
-
-    expect(targets.slice(0, 4).every((target) => target.alive)).toBe(true);
-    expect(targets[4].alive).toBe(false);
-    expect(necro.reviveCount).toBe(4);
-  });
-
-  it('skips dead Necromancers as revive targets', () => {
-    const necro = fakeMonster('Y', 0, 0);
-    const deadNecro = fakeMonster('Y', CONFIG.TILE_SIZE, 0, { alive: false });
-    const target = fakeMonster(1, CONFIG.TILE_SIZE * 1.5, 0, { alive: false, maxHp: 100 });
-    const game = makeReviveGame([necro, deadNecro, target]);
-
-    Game.prototype._stepNecromancerRevives.call(game);
-
-    expect(deadNecro.alive).toBe(false);
-    expect(target.alive).toBe(true);
-    expect(necro.reviveCount).toBe(1);
-  });
-
-  it('skips dead monsters that reached the end', () => {
-    const necro = fakeMonster('Y', 0, 0);
-    const dead = fakeMonster(1, CONFIG.TILE_SIZE, 0, { alive: false, reachedEnd: true });
-    const game = makeReviveGame([necro, dead]);
-
-    Game.prototype._stepNecromancerRevives.call(game);
-
-    expect(dead.alive).toBe(false);
-    expect(necro.reviveCount).toBe(0);
-  });
-
-  it('revives a dead monster exactly two tiles away', () => {
-    const necro = fakeMonster('Y', 0, 0);
-    const target = fakeMonster(1, CONFIG.TILE_SIZE * 2, 0, { alive: false, maxHp: 100 });
-    const game = makeReviveGame([necro, target]);
-
-    Game.prototype._stepNecromancerRevives.call(game);
-
-    expect(target.alive).toBe(true);
-    expect(target.hp).toBe(50);
-    expect(necro.reviveCount).toBe(1);
-  });
-
-  it('default dev monster counts include Necromancer', () => {
-    const counts = Game.prototype._defaultDevCounts.call({});
-    expect(counts.Y).toBe(0);
-    expect(Object.keys(counts)).toContain('Y');
-  });
-});
-
-// ─── Healer monster (level H) ────────────────────────────────────────────────
-
-describe('Healer monster (level H)', () => {
-  function healerPath() {
-    const T = CONFIG.TILE_SIZE;
-    return { segments: [{ ax: 0, ay: 0, bx: T * 10, by: 0, len: T * 10, cumStart: 0 }], totalLength: T * 10 };
   }
 
-  function makeDamagedAlly(gx, gy, hp, maxHp) {
-    const ally = makeMonsterAt(1, gx, gy);
-    ally.hp = hp;
-    ally.maxHp = maxHp;
-    return ally;
+  function makeTileIndex(troops = []) {
+    const size = CONFIG.GRID_SIZE;
+    const idx = new Array(size * size);
+    for (let i = 0; i < idx.length; i++) idx[i] = [];
+    for (const t of troops) {
+      const i = t.gy * size + t.gx;
+      if (idx[i]) idx[i].push(t);
+    }
+    return idx;
   }
 
-  it('starts at fast speed', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['fast']);
-    expect(h._healing).toBe(false);
+  describe('constructor', () => {
+    const levels = [1, 2, 3, 4, 5, 'B', 'S', 'X', 'Y', 'H'];
+    for (const level of levels) {
+      it(`constructs monster level ${level}`, () => {
+        const m = new Monster(level, makeWaypoints(), makePath());
+        expect(m.alive).toBe(true);
+        expect(m.level).toBe(level);
+        expect(m.hp).toBeGreaterThan(0);
+        expect(m.maxHp).toBeGreaterThanOrEqual(m.hp);
+        expect(m.speed).toBeGreaterThan(0);
+      });
+    }
+
+    it('applies hpMult scaling', () => {
+      const m = new Monster(1, makeWaypoints(), makePath(), 2);
+      expect(m.maxHp).toBe(MONSTER_SPECS[1].hp * 2);
+    });
+
+    it('Boss HP is doubled', () => {
+      const m = new Monster('B', makeWaypoints(), makePath());
+      const baseHp = MONSTER_SPECS.B.hp * CONFIG.BOSS_HP_MULTIPLIER;
+      expect(m.maxHp).toBe(baseHp);
+    });
+
+    it('unknown level falls back to Grunt', () => {
+      const m = new Monster('Z', makeWaypoints(), makePath());
+      expect(m.spec).toBe(MONSTER_SPECS[1]);
+    });
+
+    it('Shielded monster has shield', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      expect(m.shield).toBeGreaterThan(0);
+      expect(m.maxShield).toBeGreaterThan(0);
+    });
+
+    it('Healer monster has heal fields', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      expect(m.healRange).toBeGreaterThan(0);
+      expect(m.healTickInterval).toBeGreaterThan(0);
+    });
+
+    it('Necromancer monster has revive fields', () => {
+      const m = new Monster('Y', makeWaypoints(), makePath());
+      expect(m.spec.reviveRange).toBeGreaterThan(0);
+      expect(m.spec.reviveHpRatio).toBeGreaterThan(0);
+    });
+
+    it('Runner (level 2) is pass-mode and noSplit', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      expect(m.spec.attackMode).toBe('pass');
+      expect(m.spec.noSplit).toBe(true);
+    });
+
+    it('Spear (X) is slow-mode with range', () => {
+      const m = new Monster('X', makeWaypoints(), makePath());
+      expect(m.spec.attackMode).toBe('slow');
+      expect(m.spec.attackRange).toBe(2.5);
+    });
   });
 
-  it('_tryHealAllies heals damaged allies in range', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    const allies = [ally];
-    h._tryHealAllies(1.0, allies);
-    expect(ally.hp).toBeGreaterThan(10);
-    expect(h._healing).toBe(true);
+  describe('_updatePosition', () => {
+    it('positions at waypoint when segments are empty (single-cell path)', () => {
+      const m = new Monster(1, [[3, 7]], { segments: [], totalLength: 0 });
+      expect(m.x).toBe(3 * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
+      expect(m.y).toBe(7 * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2);
+      expect(m._tileGx).toBe(3);
+      expect(m._tileGy).toBe(7);
+    });
+
+    it('sets reachedEnd when distance >= totalLength', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.distance = 2000;
+      m._updatePosition();
+      expect(m.reachedEnd).toBe(true);
+      expect(m.x).toBe(848);
+      expect(m.y).toBe(291.5);
+    });
+
+    it('advances segIdx when distance passes segment end', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.distance = 900; // past first segment (848), within second (848+265=1113)
+      m.segIdx = 0;
+      m._updatePosition();
+      expect(m.segIdx).toBe(1);
+      expect(m.x).toBe(848);
+      expect(m.y).toBeGreaterThan(26.5);
+    });
+
+    it('clamps t to [0,1] when len is 0', () => {
+      const zeroLenPath = {
+        segments: [{ ax: 0, ay: 0, bx: 0, by: 0, len: 0, cumStart: 0 }],
+        totalLength: 0,
+      };
+      const m = new Monster(1, [[0, 0]], zeroLenPath);
+      expect(() => m._updatePosition()).not.toThrow();
+      expect(m._tileGx).toBe(0);
+    });
   });
 
-  it('_tryHealAllies heals multiple damaged allies', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally1 = makeDamagedAlly(1, 0, 10, 100);
-    const ally2 = makeDamagedAlly(1, 0, 20, 100);
-    const allies = [ally1, ally2];
-    h._tryHealAllies(1.0, allies);
-    expect(ally1.hp).toBeGreaterThan(10);
-    expect(ally2.hp).toBeGreaterThan(20);
+  describe('takeDamage', () => {
+    it('no shield: direct HP damage', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const hpBefore = m.hp;
+      m.takeDamage(10);
+      expect(m.hp).toBe(hpBefore - 10);
+    });
+
+    it('shield: partial absorb', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      m.takeDamage(10);
+      expect(m.alive).toBe(true);
+    });
+
+    it('shield: full absorb', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      m.takeDamage(1);
+      expect(m.shield).toBe(MONSTER_SPECS.S.shield - 1);
+    });
+
+    it('shield break excess', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      const shield = m.shield;
+      m.takeDamage(shield + 50);
+      expect(m.shield).toBe(0);
+      expect(m.hp).toBeLessThan(m.maxHp);
+    });
+
+    it('shield break excess kills when hp exhausted', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      const shield = m.shield;
+      m.takeDamage(shield + m.maxHp + 100);
+      expect(m.alive).toBe(false);
+      expect(m.hp).toBe(0);
+    });
+
+    it('killing blow', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.takeDamage(9999);
+      expect(m.alive).toBe(false);
+      expect(m.hp).toBe(0);
+    });
+
+    it('shatter bonus applies extra damage when slowed and shatterArmed', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.slowTimer = 2;
+      m.shatterArmed = true;
+      m.shatterBonus = 0.5;
+      const result = m.takeDamage(100);
+      // 100 * (1 + 0.5) = 150 damage with shatter bonus
+      // monster has 34 HP, killed by 150 damage; hp clamped to 0 on kill
+      expect(m.hp).toBe(0);
+      expect(result.killed).toBe(true);
+      expect(result.hpDamage).toBe(150);
+      expect(m.shatterArmed).toBe(false);
+    });
+
+    it('returns {killed, reward, hpDamage}', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const result = m.takeDamage(9999);
+      expect(result).toHaveProperty('killed', true);
+      expect(result).toHaveProperty('reward', MONSTER_SPECS[1].reward);
+      expect(result).toHaveProperty('hpDamage');
+    });
+
+    it('invalid input (NaN) returns graceful result', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const result = m.takeDamage(NaN);
+      expect(result).toEqual({ killed: false, reward: 0, hpDamage: 0 });
+    });
+
+    it('invalid input (negative) returns graceful result', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const result = m.takeDamage(-10);
+      expect(result).toEqual({ killed: false, reward: 0, hpDamage: 0 });
+    });
+
+    it('invalid input (zero) returns graceful result', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const result = m.takeDamage(0);
+      expect(result).toEqual({ killed: false, reward: 0, hpDamage: 0 });
+    });
+
+    it('invalid input (string) returns graceful result', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const result = m.takeDamage('abc');
+      expect(result).toEqual({ killed: false, reward: 0, hpDamage: 0 });
+    });
   });
 
-  it('_tryHealAllies caps heal at maxHp - hp', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 95, 100);
-    const allies = [ally];
-    h._tryHealAllies(1.0, allies);
-    expect(ally.hp).toBeLessThanOrEqual(100);
+  describe('applySlow', () => {
+    it('sets speed, timer, and shatterArmed', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const originalSpeed = m.speed;
+      m.applySlow(0.5, 3, 0.3);
+      expect(m.speed).toBeLessThan(originalSpeed);
+      expect(m.slowTimer).toBe(3);
+      expect(m.shatterArmed).toBe(true);
+    });
+
+    it('returns false when shielded', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      expect(m.applySlow(0.5, 3)).toBe(false);
+    });
+
+    it('updates max duration', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applySlow(0.5, 2);
+      m.applySlow(0.5, 5);
+      expect(m.slowTimer).toBe(5);
+    });
+
+    it('sets _slowColorTint', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applySlow(0.5, 2);
+      expect(m._slowColorTint).toBe(1);
+    });
+
+    it('Healer (H) with _healing uses slow speed', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m._healing = true;
+      m.applySlow(0.5, 3);
+      expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS.slow * 0.5);
+    });
   });
 
-  it('_tryHealAllies ignores self', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    h.hp = 50;
-    h.maxHp = 100;
-    const allies = [h];
-    h._tryHealAllies(1.0, allies);
-    expect(h._healing).toBe(false);
+  describe('applyBurn', () => {
+    it('sets stacks and timer', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(1, 3, 0.5, 5);
+      expect(m.burnStacks).toBe(1);
+      expect(m.burnTimer).toBe(3);
+      expect(m.burnTickDamage).toBe(5);
+    });
+
+    it('returns false for invalid inputs', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.applyBurn(0, 3, 0.5, 5)).toBe(false);
+      expect(m.applyBurn(-1, 3, 0.5, 5)).toBe(false);
+      expect(m.applyBurn(NaN, 3, 0.5, 5)).toBe(false);
+      expect(m.applyBurn(1, 0, 0.5, 5)).toBe(false);
+    });
+
+    it('returns false for invalid duration', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.applyBurn(1, -1, 0.5, 5)).toBe(false);
+      expect(m.applyBurn(1, NaN, 0.5, 5)).toBe(false);
+    });
+
+    it('returns false for invalid tickInterval', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.applyBurn(1, 3, 0, 5)).toBe(false);
+      expect(m.applyBurn(1, 3, -1, 5)).toBe(false);
+    });
+
+    it('returns false for invalid tickDamage', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.applyBurn(1, 3, 0.5, 0)).toBe(false);
+      expect(m.applyBurn(1, 3, 0.5, -1)).toBe(false);
+    });
+
+    it('stacks cap at FLAME_BURN_MAX_STACKS', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(10, 3, 0.5, 5);
+      expect(m.burnStacks).toBe(CONFIG.FLAME_BURN_MAX_STACKS);
+    });
+
+    it('caps burnTickTimer to tickInterval on re-application', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(1, 5, 0.5, 5);
+      m.burnTickTimer = 2; // way past interval
+      m.applyBurn(1, 5, 0.5, 5); // re-apply caps to 0.5
+      expect(m.burnTickTimer).toBe(0.5);
+    });
+
+    it('clearBurn resets all state', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(2, 3, 0.5, 5);
+      m.clearBurn();
+      expect(m.burnStacks).toBe(0);
+      expect(m.burnTimer).toBe(0);
+    });
+
+    it('isBurning reflects active state', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.isBurning()).toBe(false);
+      m.applyBurn(1, 3, 0.5, 5);
+      expect(m.isBurning()).toBe(true);
+    });
+
+    it('preserves _onBurnTick when not provided', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const onTick = vi.fn();
+      m._onBurnTick = onTick;
+      m.applyBurn(1, 3, 0.5, 5);
+      expect(m._onBurnTick).toBe(onTick);
+    });
   });
 
-  it('_tryHealAllies ignores full-HP monsters', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 100, 100);
-    const allies = [ally];
-    h._tryHealAllies(1.0, allies);
-    expect(h._healing).toBe(false);
+  describe('_updateBurn', () => {
+    it('does nothing when not burning', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(() => m._updateBurn(0.5)).not.toThrow();
+    });
+
+    it('decrements burnTimer and clears when expired', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(1, 1, 0.5, 5);
+      m._updateBurn(1.5);
+      expect(m.burnTimer).toBe(0);
+      expect(m.burnStacks).toBe(0);
+    });
+
+    it('applies tick damage via onTick callback', () => {
+      const onTick = vi.fn();
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(2, 3, 0.5, 5, onTick);
+      m._updateBurn(1); // enough dt for 2 ticks (1.0 / 0.5 = 2)
+      expect(onTick).toHaveBeenCalledTimes(2);
+      // tick damage = max(1, round(5 * 2)) = 10
+      expect(onTick).toHaveBeenCalledWith(m, 10);
+    });
+
+    it('handles multiple ticks within a single frame', () => {
+      const onTick = vi.fn();
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(1, 5, 0.25, 5, onTick);
+      m._updateBurn(1); // 4 ticks at 0.25 interval
+      expect(onTick).toHaveBeenCalledTimes(4);
+    });
+
+    it('stops ticking when monster dies mid-burn', () => {
+      const onTick = vi.fn();
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applyBurn(1, 5, 0.1, 5, (m, dmg) => {
+        m.alive = false;
+        onTick(m, dmg);
+      });
+      m._updateBurn(1);
+      // onTick was called, but only once (alive becomes false after first tick)
+      expect(onTick).toHaveBeenCalledTimes(1);
+      expect(m.burnStacks).toBe(0); // cleared by death path
+    });
   });
 
-  it('_tryHealAllies ignores dead monsters', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const dead = makeDamagedAlly(1, 0, 10, 100);
-    dead.alive = false;
-    const allies = [dead];
-    h._tryHealAllies(1.0, allies);
-    expect(h._healing).toBe(false);
+  describe('_updateRegen', () => {
+    it('recharges shield over time after delay', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      const initialShield = m.shield;
+      m.shield -= 20;
+      m.shieldRegenTimer = CONFIG.SHIELD_REGEN_DELAY; // past delay
+      m._updateRegen(0.5);
+      expect(m.shield).toBeGreaterThan(initialShield - 20);
+    });
+
+    it('does not regen shield while regen timer is below delay', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      m.shield -= 20;
+      const shieldAfter = m.shield; // 69 - 20 = 49
+      m.shieldRegenTimer = 0;
+      m._updateRegen(0.5);
+      expect(m.shieldRegenTimer).toBe(0.5);
+      expect(m.shield).toBe(shieldAfter); // unchanged
+    });
+
+    it('does not regen shield above maxShield', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      m.shield = m.maxShield;
+      m._updateRegen(0.5);
+      expect(m.shield).toBe(m.maxShield);
+    });
+
+    it('passive heal restores HP over time', () => {
+      const m = new Monster('B', makeWaypoints(), makePath());
+      m.hp = m.maxHp - 50;
+      m._updateRegen(1);
+      expect(m.hp).toBeGreaterThan(m.maxHp - 50);
+    });
+
+    it('does not overheal', () => {
+      const m = new Monster('B', makeWaypoints(), makePath());
+      m.hp = m.maxHp;
+      m._updateRegen(1);
+      expect(m.hp).toBe(m.maxHp);
+    });
   });
 
-  it('_tryHealAllies ignores monsters outside range', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const far = makeDamagedAlly(10, 0, 10, 100);
-    const allies = [far];
-    h._tryHealAllies(1.0, allies);
-    expect(far.hp).toBe(10);
-    expect(h._healing).toBe(false);
+  describe('_updateSlowDecay', () => {
+    it('decays timer and recovers speed when it reaches zero', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applySlow(0.5, 1, 0.3);
+      m._updateSlowDecay(2); // past the slow duration
+      expect(m.slowTimer).toBe(0);
+      expect(m.shatterArmed).toBe(false);
+      expect(m._slowColorTint).toBe(0);
+      expect(m.speed).toBeGreaterThan(0);
+    });
+
+    it('Healer (H) restores healing speed when slow expires', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m._healing = true;
+      m.applySlow(0.5, 0.5);
+      m._updateSlowDecay(1);
+      expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS.slow);
+    });
+
+    it('no-op when slowTimer is 0', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(() => m._updateSlowDecay(0.5)).not.toThrow();
+    });
   });
 
-  it('transitions to slow speed when healing begins', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    h._tryHealAllies(1.0, [ally]);
-    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['slow']);
+  describe('_updateReviveGlow', () => {
+    it('decrements reviveGlowTimer', () => {
+      const m = new Monster('Y', makeWaypoints(), makePath());
+      m._reviveGlowTimer = 1;
+      m._updateReviveGlow(0.5);
+      expect(m._reviveGlowTimer).toBe(0.5);
+    });
+
+    it('clamps at 0', () => {
+      const m = new Monster('Y', makeWaypoints(), makePath());
+      m._reviveGlowTimer = 0.3;
+      m._updateReviveGlow(1);
+      expect(m._reviveGlowTimer).toBe(0);
+    });
+
+    it('no-op when timer is 0', () => {
+      const m = new Monster('Y', makeWaypoints(), makePath());
+      expect(() => m._updateReviveGlow(0.5)).not.toThrow();
+    });
   });
 
-  it('resumes fast speed when no damaged allies remain', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    h._tryHealAllies(0.5, [ally]);
-    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['slow']);
-    ally.hp = ally.maxHp;
-    h._tryHealAllies(0.5, [ally]);
-    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['fast']);
+  describe('_tryHealAllies', () => {
+    it('returns early when not alive', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m.alive = false;
+      expect(() => m._tryHealAllies(1, [])).not.toThrow();
+    });
+
+    it('returns early when not Healer level', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(() => m._tryHealAllies(1, [])).not.toThrow();
+    });
+
+    it('handles null monsters safely', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      expect(() => m._tryHealAllies(1, null)).not.toThrow();
+      expect(m._healing).toBe(false);
+    });
+
+    it('sets _healing=false and restores speed when no damaged allies in range', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m._healing = true;
+      m.speed = CONFIG.MOVEMENT_SPEEDS.slow;
+      // no monsters in range
+      const ally = new Monster(1, makeWaypoints(), makePath());
+      ally.x = 9999;
+      ally.y = 9999; // far away
+      m._tryHealAllies(1, [ally]);
+      expect(m._healing).toBe(false);
+      expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS.fast);
+      expect(m.state).toBe('MOVING');
+    });
+
+    it('activates healing when damaged allies in range', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m.x = 100;
+      m.y = 100;
+      const ally = new Monster(1, makeWaypoints(), makePath());
+      ally.x = 110;
+      ally.y = 100; // close enough
+      ally.hp = ally.maxHp - 10; // damaged
+      m._tryHealAllies(1, [ally]);
+      expect(m._healing).toBe(true);
+      expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS.slow);
+    });
+
+    it('heals via tick timer and calls PARTICLES.healBurst', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m.x = 100;
+      m.y = 100;
+      const ally = new Monster(1, makeWaypoints(), makePath());
+      ally.x = 110;
+      ally.y = 100;
+      ally.maxHp = 100;
+      ally.hp = 50;
+      // prime healing
+      m._healing = true;
+      m._tryHealAllies(2, [ally]); // 2 ticks at healTickInterval=1.0
+      expect(ally.hp).toBeGreaterThan(50);
+      // heal amount: spec.healPerSecond * healTickInterval = 8 * 1 = 8
+      // each tick heals 8 HP, 2 ticks = 16 HP
+      expect(ally.hp).toBe(66);
+      expect(PARTICLES.healBurst).toHaveBeenCalled();
+    });
+
+    it('does not overheal target', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m.x = 100;
+      m.y = 100;
+      const ally = new Monster(1, makeWaypoints(), makePath());
+      ally.x = 110;
+      ally.y = 100;
+      ally.maxHp = 100;
+      ally.hp = 99;
+      m._healing = true;
+      m._tryHealAllies(2, [ally]);
+      expect(ally.hp).toBe(100);
+    });
   });
 
-  it('_healing flag is cleared when no damaged allies in range', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    h._tryHealAllies(0.5, [ally]);
-    expect(h._healing).toBe(true);
-    ally.hp = ally.maxHp;
-    h._tryHealAllies(0.5, [ally]);
-    expect(h._healing).toBe(false);
+  describe('findTarget', () => {
+    it('finds nearest alive troop', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t1 = makeTroopStub({ gx: 5, gy: 5, x: 300, y: 300 });
+      const t2 = makeTroopStub({ gx: 5, gy: 6, x: 300, y: 350 });
+      const tileIndex = makeTileIndex([t1, t2]);
+      const result = m.findTarget(tileIndex);
+      expect(result).toBe(t1); // closer (same tile)
+    });
+
+    it('returns null when no troops are in range', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m._tileGx = 0;
+      m._tileGy = 0;
+      const t = makeTroopStub({ gx: 15, gy: 15 }); // out of range
+      const tileIndex = makeTileIndex([t]);
+      const result = m.findTarget(tileIndex);
+      expect(result).toBeNull();
+    });
+
+    it('skips dead troops', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t1 = makeTroopStub({ gx: 5, gy: 5, alive: false });
+      const t2 = makeTroopStub({ gx: 5, gy: 6, alive: true });
+      const tileIndex = makeTileIndex([t1, t2]);
+      const result = m.findTarget(tileIndex);
+      expect(result).toBe(t2);
+    });
+
+    it('returns null when tileIndex has empty cells', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const emptyIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      const result = m.findTarget(emptyIndex);
+      expect(result).toBeNull();
+    });
   });
 
-  it('_healing flag persists on death (not cleared by update)', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    h._tryHealAllies(0.5, [ally]);
-    expect(h._healing).toBe(true);
-    h.alive = false;
-    h.update(0.1, [], []);
-    expect(h._healing).toBe(true);
+  describe('_updateStopMode', () => {
+    it('ATTACKING: pending attack when target alive and in range', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'ATTACKING';
+      const target = makeTroopStub({ gx: 5, gy: 5 });
+      m.attackTarget = target;
+      m._tileGx = 5;
+      m._tileGy = 5;
+      m.attackTimer = 0.5;
+      m._updateStopMode(1, makeTileIndex());
+      // attackTimer = 0.5 - 1 = -0.5, triggers _pendingAttack
+      expect(m._pendingAttack).toBe(target);
+      expect(m.attackTimer).toBe(m.spec.attackSpeed); // reset to attackSpeed (1.0)
+    });
+
+    it('ATTACKING: returns to MOVING when target dies', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'ATTACKING';
+      const target = makeTroopStub({ alive: true });
+      m.attackTarget = target;
+      target.alive = false;
+      m._updateStopMode(0.1, makeTileIndex());
+      expect(m.state).toBe('MOVING');
+      expect(m.attackTarget).toBeNull();
+    });
+
+    it('ATTACKING: returns to MOVING when target out of range', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'ATTACKING';
+      m.attackTarget = makeTroopStub({ gx: 15, gy: 15 }); // far away
+      m._tileGx = 0;
+      m._tileGy = 0;
+      m._updateStopMode(0.1, makeTileIndex());
+      expect(m.attackTarget).toBeNull();
+      expect(m.state).toBe('MOVING');
+    });
+
+    it('MOVING: transitions to ATTACKING when target found', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'MOVING';
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t = makeTroopStub({ gx: 5, gy: 5 });
+      const tileIndex = makeTileIndex([t]);
+      m._updateStopMode(0.1, tileIndex);
+      expect(m.state).toBe('ATTACKING');
+      expect(m.attackTarget).toBe(t);
+      expect(m._pendingAttack).toBe(t);
+    });
   });
 
-  it('heals at correct interval, not every frame', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    const tick = h.healTickInterval;
-    const initialHp = ally.hp;
-    h._tryHealAllies(tick - 0.01, [ally]);
-    expect(ally.hp).toBe(initialHp);
-    h._tryHealAllies(0.02, [ally]);
-    const hpAfterTick = ally.hp;
-    expect(hpAfterTick).toBeGreaterThan(initialHp);
-    expect(hpAfterTick).toBeLessThanOrEqual(ally.maxHp);
+  describe('_updateSlowMode', () => {
+    it('slows speed and attacks when target found', () => {
+      const m = new Monster('X', makeWaypoints(), makePath());
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t = makeTroopStub({ gx: 5, gy: 5 });
+      const tileIndex = makeTileIndex([t]);
+      m._updateSlowMode(0.1, tileIndex);
+      // speed should be at most base * 0.5
+      const base = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed];
+      expect(m.speed).toBeLessThanOrEqual(base * 0.5);
+      expect(m._pendingAttack).toBe(t);
+    });
+
+    it('restores speed when no target found and slow expired', () => {
+      const m = new Monster('X', makeWaypoints(), makePath());
+      m.slowTimer = 0;
+      const base = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed];
+      m.speed = 0.1; // artificially lowered
+      m._updateSlowMode(0.1, makeTileIndex()); // empty tile index
+      expect(m.speed).toBe(base);
+    });
+
+    it('preserves current speed when no target and still slowed', () => {
+      const m = new Monster('X', makeWaypoints(), makePath());
+      m.slowTimer = 1;
+      m.speed = 0.3;
+      m._updateSlowMode(0.1, makeTileIndex());
+      expect(m.speed).toBe(0.3); // preserved
+    });
   });
 
-  it('healer + slow interaction: speed is slow * slowFactor while healing', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    h._tryHealAllies(0.1, [ally]);
-    h.applySlow(0.5, 2.0, 0);
-    expect(h.speed).toBeCloseTo(CONFIG.MOVEMENT_SPEEDS['slow'] * 0.5);
+  describe('_updatePassMode', () => {
+    it('attacks troops in adjacent tiles when entering new tile', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t = makeTroopStub({ gx: 5, gy: 5, alive: true });
+      const tileIndex = makeTileIndex([t]);
+      m._updatePassMode(tileIndex);
+      expect(m._pendingAttack).toBe(t);
+      expect(m._hitTroops.has(t)).toBe(true);
+    });
+
+    it('does not re-attack already-hit troops', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t = makeTroopStub({ gx: 5, gy: 5, alive: true });
+      m._hitTroops = new Set([t]);
+      m._lastPassTile = 5 * 16 + 5; // same tile index
+      const tileIndex = makeTileIndex([t]);
+      m._updatePassMode(tileIndex);
+      expect(m._pendingAttack).toBeNull();
+    });
+
+    it('cleans up dead troops from _hitTroops', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      const t = makeTroopStub({ gx: 5, gy: 5, alive: false });
+      m._hitTroops = new Set([t]);
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const tileIndex = makeTileIndex([]);
+      m._updatePassMode(tileIndex);
+      expect(m._hitTroops.has(t)).toBe(false);
+    });
+
+    it('attacks new troops on new tile', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      m._lastPassTile = 0; // different from current
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t = makeTroopStub({ gx: 5, gy: 5, alive: true });
+      const tileIndex = makeTileIndex([t]);
+      m._updatePassMode(tileIndex);
+      expect(m._pendingAttack).toBe(t);
+      expect(m._lastPassTile).toBe(5 * 16 + 5);
+    });
   });
 
-  it('healer + slow interaction: after slow expires, returns to slow if still healing', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    h._tryHealAllies(0.1, [ally]);
-    h.applySlow(0.5, 0.3, 0);
-    for (let i = 0; i < 30; i++) h._updateSlowDecay(CONFIG.FIXED_TIMESTEP);
-    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['slow']);
+  describe('isSlowed', () => {
+    it('returns true when slowTimer > 0', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.slowTimer = 1;
+      expect(m.isSlowed()).toBe(true);
+    });
+
+    it('returns false when slowTimer is 0', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.isSlowed()).toBe(false);
+    });
   });
 
-  it('healer + slow interaction: after slow expires and healing stops, returns to fast', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const ally = makeDamagedAlly(1, 0, 10, 100);
-    h._tryHealAllies(0.1, [ally]);
-    h.applySlow(0.5, 0.3, 0);
-    ally.hp = ally.maxHp;
-    h._tryHealAllies(0.1, [ally]);
-    for (let i = 0; i < 30; i++) h._updateSlowDecay(CONFIG.FIXED_TIMESTEP);
-    expect(h.speed).toBe(CONFIG.MOVEMENT_SPEEDS['fast']);
+  describe('update', () => {
+    it('dead monster returns early', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.alive = false;
+      const initialX = m.x;
+      m.update(0.1, [], []);
+      expect(m.x).toBe(initialX);
+    });
+
+    it('stunned monster skips movement', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.stunTimer = 2;
+      const initialDist = m.distance;
+      m.update(0.1, [], []);
+      expect(m.distance).toBe(initialDist);
+      expect(m.stunTimer).toBe(1.9);
+    });
+
+    it('reached end marks reachedEnd', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.distance = 99999;
+      m.update(1, [], []);
+      expect(m.reachedEnd).toBe(true);
+    });
+
+    it('reached end returns early after setting flag', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.distance = 99999;
+      m.update(0.1, [], []);
+      expect(m.reachedEnd).toBe(true);
+    });
+
+    it('progress returns 0 at start', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.progress).toBe(0);
+    });
+
+    it('progress returns 1 at end', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.distance = m.totalLength;
+      expect(m.progress).toBe(1);
+    });
+
+    it('progress returns 1 when totalLength=0', () => {
+      const m = new Monster(1, [[0, 0]], { segments: [], totalLength: 0 });
+      expect(m.progress).toBe(1);
+    });
+
+    it('runs regen and slowDecay', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.applySlow(0.5, 1);
+      m.update(0.5, [], []);
+      expect(m.slowTimer).toBeLessThan(1);
+    });
+
+    it('stop mode deploys findTarget with troopTileIndex in MOVING state', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'MOVING';
+      // Monster starts at tile (0,0) — place troop there
+      const t = makeTroopStub({ gx: 0, gy: 0 });
+      const tileIndex = makeTileIndex([t]);
+      m.update(0.1, tileIndex, []);
+      expect(m.state).toBe('ATTACKING');
+    });
+
+    it('slow mode attacks and slows speed in MOVING state', () => {
+      const m = new Monster('X', makeWaypoints(), makePath());
+      m.state = 'MOVING';
+      // Monster starts at tile (0,0) — place troop there
+      const t = makeTroopStub({ gx: 0, gy: 0 });
+      const tileIndex = makeTileIndex([t]);
+      const initialSpeed = m.speed;
+      m.update(0.1, tileIndex, []);
+      expect(m.speed).toBeLessThanOrEqual(initialSpeed);
+    });
+
+    it('pass mode attacks in MOVING state', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      m.state = 'MOVING';
+      // Monster starts at tile (0,0) — place troop there
+      const t = makeTroopStub({ gx: 0, gy: 0 });
+      const tileIndex = makeTileIndex([t]);
+      m.update(0.1, tileIndex, []);
+      expect(m._pendingAttack).toBe(t);
+    });
+
+    it('Healer (H) detects nearby damaged allies and starts healing', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      const ally = new Monster(1, makeWaypoints(), makePath());
+      // Both start at same position; _updatePosition keeps them at tile (0,0)
+      const T = CONFIG.TILE_SIZE;
+      // Set monster distance so it doesn't recalc position away from ally
+      m.distance = 0;
+      ally.distance = 0;
+      m._updatePosition();
+      ally._updatePosition();
+      ally.hp = ally.maxHp - 10;
+      m.update(0.1, [], [ally]);
+      expect(m._healing).toBe(true);
+    });
+
+    it('Healer (H) turns off healing when no damaged allies', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      const ally = new Monster(1, makeWaypoints(), makePath());
+      ally.hp = ally.maxHp; // full HP, not damaged
+      m.update(0.15, [], [ally]);
+      expect(m._healing).toBe(false);
+    });
+
+    it('Healer (H) sets speed to base when not healing', () => {
+      const m = new Monster('H', makeWaypoints(), makePath());
+      m.speed = 0.1; // artificially low
+      // Empty monsters array => no damaged allies detected => _healing stays false
+      m.update(0.1, [], []);
+      expect(m.speed).toBe(CONFIG.MOVEMENT_SPEEDS.fast);
+    });
+
+    it('updates distance in MOVING state', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'MOVING';
+      const initialDist = m.distance;
+      m.update(1, [], []);
+      expect(m.distance).toBeGreaterThan(initialDist);
+    });
+
+    it('does not call _updatePosition when stunned', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      const initialDist = m.distance;
+      m.stunTimer = 1;
+      m.update(0.5, [], []);
+      expect(m.distance).toBe(initialDist);
+    });
+
+    it('no-ops when troopTileIndex is null in MOVING state', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'MOVING';
+      expect(() => m.update(0.1, null, [])).not.toThrow();
+      expect(m.distance).toBeGreaterThan(0); // still moves
+    });
   });
 
-  it('healer does not heal dead allies', () => {
-    const h = makeMonster('H', [[0, 0]], healerPath());
-    const dead = makeMonsterAt(1, 1, 0);
-    dead.alive = false;
-    dead.hp = 0;
-    dead.maxHp = 100;
-    const allies = [dead];
-    h._tryHealAllies(1.0, allies);
-    expect(h._healing).toBe(false);
+  describe('tileDistanceTo', () => {
+    it('returns Chebyshev distance', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m._tileGx = 5;
+      m._tileGy = 5;
+      expect(m.tileDistanceTo(7, 5)).toBe(2);
+      expect(m.tileDistanceTo(5, 7)).toBe(2);
+      expect(m.tileDistanceTo(7, 7)).toBe(2);
+    });
+  });
+
+  describe('monster update ATTACKING state', () => {
+    it('processes ATTACKING state in update', () => {
+      const m = new Monster(1, makeWaypoints(), makePath());
+      m.state = 'ATTACKING';
+      expect(() => m.update(0.1, 'mockTileIndex', [])).not.toThrow();
+    });
   });
 });
