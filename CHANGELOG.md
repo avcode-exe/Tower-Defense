@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.6.1] — 2026-07-21
+
+### 🐛 Bug Fixes
+
+- **_hitTroops Set memory leak (L8)** — Added hard cap (200) and periodic cleanup to pass-mode monster `_hitTroops` Set to prevent unbounded memory growth during long game sessions. Cleanup runs every 10 frames, removing stale/dead troop references.
+- **handleToggleClick null canvas crash (L11)** — Early return guard when `RENDERER.ctx` or `RENDERER.ctx.canvas` is null, preventing crashes during race conditions on startup.
+- **resolveDownloadTag dev fallback (L9)** — Proper mock verification for `http.request` in test suite, ensuring the dev fallback path is correctly exercised.
+- **headRequest integration tests (L10)** — Real local HTTP server tests for timeout/ECONNREFUSED/200/404 paths with production `User-Agent` header.
+
+### 🛠️ Technical & Architecture
+
+- **Global error tracking** — `unhandledrejection` + `onerror` handlers in main.js catch unexpected crashes, display a DOM overlay with the error message, and log to localStorage (capped at 20 entries). Idempotent `_errorShown` guard prevents overlay spam.
+- **Necromancer module extraction** — `_stepNecromancerRevives` + `resetRevivedMonster` extracted from `Game` class into dedicated `src/necromancer.js` (~70 lines). Game orchestrator is now ~85 lines lighter.
+- **Popup manager extraction** — Bar popup show/hide/toggle/persist logic extracted from `main.js` into `src/ui/popupManager.js` (~80 lines). Constants `BAR_BTN_MAP` and `POPUP_MAP` exported for reuse.
+- **`monstersInRange` helper extraction** — Tile-scanning helper moved from local definition in `troop.js` to shared `src/utils.js` for reuse across `Troop.pickTarget`, `Troop.damageMonstersInHealRange`, and future callers.
+- **`_pixelToGameTile` helper** — New method in `Game` class consolidates the screen-pixel-to-game-tile coordinate transform with gameplay-area bounds check, replacing 3 duplicated instances.
+- **Healing loop condition flattening** — Restructured support healing loop guard from compound `||` chain into separate `if` statements with reordered conditions (`t === this` before `t.spec.type === 'support'`) for measurable V8 branch coverage.
+
+### 🧪 Testing & Quality
+
+- **1,420 tests** (up from 1,369, +51 new tests)
+- **Troop coverage** — 15 new tests covering: candidate loop guards (self/dead/full-HP/support-type filtering), healing loop bypass tests (support-type removal, mixed targets), upgradeStat slow for non-support, pickTarget fallback paths, update AOE fallback, dead troop early return, and non-support tileIndex parameter.
+- **githubReleaseFeed coverage** — 50 tests covering: resolveDownloadTag setTimeout path, getReleaseFromEntryAny malformed links, semver.parse failure paths, stripLeadingV edge cases with null currentVersion, and `(known limitation: ...)` documentation for CI-portable ECONNREFUSED assertions.
+- **updateManager coverage** — 54 tests covering: falsy version fallback in `_handleProgress`, null/undefined pct in `_showProgress`, falsy version in `_handleDownloaded`, missing progressWrap, and null skippedVersions fallback in `skip()`.
+- **CI environment portability** — ECONNREFUSED assertion relaxed to generic `.toThrow()` with documented environment dependency for GitHub Actions runners.
+- **Lint and Prettier** — 0 lint errors, consistent Prettier formatting across all 80+ source and test files.
+
 ## [1.6.0] — 2026-07-21
 
 ### 🎮 Gameplay
