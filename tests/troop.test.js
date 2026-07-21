@@ -1243,4 +1243,263 @@ describe('Troop', () => {
       expect(t.getAttackSpeed()).toBe(t._cachedAttackSpeed);
     });
   });
+
+  describe('upgradeStat slow for non-support troop', () => {
+    it('upgrades slowLevel for icewiz (non-support with slowFactor)', () => {
+      const t = new Troop(icewizSpec, 0, 0);
+      const oldSlowFactor = t._cachedSlowFactor;
+      const result = t.upgradeStat('slow');
+      expect(result).toBe(true);
+      expect(t.slowLevel).toBe(2);
+      expect(t._cachedSlowFactor).toBeLessThan(oldSlowFactor);
+    });
+  });
+
+  describe('update dead troop', () => {
+    it('returns immediately when troop is dead', () => {
+      const t = new Troop(swordsmanSpec, 0, 0);
+      t.alive = false;
+      t.cooldown = 0.5;
+      // Should not throw and cooldown should remain unchanged
+      t.update(1 / 60, [], [], null);
+      expect(t.cooldown).toBe(0.5);
+    });
+  });
+
+  describe('pickHealTarget candidate loop guards', () => {
+    it('skips self in candidate loop', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const ally = {
+        alive: true,
+        x: t.x,
+        y: t.y,
+        hp: 10,
+        maxHp: 100,
+        spec: { type: 'melee' },
+        getHpRatio: () => 0.1,
+      };
+      // Start with empty healTargets so we enter the candidate loop
+      t.healTargets = [];
+      const result = t.pickHealTarget(
+        [t, ally],
+        new Map([
+          [t, 0],
+          [ally, 1],
+        ])
+      );
+      // Should skip self (t === this) and pick ally
+      expect(result).toBe(ally);
+      expect(t.healTargets).toContain(ally);
+      expect(t.healTargets).not.toContain(t);
+    });
+
+    it('skips dead candidates in candidate loop', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const deadAlly = {
+        alive: false,
+        x: t.x,
+        y: t.y,
+        hp: 0,
+        maxHp: 100,
+        spec: { type: 'melee' },
+        getHpRatio: () => 0,
+      };
+      t.healTargets = [];
+      const result = t.pickHealTarget([deadAlly], new Map([[deadAlly, 0]]));
+      // Dead candidate should be skipped
+      expect(result).toBeNull();
+      expect(t.healTargets.length).toBe(0);
+    });
+
+    it('skips full-HP candidates in candidate loop', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const fullHpAlly = {
+        alive: true,
+        x: t.x,
+        y: t.y,
+        hp: 100,
+        maxHp: 100,
+        spec: { type: 'melee' },
+        getHpRatio: () => 1,
+      };
+      t.healTargets = [];
+      const result = t.pickHealTarget([fullHpAlly], new Map([[fullHpAlly, 0]]));
+      // Full-HP candidate should be skipped
+      expect(result).toBeNull();
+    });
+
+    it('skips support-type candidates in candidate loop', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const supportAlly = {
+        alive: true,
+        x: t.x,
+        y: t.y,
+        hp: 10,
+        maxHp: 100,
+        spec: { type: 'support' },
+        getHpRatio: () => 0.1,
+      };
+      t.healTargets = [];
+      const result = t.pickHealTarget([supportAlly], new Map([[supportAlly, 0]]));
+      // Support-type candidate should be skipped
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('healing loop compound condition branches (bypass pickHealTarget)', () => {
+    it('removes support-type target in healing loop (line 487 branch)', () => {
+      // By setting targetRefresh > 0, pickHealTarget is skipped,
+      // so the manually-added support-type target reaches the healing loop.
+      const healer = new Troop(healerSpec, 5, 5);
+      const otherHealer = new Troop(healerSpec, 3, 3);
+      otherHealer.hp = 10;
+      otherHealer.maxHp = 100;
+      healer.healTargets = [otherHealer];
+      healer.cooldown = 0;
+      healer.targetRefresh = 1; // Skip pickHealTarget
+      const _getPopup = vi.fn();
+      healer.update(1 / 60, [], [], {
+        troops: [],
+        monsters: [],
+        _monsterTileIndex: null,
+        _troopIndexByRef: new Map(),
+        damageMonster: vi.fn(),
+        _getPopup,
+      });
+      // Support-type target should be removed by healing loop's t.spec.type check
+      expect(healer.healTargets.length).toBe(0);
+    });
+
+    it('only heals valid targets that pass all guards', () => {
+      const healer = new Troop(healerSpec, 5, 5);
+      const validTarget = {
+        alive: true,
+        x: healer.x,
+        y: healer.y,
+        hp: 10,
+        maxHp: 100,
+        spec: { type: 'melee' },
+        healBeam: null,
+        getHpRatio: () => 0.1,
+      };
+      // Mixed targets: support-type (should be removed), valid (should be healed)
+      const otherHealer = new Troop(healerSpec, 3, 3);
+      otherHealer.hp = 10;
+      otherHealer.maxHp = 100;
+      healer.healTargets = [otherHealer, validTarget];
+      healer.cooldown = 0;
+      healer.targetRefresh = 1;
+      const _getPopup = vi.fn();
+      healer.update(1 / 60, [], [], {
+        troops: [],
+        monsters: [],
+        _monsterTileIndex: null,
+        _troopIndexByRef: new Map(),
+        damageMonster: vi.fn(),
+        _getPopup,
+      });
+      // Support-type target removed; valid target healed
+      expect(healer.healTargets.length).toBe(1);
+      expect(healer.healTargets[0]).toBe(validTarget);
+      expect(validTarget.hp).toBeGreaterThan(10);
+    });
+  });
+
+  describe('non-support upgradeStat slow path (line 161)', () => {
+    it('upgrades slowLevel for icewiz when stat === slow', () => {
+      const t = new Troop(icewizSpec, 0, 0);
+      expect(t.spec.type).not.toBe('support');
+      expect(t.canUpgrade('slow')).toBe(true);
+      const result = t.upgradeStat('slow');
+      expect(result).toBe(true);
+      expect(t.slowLevel).toBe(2);
+    });
+  });
+
+  describe('pickTarget ranged with tileIndex but no monsters in range', () => {
+    it('returns null via tileIndex path when no monsters match (line 409)', () => {
+      const t = new Troop(archerSpec, 5, 5);
+      const monsters = [{ alive: true, x: 9999, y: 9999, progress: 0.5 }];
+      const tileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      tileIndex[5 * CONFIG.GRID_SIZE + 5] = monsters;
+      const result = t.pickTarget(monsters, tileIndex);
+      // Monster is at 9999,9999 which is way out of range
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('pickTarget ranged with null tileIndex but far monster (line 424)', () => {
+    it('returns null via fallback path when monster out of range', () => {
+      const t = new Troop(archerSpec, 5, 5);
+      const monsters = [{ alive: true, x: 9999, y: 9999, progress: 0.5 }];
+      const result = t.pickTarget(monsters, null);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('pickTarget melee with tileIndex but no candidates (line 378)', () => {
+    it('returns null via fallback loop when tileIndex has no valid monsters', () => {
+      const t = new Troop(swordsmanSpec, 5, 5);
+      const tileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      tileIndex[5 * CONFIG.GRID_SIZE + 5] = [];
+      const result = t.pickTarget([], tileIndex);
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('update non-support with tileIndex parameter (line 510)', () => {
+    it('uses tileIndex from game when available', () => {
+      const t = new Troop(swordsmanSpec, 5, 5);
+      t.cooldown = 0;
+      t.targetRefresh = -1;
+      const monster = { alive: true, tileDistanceTo: vi.fn(() => 0.5), x: t.x, y: t.y, progress: 0.5 };
+      const tileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      tileIndex[5 * CONFIG.GRID_SIZE + 5] = [monster];
+      const game = {
+        damageMonster: vi.fn(() => false),
+        _monsterTileIndex: tileIndex,
+        _troopIndexByRef: new Map(),
+        monsters: [monster],
+        gold: 0,
+        _getPopup: vi.fn(),
+      };
+      t.update(1 / 60, [monster], [], game);
+      expect(game.damageMonster).toHaveBeenCalled();
+    });
+  });
+
+  describe('update AOE melee fallback (line 531)', () => {
+    it('uses fallback when tileIndex is null for AOE attack', () => {
+      const spec = { ...swordsmanSpec, aoe: true };
+      const t = new Troop(spec, 5, 5);
+      t.cooldown = 0;
+      t.targetRefresh = -1;
+      const monster = { alive: true, tileDistanceTo: vi.fn(() => 0.5), x: t.x, y: t.y };
+      const game = {
+        damageMonster: vi.fn(),
+        _monsterTileIndex: null,
+        monsterIndex: 0,
+        _troopIndexByRef: new Map(),
+        monsters: [monster],
+        gold: 0,
+        _getPopup: vi.fn(),
+      };
+      t.update(1 / 60, [monster], [], game);
+      expect(game.damageMonster).toHaveBeenCalled();
+    });
+  });
+
+  describe('damageMonstersInHealRange fallback with out-of-range monster', () => {
+    it('does not damage monsters outside range in fallback (line 345)', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const farMonster = { alive: true, x: 9999, y: 9999 };
+      const damageMonster = vi.fn();
+      t.damageMonstersInHealRange({
+        monsters: [farMonster],
+        _monsterTileIndex: null,
+        damageMonster,
+      });
+      expect(damageMonster).not.toHaveBeenCalled();
+    });
+  });
 });

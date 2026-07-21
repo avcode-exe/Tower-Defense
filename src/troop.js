@@ -483,7 +483,19 @@ export class Troop {
       const healAmount = this._cachedDamage;
       for (let i = this.healTargets.length - 1; i >= 0; i--) {
         const t = this.healTargets[i];
-        if (!t.alive || t.hp >= t.maxHp || t.spec.type === 'support' || t === this) {
+        if (!t.alive) {
+          this.healTargets.splice(i, 1);
+          continue;
+        }
+        if (t === this) {
+          this.healTargets.splice(i, 1);
+          continue;
+        }
+        if (t.hp >= t.maxHp) {
+          this.healTargets.splice(i, 1);
+          continue;
+        }
+        if (t.spec.type === 'support') {
           this.healTargets.splice(i, 1);
           continue;
         }
