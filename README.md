@@ -140,7 +140,7 @@ The bottom bar contains buttons for all in-game panels:
 
 ### About Page
 
-Displays the game name, version with release type (e.g. `v1.4.1`), author (AvCode-exe), and a clickable link to the GitHub repository.
+Displays the game name, version with release type (e.g. `v1.6.0`), author (AvCode-exe), and a clickable link to the GitHub repository.
 
 ## Auto-Update
 
@@ -154,7 +154,7 @@ The game checks for updates on startup (configurable) and offers to download the
 **Channel selection:**
 
 - **Release** — only stable releases (e.g. `v1.2.0`)
-- **Pre-release** — includes beta, alpha, and RC builds (e.g. `v1.3.0-beta.1`)
+- **Pre-release** — includes beta, alpha, and RC builds (e.g. `v1.6.0-beta.2`)
 
 Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.json`.
 
@@ -166,7 +166,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit + integration test suite (**1,362 tests**, 41 files, **91.28% branch coverage**)
+- **Vitest** — unit + integration test suite (**1,369 tests**, 41 files, **91.35% branch coverage**)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -288,7 +288,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (1,362 tests)
+npm test             # Run test suite (1,369 tests)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with code coverage report
 ```
