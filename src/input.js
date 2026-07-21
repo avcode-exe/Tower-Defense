@@ -32,6 +32,14 @@ export class Input {
       const py = e.clientY - r.top;
       this.game.onMouseDown(px, py, e.button);
     };
+    this._onMouseUp = (e) => {
+      const r = this.canvas.getBoundingClientRect();
+      const px = e.clientX - r.left;
+      const py = e.clientY - r.top;
+      if (typeof this.game.onMouseUp === 'function') {
+        this.game.onMouseUp(px, py);
+      }
+    };
     this._onContextMenu = (e) => e.preventDefault();
 
     this._onWheel = (e) => {
@@ -58,6 +66,7 @@ export class Input {
     canvas.addEventListener('mousemove', this._onMouseMove, this._listenerOptions);
     canvas.addEventListener('mouseleave', this._onMouseLeave, this._listenerOptions);
     canvas.addEventListener('mousedown', this._onMouseDown, this._listenerOptions);
+    canvas.addEventListener('mouseup', this._onMouseUp, this._listenerOptions);
     canvas.addEventListener('contextmenu', this._onContextMenu);
     canvas.addEventListener('wheel', this._onWheel, this._wheelOptions);
     window.addEventListener('keydown', this._onKeyDown);
@@ -68,6 +77,7 @@ export class Input {
     canvas.removeEventListener('mousemove', this._onMouseMove, this._listenerOptions);
     canvas.removeEventListener('mouseleave', this._onMouseLeave, this._listenerOptions);
     canvas.removeEventListener('mousedown', this._onMouseDown, this._listenerOptions);
+    canvas.removeEventListener('mouseup', this._onMouseUp, this._listenerOptions);
     canvas.removeEventListener('contextmenu', this._onContextMenu);
     canvas.removeEventListener('wheel', this._onWheel, this._wheelOptions);
     window.removeEventListener('keydown', this._onKeyDown);

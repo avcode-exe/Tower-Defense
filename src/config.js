@@ -12,12 +12,20 @@ export const CONFIG = {
   MAX_GOLD: 1000000,
   STARTING_LIVES: 25,
 
+  // UI / quality of life
+  SHIELD_SHOP_WIDTH: 250,
+  MAX_POPUP_POOL: 200,
+
   // Selling
   SELL_REFUND_RATIO: 0.3,
   SELL_COOLDOWN: 3.0, // seconds before selling again
 
   // Troop combat
   MELEE_DAMAGE_REDUCTION: 0.3, // melee troops take 30% damage from monsters (70% less)
+  FLAME_BURN_MAX_STACKS: 3,
+  FLAME_BURN_DURATION: 3,
+  FLAME_BURN_TICK_INTERVAL: 0.5,
+  FLAME_BURN_DAMAGE_RATIO: 0.25,
 
   // Troop healing
   TROOP_HEAL_HP_RATIO: 0.1, // heal 10% of max HP per heal
@@ -97,6 +105,7 @@ export const CONFIG = {
     invalid: 'rgba(220,80,80,0.28)',
     gold: '#f1c40f',
     heart: '#e74c3c',
+    burn: '#ff7a18',
     hpBarBg: '#400',
     hpBarFill: '#2ecc71',
     shieldBarBg: '#223',
@@ -267,6 +276,23 @@ export const MONSTER_SPECS = {
     reviveMaxTargets: CONFIG.MONSTER_REVIVE_MAX_TARGETS,
     reviveGlowDuration: CONFIG.MONSTER_REVIVE_GLOW_DURATION,
   },
+  H: {
+    name: 'Healer',
+    hp: 400,
+    speed: 2.0,
+    movementSpeed: 'fast',
+    reward: 28,
+    leak: 1,
+    color: '#4ecdc4',
+    size: 14,
+    damage: 0,
+    attackSpeed: 0,
+    attackRange: 0,
+    attackMode: 'support',
+    healRange: 2.0,
+    healPerSecond: 8,
+    healTickInterval: 1.0,
+  },
 };
 
 // Troop specs. type: 'melee' or 'ranged'. splash is radius in tiles (0 = none).
@@ -296,6 +322,23 @@ export const TROOP_SPECS = [
     color: '#2980b9',
     hp: 120,
     desc: 'Heavy melee with 120 HP and high damage. Takes 70% less damage from monsters. Excellent tank.',
+  },
+  {
+    id: 'flame',
+    name: 'Flamer',
+    type: 'melee',
+    cost: 160,
+    damage: 14,
+    range: 1,
+    attackSpeed: 0.75,
+    splash: 0,
+    color: '#ff6b1a',
+    hp: 70,
+    burnStacks: CONFIG.FLAME_BURN_MAX_STACKS,
+    burnDuration: CONFIG.FLAME_BURN_DURATION,
+    burnTickInterval: CONFIG.FLAME_BURN_TICK_INTERVAL,
+    burnDamageRatio: CONFIG.FLAME_BURN_DAMAGE_RATIO,
+    desc: 'Melee DoT unit with 70 HP. Applies burn stacks that deal fire damage over time.',
   },
   {
     id: 'archer',
@@ -452,12 +495,17 @@ for (let i = 0; i < TROOP_SPECS.length; i++) {
       s.hp +
       'hp' +
       (s.splash ? ' \u00B7 ' + s.splash + 'splash' : '') +
-      (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '');
+      (s.chain ? ' \u00B7 ' + s.chain + 'chain' : '') +
+      (s.burnStacks
+        ? ' · ' +
+          ((Math.max(1, Math.round(s.damage * s.burnDamageRatio)) * s.burnStacks) / s.burnTickInterval).toFixed(1) +
+          'burn'
+        : '');
   }
 }
 
 // 10 waves. Each entry is an array of [levelKey, count] tuples.
-export const MONSTER_DEV_ORDER = [1, 2, 3, 4, 5, 'Y', 'B', 'S', 'X'];
+export const MONSTER_DEV_ORDER = [1, 2, 3, 4, 5, 'Y', 'B', 'S', 'X', 'H'];
 
 export const WAVES = [
   [[1, 8]], // Wave 1: 8 Grunts (272 HP)
@@ -495,13 +543,14 @@ export const WAVES = [
     [4, 10],
     [5, 4],
     ['Y', 1],
+    ['H', 1],
     [3, 2],
-  ], // Wave 9: 10 Elite + 4 Champion + 1 Necromancer + 2 Brute
+  ], // Wave 9: 8 Elite + 4 Champion + 1 Necromancer + 1 Healer + 2 Brute
   [
-    [5, 6],
-    ['S', 4],
+    [5, 5],
+    ['S', 3],
     ['B', 1],
-  ], // Wave 10: 6 Champion + 4 Shielded + 1 Boss
+  ], // Wave 10: 5 Champion + 3 Shielded + Boss
 ];
 
 // Projectile visuals per troop id (small set of shapes).

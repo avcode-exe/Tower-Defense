@@ -2,40 +2,73 @@ import { CONFIG, WAVES, MONSTER_DEV_ORDER, MONSTER_SPECS } from './config.js';
 import { Monster } from './monster.js';
 
 const NECROMANCER_LEVEL = 'Y';
+const HEALER_LEVEL = 'H';
 
-export function shuffleNecromancersInWave(entries, random = Math.random) {
-  const nonNecromancers = [];
+export function shuffleSpecialMonstersInWave(entries, random = Math.random) {
+  const nonSpecials = [];
   const necromancers = [];
+  const healers = [];
 
   for (const level of entries) {
     if (level === NECROMANCER_LEVEL) {
       necromancers.push(level);
+    } else if (level === HEALER_LEVEL) {
+      healers.push(level);
     } else {
-      nonNecromancers.push(level);
+      nonSpecials.push(level);
     }
   }
 
-  if (necromancers.length === 0 || nonNecromancers.length === 0) {
+  if (necromancers.length === 0 && healers.length === 0) {
     return entries.slice();
   }
 
-  const slots = Array.from({ length: nonNecromancers.length + 1 }, () => []);
+  if (nonSpecials.length === 0) {
+    const result = [...necromancers, ...healers];
+    return result;
+  }
+
+  const slots = Array.from({ length: nonSpecials.length + 1 }, () => []);
   for (const necromancer of necromancers) {
     slots[Math.floor(random() * slots.length)].push(necromancer);
   }
 
-  const shuffled = [];
-  for (let i = 0; i < nonNecromancers.length; i += 1) {
+  const base = [];
+  for (let i = 0; i < nonSpecials.length; i += 1) {
     if (slots[i].length > 0) {
-      shuffled.push(...slots[i]);
+      base.push(...slots[i]);
     }
-    shuffled.push(nonNecromancers[i]);
+    base.push(nonSpecials[i]);
   }
-  if (slots[nonNecromancers.length].length > 0) {
-    shuffled.push(...slots[nonNecromancers.length]);
+  if (slots[nonSpecials.length].length > 0) {
+    base.push(...slots[nonSpecials.length]);
   }
 
-  return shuffled;
+  if (healers.length === 0) {
+    return base;
+  }
+
+  const oneThirdIndex = Math.floor(base.length / 3);
+  const preOneThird = base.slice(0, oneThirdIndex);
+  const postOneThird = base.slice(oneThirdIndex);
+
+  const healerSlots = Array.from({ length: postOneThird.length + 1 }, () => []);
+  for (const healer of healers) {
+    healerSlots[Math.floor(random() * healerSlots.length)].push(healer);
+  }
+
+  const result = [...preOneThird];
+  for (let i = 0; i < postOneThird.length; i += 1) {
+    if (healerSlots[i].length > 0) {
+      result.push(...healerSlots[i]);
+    }
+    result.push(postOneThird[i]);
+  }
+  if (healerSlots[postOneThird.length].length > 0) {
+    result.push(...healerSlots[postOneThird.length]);
+  }
+
+  return result;
 }
 
 // Wave manager: tracks current wave, the queue of monsters to spawn, and the
@@ -75,11 +108,14 @@ export class WaveManager {
     const order = MONSTER_DEV_ORDER;
     const levels = [];
     for (const level of order) {
-      const count = counts[level] || 0;
+      const count = Math.max(0, counts[level] || 0);
       for (let i = 0; i < count; i += 1) {
         levels.push(level);
       }
     }
+    this.queue = [];
+    this.currentPreview = [];
+    if (levels.length === 0) return;
     this._buildSpawnQueue(levels);
     const previewMap = {};
     for (const entry of this.queue) {
@@ -98,7 +134,7 @@ export class WaveManager {
     const cycle = Math.floor(this.currentWave / this.waves.length);
     const hpMult = this._getScaling(cycle).hpMult;
     let t = CONFIG.WAVE_START_DELAY;
-    for (const level of shuffleNecromancersInWave(levels)) {
+    for (const level of shuffleSpecialMonstersInWave(levels)) {
       const interval = level === 2 ? CONFIG.RUNNER_SPAWN_INTERVAL : CONFIG.SPAWN_INTERVAL;
       this.queue.push({ level, spawnAt: t, hpMult });
       t += interval;
@@ -146,7 +182,7 @@ export class WaveManager {
   }
 
   // For UI: estimates for the upcoming wave.
-  getNextWaveEstimate() {
+  getNextWaveEstimate(pathLengthTiles) {
     if (!this.currentPreview) return null;
 
     let totalGold = 0;
@@ -169,7 +205,7 @@ export class WaveManager {
     }
 
     const spawnDuration = this._estimateSpawnDuration(this.currentPreview);
-    const pathDuration = this._estimatePathDuration(this.currentPreview);
+    const pathDuration = this._estimatePathDuration(this.currentPreview, pathLengthTiles);
     const baseDuration = spawnDuration + pathDuration;
     const reviveEstimate = this._estimateRevives(necromancerCount, nonNecromancerCount, totalHp);
 
@@ -207,14 +243,14 @@ export class WaveManager {
     return t - CONFIG.WAVE_START_DELAY;
   }
 
-  _estimatePathDuration(preview) {
+  _estimatePathDuration(preview, pathLengthTiles) {
     let weightedDuration = 0;
     let totalCount = 0;
     for (const [level, count] of preview) {
       const spec = this._getMonsterSpec(level);
       if (!spec) continue;
       const speed = CONFIG.MOVEMENT_SPEEDS[spec.movementSpeed] || spec.speed;
-      const pathTiles = CONFIG.MIN_PATH_LENGTH;
+      const pathTiles = pathLengthTiles || CONFIG.MIN_PATH_LENGTH;
       const duration = pathTiles / Math.max(0.1, speed);
       weightedDuration += duration * count;
       totalCount += count;

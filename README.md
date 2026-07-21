@@ -11,7 +11,7 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **ES modules** — source organized in `src/` with clean module boundaries
 - **Canvas 2D rendering** — game world drawn on HTML5 Canvas, with canvas overlays plus DOM panels for settings/help
 - **Electron desktop app** — packaged with electron-builder (NSIS), auto-updates via GitHub Releases
-- **11 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), and **Healer** (support healing + monster damage)
+- **12 troop types** — melee, ranged, splash, chain lightning, siege, **Ice Wizard** (splash + slow + shatter), **Healer** (support healing + monster damage), and **Flamer** (melee burn DoT)
 - **9 monster types** — Grunt, Runner, Brute, Elite, Champion, Necromancer, Shielded, Boss, Spear
 - **Modernized icon** — redesigned tower icon with glowing beacon and vibrant gradients
 - **Slow & Shatter** — Ice Wizard slows enemies (50% speed, 2.5s); next hit on slowed target deals +50% bonus damage. **Splash 1.5 tiles** applies slow to all hit monsters.
@@ -32,55 +32,45 @@ A 2D tower defense game built with vanilla JavaScript, HTML5 Canvas, and Electro
 - **Monster splitting** — non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. Champion → 2 Elite)
 - **Sell confirmation** — 30% refund with 3-second global cooldown
 
-## Release: v1.5.2
-
-v1.5.2 is the stable release for the 1.5.2 line, carrying forward the UI clarity, wave planning, runtime stability, and expanded validation work from the beta releases.
-
-- Package, persistence, and update-manager version metadata now report `1.5.2`.
-- Placement preview now shows DPS for damaging troops, HPS for support troops, and specific invalid-placement reasons.
-- Wave preview now shows start timing, estimated clear duration, total gold, and revive-aware estimates for Necromancer waves.
-- Runtime cleanup, UI hit-testing, muted audio, update checks, and Electron updater behavior were stabilized.
-- Healer balance is live with 3 monster damage in healing range.
-- Test suite expanded to **1,360 tests across 24 Vitest test files**.
-- Coverage thresholds were added for `src/game.js`, `src/monster.js`, and `src/troop.js`.
-
 ## Troops
 
-| #   | Name        | Type    | Cost | HP  | Damage | Range | Speed | Special                                          |
-| --- | ----------- | ------- | ---- | --- | ------ | ----- | ----- | ------------------------------------------------ |
-| 1   | Swordsman   | Melee   | 70   | 50  | 9      | 1     | 0.67s | —                                                |
-| 2   | Knight      | Melee   | 120  | 120 | 18     | 1     | 0.9s  | —                                                |
-| 3   | Archer      | Ranged  | 70   | 30  | 12     | 3     | 1.2s  | —                                                |
-| 4   | Machine Gun | Ranged  | 150  | 40  | 6      | 4     | 0.25s | High fire rate                                   |
-| 5   | Mage        | Ranged  | 180  | 35  | 32     | 3     | 1.3s  | Splash 2.0 tiles                                 |
-| 6   | Sniper      | Ranged  | 250  | 25  | 100    | 10    | 2.5s  | Long range                                       |
-| 7   | Valkyrie    | Melee   | 150  | 80  | 22     | 1     | 1.2s  | AoE 360° swing                                   |
-| 8   | Lightning   | Ranged  | 300  | 40  | 100    | 2     | 3s    | Chain 2 (+1/level) + stun 0.5s                   |
-| 9   | Mortar      | Ranged  | 200  | 30  | 65     | 8     | 3.0s  | Splash 2.5 tiles                                 |
-| 0   | Ice Wizard  | Ranged  | 200  | 60  | 6      | 3     | 1.4s  | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50% |
-| 11  | Healer      | Support | 150  | 40  | 8 heal | 3     | 0.5s  | Heals damaged allies; 3 dmg to monsters in range; TGT increases targets |
+| #   | Name        | Type    | Cost | HP  | Damage | Range | Speed | Special                                                                 |
+| --- | ----------- | ------- | ---- | --- | ------ | ----- | ----- | ----------------------------------------------------------------------- |
+| 1   | Swordsman   | Melee   | 70   | 50  | 9      | 1     | 0.67s | —                                                                       |
+| 2   | Knight      | Melee   | 120  | 120 | 18     | 1     | 0.9s  | —                                                                       |
+| 3   | Flamer      | Melee   | 160  | 70  | 14     | 1     | 0.75s | Burn DoT 3 stacks / 3s / 0.5s ticks                                     |
+| 4   | Archer      | Ranged  | 70   | 30  | 12     | 3     | 1.2s  | —                                                                       |
+| 5   | Machine Gun | Ranged  | 150  | 40  | 6      | 4     | 0.25s | High fire rate                                                          |
+| 6   | Mage        | Ranged  | 180  | 35  | 32     | 3     | 1.3s  | Splash 2.0 tiles                                                        |
+| 7   | Sniper      | Ranged  | 250  | 25  | 100    | 10    | 2.5s  | Long range                                                              |
+| 8   | Valkyrie    | Melee   | 150  | 80  | 22     | 1     | 1.2s  | AoE 360° swing                                                          |
+| 9   | Lightning   | Ranged  | 300  | 40  | 100    | 2     | 3s    | Chain 2 (+1/level) + stun 0.5s                                          |
+| 10  | Mortar      | Ranged  | 200  | 30  | 65     | 8     | 3.0s  | Splash 2.5 tiles                                                        |
+| 11  | Ice Wizard  | Ranged  | 200  | 60  | 6      | 3     | 1.4s  | Splash 1.5 tiles, Slow 50% (2.5s) + Shatter +50%                        |
+| 12  | Healer      | Support | 150  | 40  | 8 heal | 3     | 0.5s  | Heals damaged allies; 3 dmg to monsters in range; TGT increases targets |
 
 **Upgradeable stats per troop:**
 
 - All troops: **DMG** (×1.2 per level), **RNG** (ranged only, +1 tile/level), **SPD** (×0.9 per level, faster)
 - Lightning: also **CHN** (+1 chain target per level)
+- **Flamer**: also **BRN** through DMG upgrades; higher damage increases burn tick damage and displayed burn DPS
 - **Healer**: also **TGT** (more simultaneous heal targets); deals 3 damage to monsters in heal range
 - **Ice Wizard**: also **SLW** (stronger slow, longer duration, bigger shatter per level)
 - **Melee troops take 70% reduced damage from monster attacks**
 
 ## Monsters
 
-| Level | Name     | HP   | Speed | Damage | Reward | Leak DMG | Special                                                             |
-| ----- | -------- | ---- | ----- | ------ | ------ | -------- | ------------------------------------------------------------------- |
-| 1     | Grunt    | 34   | 1.0   | 4      | 4g     | 1        | —                                                                   |
-| 2     | Runner   | 27   | 3.0   | 6      | 6g     | 1        | Fast, penetration (hits each troop once then moves on)              |
-| 3     | Brute    | 133  | 0.7   | 14     | 11g    | 1        | Tanky                                                               |
-| 4     | Elite    | 245  | 1.0   | 18     | 17g    | 2        | Splits into 2 Brutes on death                                       |
-| 5     | Champion | 667  | 0.9   | 32     | 36g    | 3        | Very tanky                                                          |
-| Y     | Necromancer | 220 | 0.8  | 18     | 18g    | 2        | Revives up to 4 dead allies (50% HP), revived take 50% less dmg     |
-| B     | Boss     | 1668 | 0.6   | 45     | 200g   | 5        | 2x HP, appears wave 10/20/30, heals 15 HP/s                         |
-| S     | Shielded | 173  | 0.8   | 16     | 15g    | 1        | Regenerating shield (69 HP, overheals to 104)                       |
-| X     | Spear    | 50   | 2.0   | 3      | 5g     | 1        | Slows to half speed near troops, attacks closest in 2.5 tile radius |
+| Level | Name        | HP   | Speed | Damage | Reward | Leak DMG | Special                                                             |
+| ----- | ----------- | ---- | ----- | ------ | ------ | -------- | ------------------------------------------------------------------- |
+| 1     | Grunt       | 34   | 1.0   | 4      | 4g     | 1        | —                                                                   |
+| 2     | Runner      | 27   | 3.0   | 6      | 6g     | 1        | Fast, penetration (hits each troop once then moves on)              |
+| 3     | Brute       | 133  | 0.7   | 14     | 11g    | 1        | Tanky                                                               |
+| 4     | Elite       | 245  | 1.0   | 18     | 17g    | 2        | Splits into 2 Brutes on death                                       |
+| 5     | Champion    | 667  | 0.9   | 32     | 36g    | 3        | Very tanky                                                          |
+| Y     | Necromancer | 220  | 0.8   | 18     | 18g    | 2        | Revives up to 4 dead allies (50% HP), revived take 50% less dmg     |
+| B     | Boss        | 1668 | 0.6   | 45     | 200g   | 5        | 2x HP, appears wave 10/20/30, heals 15 HP/s                         |
+| S     | Shielded    | 173  | 0.8   | 16     | 15g    | 1        | Regenerating shield (69 HP, overheals to 104)                       |
+| X     | Spear       | 50   | 2.0   | 3      | 5g     | 1        | Slows to half speed near troops, attacks closest in 2.5 tile radius |
 
 Boss HP is doubled at spawn (3336 effective) and passively heals 15 HP/s. Necromancers revive dead allies within 2-tile range (up to 4 per Necromancer); revived monsters become `reviveImmune` and take 50% reduced damage. Non-Boss, non-Shielded, non-pass-mode monsters split into 2 of `level-1` on death (e.g. a Brute spawns 2 Runners; a Champion spawns 2 Elites).
 
@@ -150,7 +140,7 @@ The bottom bar contains buttons for all in-game panels:
 
 ### About Page
 
-Displays the game name, version with release type (e.g. `v1.4.1`), author (AvCode-exe), and a clickable link to the GitHub repository.
+Displays the game name, version with release type (e.g. `v1.6.0`), author (AvCode-exe), and a clickable link to the GitHub repository.
 
 ## Auto-Update
 
@@ -164,7 +154,7 @@ The game checks for updates on startup (configurable) and offers to download the
 **Channel selection:**
 
 - **Release** — only stable releases (e.g. `v1.2.0`)
-- **Pre-release** — includes beta, alpha, and RC builds (e.g. `v1.3.0-beta.1`)
+- **Pre-release** — includes beta, alpha, and RC builds (e.g. `v1.6.0-beta.2`)
 
 Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.json`.
 
@@ -176,7 +166,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit + integration test suite (1,360 tests, 24 files)
+- **Vitest** — unit + integration test suite (**1,369 tests**, 41 files, **91.35% branch coverage**)
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -190,6 +180,7 @@ The codebase follows consistent patterns for maintainability:
 - **Entity pooling** — projectiles, popups, and tile-index arrays are recycled to minimize GC pressure
 - **Offscreen canvas caching** — static grid/path layers rendered once to offscreen canvases
 - **Path2D caching** — troop rounded-rectangle paths created once and reused across frames
+- **Expanded test coverage** — dedicated coverage for UI helpers, UI constants, input mapping, audio effects, renderer transforms/cache behavior, toast notifications, cursor hit-testing, and release-feed parsing
 - **Fixed-timestep simulation** — deterministic game logic decoupled from frame rate via accumulator
 - **Zero-allocation coordinate helpers** — `_into` variants (`tileCenterInto`, `pixelToTile`, `shopCardRectInto`) write into pre-allocated output objects
 
@@ -252,6 +243,13 @@ tests/
   placementPreview.test.js # Placement preview DPS/HPS calculations
   versioning.test.js      # Beta release versioning logic
   githubReleaseFeed.test.js # GitHub Atom feed parsing
+  uiUtils.test.js         # UI rounded rect, tooltip, text wrapping, toggle hit tests
+  uiConstants.test.js     # UI layout constants and color tokens
+  input.test.js           # Mouse, wheel, context menu, and keyboard input mapping
+  audio.test.js           # AudioManager context, volume, mute, and SFX node chains
+  renderer.test.js        # Canvas renderer init, resize, transforms, and static layers
+  toast.test.js           # Toast creation, classes, click removal, and timers
+  gameRendererCursor.test.js # Cursor hit-testing for UI, troops, placement, and dialogs
   smoke.test.js           # Installer smoke test (entry points, file existence)
 electron-main.js     # Electron main process
 preload.js          # Electron preload script
@@ -290,7 +288,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (1,360 tests)
+npm test             # Run test suite (1,369 tests)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with code coverage report
 ```

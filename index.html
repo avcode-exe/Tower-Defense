@@ -1,129 +1,343 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://github.com; worker-src 'self'" />
-  <title>Tower Defense</title>
-  <link rel="stylesheet" href="css/style.css" />
-</head>
-<body>
-  <div id="wrap">
-    <canvas id="game"></canvas>
-  </div>
-
-  <!-- Bottom bar – collapsed mini windows live here as buttons -->
-  <div id="panel-bar">
-    <button id="bar-monster-btn" class="bar-btn">Monsters</button>
-    <button id="bar-controls-btn" class="bar-btn">Controls</button>
-    <button id="bar-dev-btn" class="bar-btn" style="display:none;">DEV</button>
-    <button id="bar-settings-btn" class="bar-btn">Settings</button>
-    <button id="bar-notify-btn" class="bar-btn" aria-label="Notifications">
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M8 1.5a4.5 4.5 0 00-4.5 4.5c0 3.5-1.5 4.5-1.5 4.5h12s-1.5-1-1.5-4.5A4.5 4.5 0 008 1.5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6.5 13a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>
-    </button>
-    <button id="bar-about-btn" class="bar-btn" aria-label="About">
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true"><circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2"/><path d="M8 7v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="8" cy="5" r="0.8" fill="currentColor"/></svg>
-    </button>
-  </div>
-
-  <!-- Toast notifications (bottom-right corner, fade in/out) -->
-  <div id="toast-container" aria-live="polite" aria-relevant="additions"></div>
-
-  <!-- Notification panel -->
-  <div id="notify-panel" class="bar-popup game-panel" role="dialog" aria-label="Notifications" style="display:none;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-      <strong>Notifications</strong>
-      <button id="notify-clear-all" class="bar-btn" style="cursor:pointer; font-size:9px; color:#8b949e; background:none; border:none; padding:2px 4px;">Clear all</button>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://github.com; worker-src 'self'"
+    />
+    <title>Tower Defense</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <div id="wrap">
+      <canvas id="game"></canvas>
     </div>
-    <div id="notify-list" style="max-height:240px; overflow-y:auto;"></div>
-    <div id="notify-empty" style="text-align:center; padding:8px 0; font-size:10px; color:rgba(182,194,204,0.4);">No notifications</div>
-  </div>
 
-  <!-- Popup windows that float above the corresponding bar button -->
-  <div id="monster-popup" class="bar-popup bar-popup--closed game-panel">
-    <strong>Monster Info</strong>
-    <div id="monster-info-content"></div>
-  </div>
-
-  <div id="controls-popup" class="bar-popup bar-popup--closed game-panel">
-    <strong>Controls</strong>
-    <ul>
-      <li>Click a shop card then click a tile to place</li>
-      <li>Click an existing troop to select; press Sell to remove (30% refund)</li>
-      <li>Right-click or Esc to cancel selection</li>
-      <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
-    </ul>
-  </div>
-
-  <div id="dev-popup" class="bar-popup bar-popup--closed game-panel" style="min-width: 280px;">
-    <strong style="color:#2ea043;">DEV</strong>
-    <div style="display:flex; gap:12px; margin-top:8px; margin-bottom:8px; font-size:10px; color:rgba(182,194,204,0.6);">
-      <span>Gold: ∞</span>
-      <span>Lives: ∞</span>
+    <!-- Bottom bar – collapsed mini windows live here as buttons -->
+    <div id="panel-bar">
+      <button id="bar-monster-btn" class="bar-btn">Monsters</button>
+      <button id="bar-controls-btn" class="bar-btn">Controls</button>
+      <button id="bar-dev-btn" class="bar-btn" style="display: none">DEV</button>
+      <button id="bar-settings-btn" class="bar-btn">Settings</button>
+      <button id="bar-notify-btn" class="bar-btn" aria-label="Notifications">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <path
+            d="M8 1.5a4.5 4.5 0 00-4.5 4.5c0 3.5-1.5 4.5-1.5 4.5h12s-1.5-1-1.5-4.5A4.5 4.5 0 008 1.5z"
+            stroke="currentColor"
+            stroke-width="1.2"
+            stroke-linejoin="round"
+          />
+          <path d="M6.5 13a1.5 1.5 0 003 0" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" />
+        </svg>
+      </button>
+      <button id="bar-about-btn" class="bar-btn" aria-label="About">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.5" stroke="currentColor" stroke-width="1.2" />
+          <path d="M8 7v4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+          <circle cx="8" cy="5" r="0.8" fill="currentColor" />
+        </svg>
+      </button>
     </div>
-    <div id="dev-spawn-content"></div>
-    <div style="display:flex; gap:6px; margin-top:8px;">
-      <button id="dev-reset-btn" style="flex:1; background:rgba(255,255,255,0.06); color:rgba(255,255,255,0.5); border:1px solid rgba(255,255,255,0.08); padding:4px 8px; border-radius:4px; cursor:pointer; font-size:9px; font-family:inherit;">Reset Counts</button>
-      <button id="dev-start-btn" style="flex:1; background:rgba(46,160,67,0.15); color:#2ea043; border:1px solid rgba(46,160,67,0.3); padding:4px 8px; border-radius:4px; cursor:pointer; font-size:9px; font-family:inherit;">Start Custom Wave</button>
-    </div>
-  </div>
 
-  <div id="settings-popup" class="bar-popup bar-popup--closed game-panel">
-    <strong>Settings</strong>
-    <div class="settings-section">
-      <div class="settings-section-header" data-target="settings-update">Updates ▸</div>
-      <div class="settings-section-body" id="settings-update">
-        <label style="display:block; margin:4px 0; cursor:pointer;">
-          <input type="radio" name="settings-channel" value="release" checked aria-label="Release only stable channel"> Release only (stable)
-        </label>
-        <label style="display:block; margin:4px 0; cursor:pointer;">
-          <input type="radio" name="settings-channel" value="pre-release" aria-label="Pre-release beta alpha rc channel"> Pre-release (beta, alpha, rc)
-        </label>
-        <label style="display:block; margin:8px 0; cursor:pointer;">
-          <input type="checkbox" id="settings-auto-download" checked aria-label="Auto-download updates when confirmed"> Auto-download when confirmed
-        </label>
-        <label style="display:block; margin:4px 0;">
-          Check interval (min): <input type="number" id="settings-interval" value="60" min="15" step="15" aria-label="Update check interval in minutes" style="width:60px; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.1); color:#e6edf3; padding:2px 4px; border-radius:4px; font-size:10px;">
-        </label>
-        <button id="settings-check-now-btn" style="margin-top:8px; background:rgba(88,166,255,0.12); color:#58a6ff; border:1px solid rgba(88,166,255,0.25); padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;">Check Now</button>
+    <!-- Toast notifications (bottom-right corner, fade in/out) -->
+    <div id="toast-container" aria-live="polite" aria-relevant="additions"></div>
+
+    <!-- Notification panel -->
+    <div id="notify-panel" class="bar-popup game-panel" role="dialog" aria-label="Notifications" style="display: none">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+        <strong>Notifications</strong>
+        <button
+          id="notify-clear-all"
+          class="bar-btn"
+          style="cursor: pointer; font-size: 9px; color: #8b949e; background: none; border: none; padding: 2px 4px"
+        >
+          Clear all
+        </button>
       </div>
-      <div style="display:flex; gap:6px; margin-top:10px; justify-content:flex-end; align-items:center;">
-        <span id="settings-save-status" style="font-size:10px; color:#3fb950; margin-right:6px; opacity:0; transition:opacity 0.3s;">✓ Saved</span>
-        <button id="settings-cancel-btn" style="background:rgba(255,255,255,0.08); color:rgba(255,255,255,0.6); border:1px solid rgba(255,255,255,0.12); padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit;">Cancel</button>
-        <button id="settings-save-btn" style="background:#238636; color:#fff; border:none; padding:4px 14px; border-radius:6px; cursor:pointer; font-size:10px; font-family:inherit; transition: background 0.2s;">Save</button>
+      <div id="notify-list" style="max-height: 240px; overflow-y: auto"></div>
+      <div
+        id="notify-empty"
+        style="text-align: center; padding: 8px 0; font-size: 10px; color: rgba(182, 194, 204, 0.4)"
+      >
+        No notifications
       </div>
     </div>
-  </div>
 
-  <!-- About popup -->
-  <div id="about-popup" class="bar-popup bar-popup--closed game-panel">
-    <div style="text-align:center; padding:4px 0;">
-      <div style="font-size:14px; font-weight:600; color:#f0f6fc; margin-bottom:2px;">Tower Defense</div>
-      <div id="about-version" style="font-size:10px; color:rgba(182,194,204,0.6); margin-bottom:10px;"></div>
-      <div style="font-size:10px; color:rgba(182,194,204,0.6); margin-bottom:12px;">by AvCode-exe</div>
-      <div style="font-size:10px; color:rgba(182,194,204,0.4); margin-bottom:2px;">Open source on GitHub</div>
-      <a id="about-github-link" href="https://github.com/avcode-exe/Tower-Defense" target="_blank" rel="noopener" aria-label="Tower Defense on GitHub" style="font-size:10px; color:#58a6ff; text-decoration:none; word-break:break-all;">github.com/avcode-exe/Tower-Defense</a>
+    <!-- Popup windows that float above the corresponding bar button -->
+    <div id="monster-popup" class="bar-popup bar-popup--closed game-panel">
+      <strong>Monster Info</strong>
+      <div id="monster-info-content"></div>
     </div>
-  </div>
 
-  <!-- Load progress dialog (centered modal) -->
-  <div id="load-progress-dialog" class="game-panel" role="dialog" aria-modal="true" aria-label="Load previous progress" style="display:none; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; min-width: 300px; text-align: center; box-shadow: 0 16px 48px rgba(0,0,0,0.6);">
-    <div style="font-weight:600; color:#edf2f7; margin-bottom:8px; font-size:14px;">Load Previous Progress?</div>
-    <div style="font-size:11px; color:#b6c2cc; margin-bottom:16px;">A saved game was found. Do you want to continue where you left off?</div>
-    <div style="display:flex; gap:8px; justify-content:center;">
-      <button id="load-progress-yes" style="background:#238636; color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:11px;">Load Progress</button>
-      <button id="load-progress-no" style="background:#da3633; color:#fff; border:none; padding:8px 20px; border-radius:6px; cursor:pointer; font-size:11px;">Start New Game</button>
+    <div id="controls-popup" class="bar-popup bar-popup--closed game-panel">
+      <strong>Controls</strong>
+      <ul>
+        <li>Click a shop card, then click a tile to place</li>
+        <li>Click a shop card again to start drag-to-place; release on a tile</li>
+        <li>Click an existing troop to select; press Sell to remove (30% refund)</li>
+        <li>Right-click or Esc to cancel selection</li>
+        <li>Space = pause/resume · Enter = start wave · R = restart on win/lose</li>
+      </ul>
     </div>
-  </div>
 
-  <!-- In-app progress bar (bottom-center, above the bar) -->
-  <div id="update-progress" class="game-panel" style="display:none; bottom: 64px; left: 50%; transform: translateX(-50%); min-width: 220px; text-align: center;">
-    <div class="update-progress-text" style="font-size: 11px; color: rgba(182,194,204,0.8);">Downloading <span id="update-progress-ver"></span></div>
-    <div style="font-size: 16px; font-weight: 600; color: #f0f6fc; margin: 4px 0;"><span id="update-progress-pct">0%</span></div>
-    <div class="update-progress-bar"><div class="update-progress-fill" id="update-progress-fill"></div></div>
-  </div>
+    <div id="dev-popup" class="bar-popup bar-popup--closed game-panel" style="min-width: 280px">
+      <strong style="color: #2ea043">DEV</strong>
+      <div
+        style="
+          display: flex;
+          gap: 12px;
+          margin-top: 8px;
+          margin-bottom: 8px;
+          font-size: 10px;
+          color: rgba(182, 194, 204, 0.6);
+        "
+      >
+        <span>Gold: ∞</span>
+        <span>Lives: ∞</span>
+      </div>
+      <div id="dev-spawn-content"></div>
+      <div style="display: flex; gap: 6px; margin-top: 8px">
+        <button
+          id="dev-reset-btn"
+          style="
+            flex: 1;
+            background: rgba(255, 255, 255, 0.06);
+            color: rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 9px;
+            font-family: inherit;
+          "
+        >
+          Reset Counts
+        </button>
+        <button
+          id="dev-start-btn"
+          style="
+            flex: 1;
+            background: rgba(46, 160, 67, 0.15);
+            color: #2ea043;
+            border: 1px solid rgba(46, 160, 67, 0.3);
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 9px;
+            font-family: inherit;
+          "
+        >
+          Start Custom Wave
+        </button>
+      </div>
+    </div>
 
-  <!-- ES module entry point (all imports resolved by the module system) -->
-  <script type="module" src="src/main.js"></script>
-</body>
+    <div id="settings-popup" class="bar-popup bar-popup--closed game-panel">
+      <strong>Settings</strong>
+      <div class="settings-section">
+        <div class="settings-section-header" data-target="settings-update">Updates ▸</div>
+        <div class="settings-section-body" id="settings-update">
+          <label style="display: block; margin: 4px 0; cursor: pointer">
+            <input
+              type="radio"
+              name="settings-channel"
+              value="release"
+              checked
+              aria-label="Release only stable channel"
+            />
+            Release only (stable)
+          </label>
+          <label style="display: block; margin: 4px 0; cursor: pointer">
+            <input
+              type="radio"
+              name="settings-channel"
+              value="pre-release"
+              aria-label="Pre-release beta alpha rc channel"
+            />
+            Pre-release (beta, alpha, rc)
+          </label>
+          <label style="display: block; margin: 8px 0; cursor: pointer">
+            <input
+              type="checkbox"
+              id="settings-auto-download"
+              checked
+              aria-label="Auto-download updates when confirmed"
+            />
+            Auto-download when confirmed
+          </label>
+          <label style="display: block; margin: 4px 0; cursor: pointer">
+            <input type="checkbox" id="settings-sell-confirmation" checked aria-label="Confirm before selling troops" />
+            Sell confirmation
+          </label>
+          <label style="display: block; margin: 4px 0">
+            Check interval (min):
+            <input
+              type="number"
+              id="settings-interval"
+              value="60"
+              min="15"
+              step="15"
+              aria-label="Update check interval in minutes"
+              style="
+                width: 60px;
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                color: #e6edf3;
+                padding: 2px 4px;
+                border-radius: 4px;
+                font-size: 10px;
+              "
+            />
+          </label>
+          <button
+            id="settings-check-now-btn"
+            style="
+              margin-top: 8px;
+              background: rgba(88, 166, 255, 0.12);
+              color: #58a6ff;
+              border: 1px solid rgba(88, 166, 255, 0.25);
+              padding: 4px 14px;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 10px;
+              font-family: inherit;
+            "
+          >
+            Check Now
+          </button>
+        </div>
+        <div style="display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; align-items: center">
+          <span
+            id="settings-save-status"
+            style="font-size: 10px; color: #3fb950; margin-right: 6px; opacity: 0; transition: opacity 0.3s"
+            >✓ Saved</span
+          >
+          <button
+            id="settings-cancel-btn"
+            style="
+              background: rgba(255, 255, 255, 0.08);
+              color: rgba(255, 255, 255, 0.6);
+              border: 1px solid rgba(255, 255, 255, 0.12);
+              padding: 4px 14px;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 10px;
+              font-family: inherit;
+            "
+          >
+            Cancel
+          </button>
+          <button
+            id="settings-save-btn"
+            style="
+              background: #238636;
+              color: #fff;
+              border: none;
+              padding: 4px 14px;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 10px;
+              font-family: inherit;
+              transition: background 0.2s;
+            "
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- About popup -->
+    <div id="about-popup" class="bar-popup bar-popup--closed game-panel">
+      <div style="text-align: center; padding: 4px 0">
+        <div style="font-size: 14px; font-weight: 600; color: #f0f6fc; margin-bottom: 2px">Tower Defense</div>
+        <div id="about-version" style="font-size: 10px; color: rgba(182, 194, 204, 0.6); margin-bottom: 10px"></div>
+        <div style="font-size: 10px; color: rgba(182, 194, 204, 0.6); margin-bottom: 12px">by AvCode-exe</div>
+        <div style="font-size: 10px; color: rgba(182, 194, 204, 0.4); margin-bottom: 2px">Open source on GitHub</div>
+        <a
+          id="about-github-link"
+          href="https://github.com/avcode-exe/Tower-Defense"
+          target="_blank"
+          rel="noopener"
+          aria-label="Tower Defense on GitHub"
+          style="font-size: 10px; color: #58a6ff; text-decoration: none; word-break: break-all"
+          >github.com/avcode-exe/Tower-Defense</a
+        >
+      </div>
+    </div>
+
+    <!-- Load progress dialog (centered modal) -->
+    <div
+      id="load-progress-dialog"
+      class="game-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Load previous progress"
+      style="
+        display: none;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 50;
+        min-width: 300px;
+        text-align: center;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+      "
+    >
+      <div style="font-weight: 600; color: #edf2f7; margin-bottom: 8px; font-size: 14px">Load Previous Progress?</div>
+      <div style="font-size: 11px; color: #b6c2cc; margin-bottom: 16px">
+        A saved game was found. Do you want to continue where you left off?
+      </div>
+      <div style="display: flex; gap: 8px; justify-content: center">
+        <button
+          id="load-progress-yes"
+          style="
+            background: #238636;
+            color: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+          "
+        >
+          Load Progress
+        </button>
+        <button
+          id="load-progress-no"
+          style="
+            background: #da3633;
+            color: #fff;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 11px;
+          "
+        >
+          Start New Game
+        </button>
+      </div>
+    </div>
+
+    <!-- In-app progress bar (bottom-center, above the bar) -->
+    <div
+      id="update-progress"
+      class="game-panel"
+      style="display: none; bottom: 64px; left: 50%; transform: translateX(-50%); min-width: 220px; text-align: center"
+    >
+      <div class="update-progress-text" style="font-size: 11px; color: rgba(182, 194, 204, 0.8)">
+        Downloading <span id="update-progress-ver"></span>
+      </div>
+      <div style="font-size: 16px; font-weight: 600; color: #f0f6fc; margin: 4px 0">
+        <span id="update-progress-pct">0%</span>
+      </div>
+      <div class="update-progress-bar"><div class="update-progress-fill" id="update-progress-fill"></div></div>
+    </div>
+
+    <!-- ES module entry point (all imports resolved by the module system) -->
+    <script type="module" src="src/main.js"></script>
+  </body>
 </html>

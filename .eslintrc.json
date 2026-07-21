@@ -6,10 +6,29 @@
     "node": true
   },
   "parserOptions": {
-    "ecmaVersion": 2020,
+    "ecmaVersion": 2022,
     "sourceType": "module"
   },
+  "globals": {
+    "vi": "readonly",
+    "vitest": "readonly"
+  },
   "overrides": [
+    {
+      "files": ["tests/**/*.js"],
+      "globals": {
+        "describe": "readonly",
+        "it": "readonly",
+        "expect": "readonly",
+        "beforeEach": "readonly",
+        "afterEach": "readonly",
+        "beforeAll": "readonly",
+        "afterAll": "readonly"
+      },
+      "rules": {
+        "no-undef": "off"
+      }
+    },
     {
       "files": ["electron-main.js", "preload.js"],
       "env": {

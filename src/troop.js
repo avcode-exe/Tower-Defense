@@ -81,6 +81,7 @@ export class Troop {
     this._recomputeStats();
     this.maxHp = this._cachedMaxHp;
     this.healGoldSpent = 0;
+    this._upgradeCostCache = {};
   }
 
   // Scaled stats (1.2x per level). Cached for performance.
@@ -157,7 +158,11 @@ export class Troop {
     if (this.spec.type === 'support') levelMap.slow = this.healTargetLevel;
     const level = levelMap[stat];
     if (level === undefined) return Infinity;
-    return Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
+    const cacheKey = stat + '_' + level;
+    if (this._upgradeCostCache[cacheKey] === undefined) {
+      this._upgradeCostCache[cacheKey] = Math.round(this.spec.cost * Math.pow(CONFIG.UPGRADE_COST_SCALE, level - 1));
+    }
+    return this._upgradeCostCache[cacheKey];
   }
 
   // Returns true when the stat is even visible/upgradable for this troop type
@@ -175,6 +180,7 @@ export class Troop {
     if (stat === 'slow' && this.spec.type === 'support') {
       if (this.healTargetLevel >= this.maxUpgradeLevel) return false;
       this.healTargetLevel++;
+      this._upgradeCostCache = {};
       return true;
     }
     const levelProp = STAT_LEVEL_PROPS[stat];
@@ -189,6 +195,7 @@ export class Troop {
     } else {
       this._recomputeStats();
     }
+    this._upgradeCostCache = {};
     return true;
   }
 
@@ -274,7 +281,7 @@ export class Troop {
     return total;
   }
 
-  pickHealTarget(troops) {
+  pickHealTarget(troops, troopIndexMap) {
     if (this.spec.type !== 'support') return null;
     const rangePxSq = this.getHealRangePxSq();
     const maxTargets = this.healTargetLevel;
@@ -319,7 +326,7 @@ export class Troop {
       }
     }
 
-    const troopIndexMap = new Map(troops.map((t, i) => [t, i]));
+    const indexMap = troopIndexMap || new Map(troops.map((t, i) => [t, i]));
     const sorted = this.healTargets.map((a) => {
       const dxA = a.x - this.x;
       const dyA = a.y - this.y;
@@ -328,7 +335,7 @@ export class Troop {
         hpRatio: a.getHpRatio(),
         hp: a.hp,
         distSq: dxA * dxA + dyA * dyA,
-        index: troopIndexMap.get(a),
+        index: indexMap.get(a),
       };
     });
     sorted.sort(compareHealPriority);
@@ -345,8 +352,8 @@ export class Troop {
     if (!monsterDamage) return;
 
     const rangePxSq = this.getHealRangePxSq();
-    const txpx = this.x;
-    const typx = this.y;
+    const typX = this.x;
+    const typY = this.y;
     const tileIndex = game._monsterTileIndex;
     if (Array.isArray(tileIndex)) {
       const tileRange = this._cachedRange + CONFIG.TILE_BUFFER;
@@ -354,8 +361,8 @@ export class Troop {
       for (let i = 0; i < candidates.length; i++) {
         const m = candidates[i];
         if (!m.alive) continue;
-        const mx = m.x - txpx,
-          my = m.y - typx;
+        const mx = m.x - typX,
+          my = m.y - typY;
         if (mx * mx + my * my <= rangePxSq) {
           game.damageMonster(m, monsterDamage);
         }
@@ -365,8 +372,8 @@ export class Troop {
     for (let i = game.monsters.length - 1; i >= 0; i--) {
       const m = game.monsters[i];
       if (!m.alive) continue;
-      const dx = m.x - txpx,
-        dy = m.y - typx;
+      const dx = m.x - typX,
+        dy = m.y - typY;
       if (dx * dx + dy * dy <= rangePxSq) {
         game.damageMonster(m, monsterDamage);
       }
@@ -409,8 +416,8 @@ export class Troop {
     const rangePx = (range + tileBuf) * CONFIG.TILE_SIZE;
     let best = null;
     let bestProgress = -1;
-    const txpx = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
-    const typx = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const centerX = tgx * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
+    const centerY = tgy * CONFIG.TILE_SIZE + (CONFIG.TILE_SIZE >> 1);
     const rangePxSq = rangePx * rangePx;
     if (tileIndex) {
       const tileRange = range + tileBuf;
@@ -418,8 +425,8 @@ export class Troop {
       for (let i = 0; i < candidates.length; i++) {
         const m = candidates[i];
         if (!m.alive) continue;
-        const dx2 = m.x - txpx,
-          dy2 = m.y - typx;
+        const dx2 = m.x - centerX,
+          dy2 = m.y - centerY;
         if (dx2 * dx2 + dy2 * dy2 <= rangePxSq) {
           if (m.progress > bestProgress) {
             bestProgress = m.progress;
@@ -433,8 +440,8 @@ export class Troop {
     for (let i = 0; i < monsters.length; i++) {
       const m = monsters[i];
       if (!m.alive) continue;
-      const dx = m.x - txpx,
-        dy = m.y - typx;
+      const dx = m.x - centerX,
+        dy = m.y - centerY;
       if (dx * dx + dy * dy <= rangePxSq) {
         if (m.progress > bestProgress) {
           bestProgress = m.progress;
@@ -486,7 +493,7 @@ export class Troop {
     // Support troops heal allies instead of attacking monsters.
     if (this.spec.type === 'support') {
       if (this.targetRefresh <= 0) {
-        this.pickHealTarget(game ? game.troops : []);
+        this.pickHealTarget(game ? game.troops : [], game ? game._troopIndexByRef : null);
         this.targetRefresh = CONFIG.TARGET_REFRESH_INTERVAL;
       }
       if (this.cooldown > 0) return;
@@ -546,7 +553,10 @@ export class Troop {
           }
         }
       } else {
-        game.damageMonster(this.target, dmg);
+        const killed = game.damageMonster(this.target, dmg);
+        if (!killed && this.spec.burnStacks) {
+          game.applyBurn(this.target, this);
+        }
       }
       this.cooldown = atkSpd;
     } else {

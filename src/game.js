@@ -81,7 +81,13 @@ export class Game {
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;
     this.sellConfirmTroop = null;
+    this.sellConfirmationEnabled = true;
     this.devMonsterCounts = this._defaultDevCounts();
+    this._needsSaveCleanup = false;
+
+    // Drag-to-place: when the user holds the mouse button after selecting a
+    // troop from the shop, placement is deferred until release on a valid tile.
+    this._dragState = null;
   }
 
   _getPopup(text, x, y, t, color) {
@@ -105,6 +111,7 @@ export class Game {
   }
 
   canPlace(gx, gy, spec) {
+    if (gx < 0 || gx >= CONFIG.GRID_SIZE || gy < 0 || gy >= CONFIG.GRID_SIZE) return false;
     if (!this.devMode && this.gold < spec.cost) return false;
     if (!this.grid.isBuildable(gx, gy)) return false;
     // O(1) tile index lookup instead of linear scan.
@@ -251,6 +258,8 @@ export class Game {
     }
     const r = m.takeDamage(amount);
     if (r.killed) {
+      // Bonus gold per kill is baked into the kill reward path rather than
+      // individual MONSTER_SPECS values so wave-estimate math stays simple.
       const awardedGold = r.reward + 1;
       this._addGold(awardedGold);
       AUDIO.goldEarned();
@@ -260,7 +269,7 @@ export class Game {
       m._reviveGlowTimer = 0;
       // Split monster: if level > 1, spawn 2 monsters one split tier lower at this
       // position. Runner is skipped in split children.
-      const noSplit = m.spec.noSplit === true || (m.spec.attackMode || 'stop') === 'pass';
+      const noSplit = (m.spec && m.spec.noSplit === true) || (m.spec && (m.spec.attackMode || 'stop') === 'pass');
       if (!m.reviveImmune && !noSplit && typeof m.level === 'number' && m.level > 1) {
         let childLvl = m.level - 1;
         if (childLvl === 2) childLvl = 1;
@@ -323,14 +332,15 @@ export class Game {
   }
 
   // DRY: Find closest alive monster near (x,y) using the tile index.
-  _findClosestMonsterNear(x, y) {
+  _findClosestMonsterNear(x, y, rangeTiles = 1) {
     let closest = null;
     let closestDist = Infinity;
     const gx0 = (x / CONFIG.TILE_SIZE) | 0;
     const gy0 = (y / CONFIG.TILE_SIZE) | 0;
     const G = CONFIG.GRID_SIZE;
-    for (let dgy = -1; dgy <= 1; dgy++) {
-      for (let dgx = -1; dgx <= 1; dgx++) {
+    const r = Math.ceil(rangeTiles);
+    for (let dgy = -r; dgy <= r; dgy++) {
+      for (let dgx = -r; dgx <= r; dgx++) {
         const gx = gx0 + dgx;
         const gy = gy0 + dgy;
         if (gx < 0 || gx >= G || gy < 0 || gy >= G) continue;
@@ -357,6 +367,20 @@ export class Game {
     if (monster.applySlow(troop._cachedSlowFactor, troop._cachedSlowDuration, troop._cachedShatterBonus)) {
       PARTICLES.slowApply(monster.x, monster.y, troop.spec.color);
     }
+  }
+
+  applyBurn(monster, troop) {
+    if (!monster || !monster.alive || !troop || !troop.spec.burnStacks) return false;
+    const duration = troop.spec.burnDuration || CONFIG.FLAME_BURN_DURATION;
+    const tickInterval = troop.spec.burnTickInterval || CONFIG.FLAME_BURN_TICK_INTERVAL;
+    const ratio = troop.spec.burnDamageRatio ?? CONFIG.FLAME_BURN_DAMAGE_RATIO;
+    const tickDamage = Math.max(1, Math.round(troop._cachedDamage * ratio));
+    const applied = monster.applyBurn(1, duration, tickInterval, tickDamage, (m, dmg) => {
+      this.damageMonster(m, dmg);
+      PARTICLES.burnTick?.(m.x, m.y);
+    });
+    if (applied) PARTICLES.burnApply?.(monster.x, monster.y, troop.spec.color);
+    return applied;
   }
 
   // DRY: Add gold with MAX_GOLD cap.
@@ -388,11 +412,22 @@ export class Game {
     PARTICLES.update(dt);
   }
 
+  _compactMonsters() {
+    let mw = 0;
+    for (let i = 0; i < this.monsters.length; i++) {
+      if (this.monsters[i].alive) this.monsters[mw++] = this.monsters[i];
+    }
+    this.monsters.length = mw;
+  }
+
   _stepWaveSpawning(dt) {
     this.wave.update(dt);
     let spawnData = this.wave.popDueMonster();
-    while (spawnData != null) {
+    let spawnsThisFrame = 0;
+    const MAX_SPAWNS_PER_FRAME = 50;
+    while (spawnData != null && spawnsThisFrame < MAX_SPAWNS_PER_FRAME) {
       this.spawnMonster(spawnData.level, spawnData.hpMult);
+      spawnsThisFrame++;
       spawnData = this.wave.popDueMonster();
     }
   }
@@ -413,16 +448,26 @@ export class Game {
     }
   }
 
+  // This loop only marks monsters dead; actual array compaction happens later
+  // in _cleanupDead, so mutating this.monsters here would break iteration.
   _stepMonsters(dt) {
     const monsterCount = this.monsters.length;
     for (let i = 0; i < monsterCount; i++) {
       const m = this.monsters[i];
       if (!m.alive) continue;
       if (m.hp <= 0) {
+        if (m.alive) {
+          console.warn('[game] Monster HP desync on frame — force-killing without reward.', {
+            level: m.level,
+            hp: m.hp,
+            x: m.x,
+            y: m.y,
+          });
+        }
         m.alive = false;
         continue;
       }
-      m.update(dt, this._troopTileIndex);
+      m.update(dt, this._troopTileIndex, this.monsters);
       if (!m.reachedEnd) continue;
       m.alive = false;
       if (this.devMode) continue;
@@ -443,6 +488,8 @@ export class Game {
       if (!m.alive || !m._pendingAttack) continue;
       const target = m._pendingAttack;
       m._pendingAttack = null;
+      // Re-check target validity: monster may have moved out of range or died
+      // after setting _pendingAttack in _updateStopMode.
       if (target.alive) {
         this.damageTroop(m, target);
       }
@@ -452,6 +499,13 @@ export class Game {
   _stepNecromancerRevives() {
     for (let i = 0; i < this.monsters.length; i++) {
       this.monsters[i]._reviveLock = false;
+    }
+
+    const deadCandidates = [];
+    for (let j = 0; j < this.monsters.length; j++) {
+      const target = this.monsters[j];
+      if (target.alive || target.level === 'Y' || target.reachedEnd || target.reviveImmune) continue;
+      deadCandidates.push(target);
     }
 
     for (let i = 0; i < this.monsters.length; i++) {
@@ -466,17 +520,9 @@ export class Game {
       while ((necro.reviveCount || 0) < maxTargets) {
         let best = null;
         let bestDist = Infinity;
-        for (let j = 0; j < this.monsters.length; j++) {
-          const target = this.monsters[j];
-          if (
-            target === necro ||
-            target.alive ||
-            target.level === 'Y' ||
-            target.reachedEnd ||
-            target._reviveLock ||
-            target.reviveImmune
-          )
-            continue;
+        for (let j = 0; j < deadCandidates.length; j++) {
+          const target = deadCandidates[j];
+          if (target._reviveLock) continue;
           const dx = target.x - necro.x;
           const dy = target.y - necro.y;
           const distSq = dx * dx + dy * dy;
@@ -508,11 +554,12 @@ export class Game {
   _resetRevivedMonster(m) {
     m.stunTimer = 0;
     m.slowTimer = 0;
-    m.speed = m.baseSpeed;
+    m.speed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;
     m.shatterArmed = false;
     m.shatterBonus = 0;
     m._slowColorTint = 0;
     m._reviveGlowTimer = 0;
+    if (typeof m.clearBurn === 'function') m.clearBurn();
     m.state = 'MOVING';
     m.attackTarget = null;
     m.attackTimer = 0;
@@ -590,7 +637,7 @@ export class Game {
       p.t -= dt;
       if (p.t > 0) {
         this.popups[ppw++] = p;
-      } else if (this._popupPool.length < 100) {
+      } else if (this._popupPool.length < CONFIG.MAX_POPUP_POOL) {
         this._popupPool.push(p);
       }
     }
@@ -693,7 +740,7 @@ export class Game {
         for (let i = 0; i < hit.length; i++) this._applySlowToMonster(hit[i], troop);
       }
     } else {
-      const closest = this._findClosestMonsterNear(x, y);
+      const closest = this._findClosestMonsterNear(x, y, troop._cachedRange);
       if (closest) {
         const killed = this.damageMonster(closest, dmg);
         if (hasSlow && !killed) this._applySlowToMonster(closest, troop);
@@ -747,7 +794,7 @@ export class Game {
     };
 
     // Find primary target using tile index.
-    let closest = this._findClosestMonsterNear(x, y);
+    let closest = this._findClosestMonsterNear(x, y, troop._cachedRange);
     if (!closest) return;
 
     let lastX = closest.x,
@@ -848,6 +895,7 @@ export class Game {
     if (button === 2) {
       this.selectedSpec = null;
       this.selectedTroopIndex = -1;
+      this._dragState = null;
       return;
     }
     if (UI.handleToggleClick(px, py)) return;
@@ -863,6 +911,14 @@ export class Game {
     this._handleSellClick(px, py);
     this._handleUpgradeClicks(px, py);
     this._handleMapClick(px, py);
+  }
+
+  onMouseUp(px, py) {
+    if (!this._dragState) return;
+    const { spec } = this._dragState;
+    this._dragState = null;
+    if (!spec) return;
+    this._tryPlaceFromPointer(px, py, spec);
   }
 
   _hitBox(px, py, box) {
@@ -951,8 +1007,13 @@ export class Game {
     const shopIdx = UI.hitShop(px, py);
     if (shopIdx >= 0) {
       const spec = TROOP_SPECS[shopIdx];
-      this.selectedSpec = this.selectedSpec === spec ? null : spec;
-      this.selectedTroopIndex = -1;
+      if (this.selectedSpec === spec) {
+        // Clicking the already-selected card starts drag-to-place.
+        this._dragState = { spec, started: true };
+      } else {
+        this.selectedSpec = spec;
+        this.selectedTroopIndex = -1;
+      }
     }
   }
 
@@ -1087,7 +1148,7 @@ export class Game {
   }
 
   getSaveData() {
-    return SaveSerializer.fromGame(this);
+    return SaveSerializer.fromGame(this, this.appVersion);
   }
 
   restore(data) {
@@ -1113,6 +1174,31 @@ export class Game {
     window.electron.saveGame(this.getSaveData());
   }
 
+  _tryPlaceFromPointer(px, py, spec) {
+    const shieldShopRight = RENDERER.width - UI_LAYOUT.shieldShopWidth;
+    if (
+      px < UI_LAYOUT.shopWidth ||
+      py < UI_LAYOUT.hudHeight ||
+      py > RENDERER.height - UI_LAYOUT.previewHeight ||
+      px > shieldShopRight
+    ) {
+      return;
+    }
+    RENDERER.toWorldInto(px, py, this._centerScratch);
+    pixelToTile(this._centerScratch.x, this._centerScratch.y, this._tileScratch);
+    const tile = this._tileScratch;
+    if (!inBounds(tile.gx, tile.gy)) return;
+    if (this.placeTroop(spec, tile.gx, tile.gy)) {
+      this.selectedSpec = spec;
+    } else {
+      const reason = this.getPlacementInvalidReason(tile.gx, tile.gy, spec) || 'Invalid!';
+      tileCenterInto(tile.gx, tile.gy, this._centerScratch);
+      this._getPopup(reason, this._centerScratch.x, this._centerScratch.y, 1.0, '#da3633');
+      this.selectedSpec = null;
+    }
+  }
+
+  // ===== Popup/shortcuts =====
   onKeyDown(e) {
     // Restart.
     if ((e.key === 'r' || e.key === 'R') && this.state === 'DEFEAT') {
@@ -1198,6 +1284,9 @@ export class Game {
     this.sellConfirmPending = false;
     this.sellConfirmTroop = null;
     this.seed = Math.floor(Math.random() * 0xffffffff);
+    // Assign the projectile-impact callback BEFORE resetting transient state so
+    // any impacts during reset reference the current game instance.
+    this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();
     this.start(); // re-start the background loop

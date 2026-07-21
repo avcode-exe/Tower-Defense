@@ -37,12 +37,12 @@ export function getDpsForPlacementPreview(selectedSpec) {
   return selectedSpec.damage / selectedSpec.attackSpeed;
 }
 
-function drawDamagePlacementPreviewText(dps) {
+function drawDamagePlacementPreviewText(dps, burnDps = 0) {
   const c = RENDERER.ctx;
   const lineH = 12;
-  const panelW = 72;
+  const panelW = burnDps > 0 ? 120 : 72;
   const x = Math.min(RENDERER.hoverPx + 10, RENDERER.width - panelW);
-  const y = Math.min(RENDERER.hoverPy + 10, RENDERER.height - lineH);
+  const y = Math.min(RENDERER.hoverPy + 10, RENDERER.height - lineH * (burnDps > 0 ? 2 : 1));
 
   c.save();
   c.font = '10px system-ui, sans-serif';
@@ -50,7 +50,16 @@ function drawDamagePlacementPreviewText(dps) {
   c.textBaseline = 'middle';
   c.fillStyle = DAMAGE_TEXT;
   c.fillText('DPS ' + dps.toFixed(1), x, y);
+  if (burnDps > 0) {
+    c.fillText('BRN ' + burnDps.toFixed(1), x, y + lineH);
+  }
   c.restore();
+}
+
+export function getBurnDpsForPlacementPreview(selectedSpec) {
+  if (!selectedSpec || !selectedSpec.burnStacks) return 0;
+  const tickDamage = Math.max(1, Math.round(selectedSpec.damage * selectedSpec.burnDamageRatio));
+  return (tickDamage * selectedSpec.burnStacks) / selectedSpec.burnTickInterval;
 }
 
 function drawPlacementInvalidReason(game, gx, gy) {
@@ -127,7 +136,8 @@ export function drawPlacementGhost(game) {
     drawSupportPlacementPreviewText(hps);
   } else {
     const dps = getDpsForPlacementPreview(game.selectedSpec);
-    drawDamagePlacementPreviewText(dps);
+    const burnDps = getBurnDpsForPlacementPreview(game.selectedSpec);
+    drawDamagePlacementPreviewText(dps, burnDps);
   }
 }
 

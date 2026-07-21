@@ -160,12 +160,35 @@ export function renderGame(game) {
       ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, Math.PI * 2);
       ctx.fill();
     }
+    if (m.burnStacks > 0) {
+      const pulse = 0.5 + 0.5 * Math.sin(now * 0.012);
+      ctx.save();
+      ctx.globalAlpha = 0.35 + pulse * 0.25;
+      ctx.strokeStyle = CONFIG.COLORS.burn;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, m.spec.size * 0.5 + 3, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
     // Stun overlay.
     if (m.stunTimer > 0) {
       ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.beginPath();
       ctx.arc(m.x, m.y, m.spec.size * 0.5, 0, Math.PI * 2);
       ctx.fill();
+    }
+    // Healer healing range indicator.
+    if (m.level === 'H' && m._healing) {
+      const radius = m.healRange || (m.spec.healRange || 1) * CONFIG.TILE_SIZE;
+      ctx.save();
+      ctx.filter = 'blur(8px)';
+      ctx.fillStyle = m.spec.color;
+      ctx.globalAlpha = 0.05;
+      ctx.beginPath();
+      ctx.arc(m.x, m.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
     }
   }
 

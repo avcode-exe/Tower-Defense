@@ -1,17 +1,20 @@
-const { app, BrowserWindow, Menu, ipcMain } = require('electron');
-const path = require('path');
-const fs = require('fs');
-const os = require('os');
-const http = require('http');
-const https = require('https');
-const { URL } = require('url');
-const { parseUpdateInfo } = require('electron-updater/out/providers/Provider');
-const { autoUpdater } = require('electron-updater');
-const {
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
+import http from 'http';
+import https from 'https';
+import { URL, fileURLToPath } from 'url';
+import electronUpdater from 'electron-updater';
+import {
   selectNewestNewerPrereleaseTag,
   selectNewestNewerRelease,
   resolveDownloadTag,
-} = require('./src/githubReleaseFeed');
+} from './src/githubReleaseFeed.js';
+import { parseUpdateInfo } from './src/updateYamlParser.js';
+
+const { autoUpdater } = electronUpdater;
+const __dirname = path.dirname(fileURLToPath(import.meta?.url || ''));
 
 Menu.setApplicationMenu(null);
 
@@ -26,6 +29,7 @@ const PERSISTENT_SETTINGS_PATH = path.join(PERSISTENT_DIR, 'settings.json');
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const SAVE_PATH = path.join(app.getPath('userData'), 'game-save.json');
 const DEFAULT_SETTINGS = {
+  // Canonical source of truth for field shapes: src/config/settingsDefaults.js (renderer side).
   version: app.getVersion(),
   update: {
     channel: 'release',
@@ -62,10 +66,30 @@ function normalizeCheckIntervalMinutes(value) {
 function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null;
 
+  const ALLOWED_TOP_KEYS = ['update', 'collapsed'];
   const sanitized = {
     update: { ...DEFAULT_SETTINGS.update },
     collapsed: { ...DEFAULT_SETTINGS.collapsed },
   };
+
+  function validateUpdate(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
+  function validateCollapsed(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
+  for (const key of Object.keys(settings)) {
+    if (!ALLOWED_TOP_KEYS.includes(key)) continue;
+    if (key === 'update' && validateUpdate(settings.update)) {
+      sanitized.update = settings.update;
+    } else if (key === 'collapsed' && validateCollapsed(settings.collapsed)) {
+      sanitized.collapsed = settings.collapsed;
+    }
+  }
 
   if (settings.update && typeof settings.update === 'object' && !Array.isArray(settings.update)) {
     if (typeof settings.update.channel === 'string' && ['release', 'pre-release'].includes(settings.update.channel)) {
@@ -179,50 +203,27 @@ function writeSettings(settings) {
 }
 
 // Use same pre-release detection as renderer
-const PRERELEASE_RE = /-(?:beta|alpha|rc)\./i;
-
-function isPrerelease(version) {
-  return PRERELEASE_RE.test(version || '');
-}
-
-// Parse semver into { major, minor, patch, prerelease } for comparison.
-// Handles formats like "1.5.0", "1.5.0-beta.1", "1.5.0-rc.2".
-function parseVersion(v) {
-  if (!v) return { major: 0, minor: 0, patch: 0, prerelease: [] };
-  const match = v.match(/^(\d+)\.(\d+)\.(\d+)(?:-(.+))?$/);
-  if (!match) return { major: 0, minor: 0, patch: 0, prerelease: [] };
-  const prerelease = match[4] ? match[4].split('.').map((p) => (/^\d+$/.test(p) ? parseInt(p, 10) : p)) : [];
-  return { major: parseInt(match[1], 10), minor: parseInt(match[2], 10), patch: parseInt(match[3], 10), prerelease };
-}
-
-// Returns true if `version` is strictly newer than `current`.
-function isNewerThan(version, current) {
-  const a = parseVersion(version);
-  const b = parseVersion(current);
-  if (a.major !== b.major) return a.major > b.major;
-  if (a.minor !== b.minor) return a.minor > b.minor;
-  if (a.patch !== b.patch) return a.patch > b.patch;
-  // Same major.minor.patch: stable releases are newer than prereleases.
-  if (a.prerelease.length === 0 && b.prerelease.length > 0) return true;
-  if (a.prerelease.length > 0 && b.prerelease.length === 0) return false;
-  // Both prerelease: compare lexicographically.
-  const len = Math.min(a.prerelease.length, b.prerelease.length);
-  for (let i = 0; i < len; i++) {
-    const ap = a.prerelease[i],
-      bp = b.prerelease[i];
-    if (ap === bp) continue;
-    if (typeof ap === 'number' && typeof bp === 'number') return ap > bp;
-    return String(ap) > String(bp);
+let isPrerelease;
+let parseVersion;
+let isNewerThan;
+(async () => {
+  try {
+    const mod = await import('./src/versionUtils.js');
+    isPrerelease = mod.isPrerelease;
+    parseVersion = mod.parseVersion;
+    isNewerThan = mod.isNewerThan;
+  } catch (err) {
+    console.error('[versionUtils] failed to load:', err);
   }
-  return a.prerelease.length > b.prerelease.length;
-}
+})();
 
 // Apply autoUpdater settings from persisted settings
 function applyAutoUpdaterSettings() {
   const settings = readSettings();
   const update = settings.update || {};
   autoUpdater.autoDownload = update.autoDownload !== false;
-  autoUpdater.autoInstallOnAppQuit = update.autoDownload !== false;
+  // autoUpdater.autoInstallOnAppQuit is NOT set automatically;
+  // user clicks "Restart & Install" manually after download completes.
   // Enable pre-release detection when channel is set to pre-release
   autoUpdater.allowPrerelease = update.channel === 'pre-release';
 }
@@ -299,6 +300,7 @@ function requestText(url, redirects = 0) {
       {
         headers: {
           'User-Agent': 'Tower-Defense-Updater',
+          Accept: 'application/atom+xml, application/xml, text/xml',
         },
       },
       (res) => {
@@ -331,7 +333,7 @@ function requestText(url, redirects = 0) {
         let totalSize = 0;
         res.on('data', (chunk) => {
           totalSize += Buffer.byteLength(chunk);
-          if (totalSize > 1024 * 512) {
+          if (totalSize > 1024 * 2048) {
             res.destroy(new Error(`Response body too large for ${url}`));
             return;
           }
@@ -479,7 +481,7 @@ ipcMain.handle('get-settings', () => {
 ipcMain.handle('save-settings', (_event, settings) => {
   const sanitized = sanitizeSettings(settings);
   if (!sanitized) return false;
-  if (JSON.stringify(sanitized, null, 2).length > 1024 * 100) return false; // 100KB limit
+  if (JSON.stringify(sanitized).length > 1024 * 100) return false; // 100KB limit
   return writeSettings(sanitized);
 });
 
@@ -553,8 +555,9 @@ ipcMain.on('cancel-update', () => {
 ipcMain.handle('save-game', (_event, data) => {
   try {
     if (!data || typeof data !== 'object') return false;
+    const compact = JSON.stringify(data);
+    if (compact.length > 1024 * 1024) return false; // 1MB limit
     const json = JSON.stringify(data, null, 2);
-    if (json.length > 1024 * 1024) return false; // 1MB limit
     fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
     fs.writeFileSync(SAVE_PATH, json, 'utf-8');
     return true;

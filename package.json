@@ -1,6 +1,7 @@
 {
   "name": "tower-defense",
-  "version": "1.5.2",
+  "version": "1.6.1-beta.1",
+  "type": "module",
   "description": "Tower Defense Game",
   "main": "electron-main.js",
   "scripts": {
@@ -47,7 +48,7 @@
     }
   },
   "dependencies": {
-    "electron-updater": "^6.6.1"
+    "electron-updater": "6.6.1"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.8",

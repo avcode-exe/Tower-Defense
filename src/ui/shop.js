@@ -12,24 +12,24 @@ import {
   fillStrokeRoundedRect,
 } from './utils.js';
 
-export function shopCardRect(i) {
+export function shopCardRect(i, shopScrollY) {
   const gap = LAYOUT.SHOP.CARD_GAP;
   const x = LAYOUT.SHOP.BTN_PAD;
   const cardH = LAYOUT.SHOP.CARD_H;
   const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
   const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
-  return { x, y: baseY - this.shopScrollY, w: cardW, h: cardH };
+  return { x, y: baseY - shopScrollY, w: cardW, h: cardH };
 }
 
 // Zero-allocation variant for rendering loops.
-export function shopCardRectInto(i, out) {
+export function shopCardRectInto(i, out, shopScrollY) {
   const gap = LAYOUT.SHOP.CARD_GAP;
   const x = LAYOUT.SHOP.BTN_PAD;
   const cardH = LAYOUT.SHOP.CARD_H;
   const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
   const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
   out.x = x;
-  out.y = baseY - this.shopScrollY;
+  out.y = baseY - shopScrollY;
   out.w = cardW;
   out.h = cardH;
   return out;
@@ -41,23 +41,75 @@ export function hitShop(px, py) {
   const areaBottom = this._cardAreaBottom || RENDERER.height;
   const r = this._hitShopScratch || (this._hitShopScratch = { x: 0, y: 0, w: 0, h: 0 });
   for (let i = 0; i < TROOP_SPECS.length; i++) {
-    this.shopCardRectInto(i, r);
+    this.shopCardRectInto(i, r, this.shopScrollY);
     if (r.y + r.h < areaTop || r.y > areaBottom) continue;
     if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
   }
   return -1;
 }
 
+/** Build the stat-lines array for a troop — shared between height calculation and rendering. */
+export function _buildStatLines(t) {
+  const statLines = [];
+  if (t.spec.type === 'support') {
+    statLines.push(
+      'HEAL ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
+    );
+    statLines.push(
+      'RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + '  TGT ' + t.getHealTargetCount() + ' Lv.' + t.healTargetLevel
+    );
+  } else {
+    statLines.push(
+      'DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
+    );
+    statLines.push(
+      'RNG ' +
+        t.getRange() +
+        ' Lv.' +
+        t.rangeLevel +
+        (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : '')
+    );
+    if (t.spec.slowFactor) {
+      statLines.push(
+        'SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel
+      );
+    }
+    if (t.spec.burnStacks) {
+      const tickDamage = Math.max(1, Math.round(t.getDamage() * t.spec.burnDamageRatio));
+      const burnDps = (tickDamage * t.spec.burnStacks) / t.spec.burnTickInterval;
+      statLines.push('BRN ' + burnDps.toFixed(1) + ' Lv.' + t.dmgLevel);
+    }
+  }
+  const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
+  statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
+  if (t.spec.type === 'support') {
+    statLines.push({
+      text: 'HPS ' + t.getHps().toFixed(1),
+      color: '#2ecc71',
+      bold: true,
+    });
+  } else {
+    statLines.push({
+      text: 'DPS ' + t.getDps().toFixed(1),
+      color: UI_COLORS.accent,
+      bold: true,
+    });
+  }
+  return statLines;
+}
+
+/** Compute the panel height for a troop's stats display. */
+export function computeSelectedTroopPanelHeight(t) {
+  const statLines = _buildStatLines(t);
+  const lineH = 14;
+  return 14 + statLines.length * lineH + 8;
+}
+
 export function _updateCardAreaBottom(game) {
   if (game.selectedTroopIndex >= 0) {
     const t = game.troops[game.selectedTroopIndex];
     if (t && t.alive) {
-      // Build stat lines to calculate panel height (same logic as draw)
-      let lineCount = 2; // DMG/SPD + RNG/CHN
-      if (t.spec.slowFactor) lineCount++; // SLW line
-      lineCount += 2; // HP + DPS
-      const lineH = 14;
-      const panelH = 14 + lineCount * lineH + 8;
+      const panelH = computeSelectedTroopPanelHeight(t);
       const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
       const panelY = upgradeBtnY - panelH - 4;
       this._cardAreaBottom = panelY - 4; // 4px gap above panel
@@ -82,6 +134,8 @@ export function updateHover(px, py) {
 }
 
 export function handleToggleClick(px, py) {
+  // Guard against null canvas (race condition on startup).
+  if (!RENDERER.ctx || !RENDERER.ctx.canvas) return false;
   if (this._toggleShieldShop && hitToggleButton(px, py, this._toggleShieldShop)) {
     UI_LAYOUT.collapsed.shieldShop = !UI_LAYOUT.collapsed.shieldShop;
     RENDERER.resize(RENDERER.ctx.canvas);
@@ -180,7 +234,7 @@ export function drawShop(game) {
   const _shopScratch = this._shopScratch || (this._shopScratch = { x: 0, y: 0, w: 0, h: 0 });
   for (let i = 0; i < TROOP_SPECS.length; i++) {
     const spec = TROOP_SPECS[i];
-    const r = this.shopCardRectInto(i, _shopScratch);
+    const r = this.shopCardRectInto(i, _shopScratch, this.shopScrollY);
     const affordable = game.devMode || game.gold >= spec.cost;
     const isSelected = game.selectedSpec === spec;
     const isHovered = this.hoveredShopIndex === i;
@@ -293,52 +347,7 @@ export function drawShop(game) {
   if (game.selectedTroopIndex >= 0) {
     const t = game.troops[game.selectedTroopIndex];
     if (t && t.alive) {
-      const statLines = [];
-      if (t.spec.type === 'support') {
-        statLines.push(
-          'HEAL ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
-        );
-        statLines.push(
-          'RNG ' + t.getRange() + ' Lv.' + t.rangeLevel + '  TGT ' + t.getHealTargetCount() + ' Lv.' + t.healTargetLevel
-        );
-      } else {
-        statLines.push(
-          'DMG ' + t.getDamage() + ' Lv.' + t.dmgLevel + '  SPD ' + t.getAttackSpeed() + 's Lv.' + t.speedLevel
-        );
-        statLines.push(
-          'RNG ' +
-            t.getRange() +
-            ' Lv.' +
-            t.rangeLevel +
-            (t.spec.chain ? '  CHN ' + t.getChain() + ' Lv.' + t.chainLevel : '')
-        );
-        if (t.spec.slowFactor) {
-          statLines.push(
-            'SLW ' + (t.getSlowFactor() * 100).toFixed(0) + '% ' + t.getSlowDuration() + 's Lv.' + t.slowLevel
-          );
-        }
-      }
-      // HP + HPS/DPS lines
-      const hpColor = t.getHpRatio() > 0.6 ? '#44cc44' : t.getHpRatio() > 0.3 ? '#cccc44' : '#cc4444';
-      statLines.push({ text: 'HP ' + Math.ceil(t.hp) + '/' + t.maxHp, color: hpColor });
-      if (t.spec.type === 'support') {
-        statLines.push({
-          text: 'HPS ' + t.getHps().toFixed(1),
-          color: '#2ecc71',
-          bold: true,
-        });
-      } else {
-        statLines.push({
-          text: 'DPS ' + t.getDps().toFixed(1),
-          color: UI_COLORS.accent,
-          bold: true,
-        });
-      }
-
-      const lineH = 14;
-      const startY = 26;
-      const panelH = 14 + statLines.length * lineH + 8; // name(14) + lines + padding
-      // Position panel just above upgrade buttons with 4px gap
+      const panelH = computeSelectedTroopPanelHeight(t);
       const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
       const panelY = upgradeBtnY - panelH - 4;
 
@@ -360,6 +369,10 @@ export function drawShop(game) {
       c.fillText(t.spec.name, 18, panelY + 14);
 
       c.font = '10px system-ui, sans-serif';
+      c.textBaseline = 'middle';
+      const statLines = _buildStatLines(t);
+      const lineH = 14;
+      const startY = 26;
       c.textBaseline = 'middle';
       for (let i = 0; i < statLines.length; i++) {
         const line = statLines[i];

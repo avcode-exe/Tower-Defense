@@ -6,12 +6,66 @@ import { UI_LAYOUT } from './ui/index.js';
 import { MONSTER_SPECS, MONSTER_DEV_ORDER } from './config.js';
 import { AUDIO } from './audio.js';
 import { SaveSerializer } from './gamePersistence.js';
+import { DEFAULT_SETTINGS } from './config/settingsDefaults.js';
 import { showToast } from './ui/toast.js';
 
 let game = null;
 
+// ── Error tracking: catch unhandled rejections and render error overlay ─────
+let _errorShown = false;
+let _errorOverlay = null;
+
+function showErrorOverlay(message) {
+  if (_errorShown) return;
+  _errorShown = true;
+
+  // Log to localStorage for post-mortem debugging
+  try {
+    const log = JSON.parse(localStorage.getItem('towerdefense-error-log') || '[]');
+    log.push({ message, time: Date.now() });
+    while (log.length > 20) log.shift();
+    localStorage.setItem('towerdefense-error-log', JSON.stringify(log));
+  } catch (_) {
+    /* localStorage may be full or unavailable */
+  }
+
+  _errorOverlay = document.createElement('div');
+  _errorOverlay.style.cssText =
+    'position:fixed;top:0;left:0;right:0;bottom:0;' +
+    'background:rgba(0,0,0,0.88);display:flex;flex-direction:column;' +
+    'align-items:center;justify-content:center;z-index:9999;' +
+    'font-family:system-ui,sans-serif;color:#e0e0e0;';
+  _errorOverlay.innerHTML =
+    '<h2 style="color:#e74c3c;margin:0 0 12px 0;font-size:20px;">Something went wrong</h2>' +
+    '<p id="error-msg" style="margin:0 0 24px 0;max-width:420px;text-align:center;font-size:13px;line-height:1.5;color:#aaa;"></p>' +
+    '<button id="error-restart-btn" style="padding:10px 28px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit;">Restart</button>' +
+    '<p style="margin:12px 0 0 0;font-size:10px;color:#666;">If this keeps happening, check the dev console (F12) for details.</p>';
+  const msgEl = _errorOverlay.querySelector('#error-msg');
+  if (msgEl) msgEl.textContent = message || 'An unexpected error occurred.';
+  document.body.appendChild(_errorOverlay);
+  const restartBtn = _errorOverlay.querySelector('#error-restart-btn');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => location.reload());
+  }
+}
+
+function setupErrorTracking() {
+  window.addEventListener('unhandledrejection', (event) => {
+    event.preventDefault();
+    console.error('[error] Unhandled rejection:', event.reason);
+    const msg = event.reason && event.reason.message ? event.reason.message : String(event.reason || 'Unknown error');
+    showErrorOverlay(msg);
+  });
+  window.onerror = (message, source, lineno, colno, error) => {
+    console.error('[error] Uncaught exception:', message, source, lineno, colno);
+    const msg = (error && error.message) || String(message || 'Unknown error');
+    showErrorOverlay(msg);
+  };
+}
+
 // Bootstrap: wire up the canvas and start the game
 document.addEventListener('DOMContentLoaded', async () => {
+  setupErrorTracking();
   const canvas = document.getElementById('game');
   if (!canvas) return;
   game = new Game(canvas);
@@ -205,11 +259,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadSettingsToForm() {
     const saved = (await loadSettings()) || {};
     settingsDraft = JSON.parse(JSON.stringify(saved));
-    if (!settingsDraft.update) settingsDraft.update = {};
-    // Apply defaults to draft
-    settingsDraft.update.channel = settingsDraft.update.channel || 'release';
-    settingsDraft.update.autoDownload = settingsDraft.update.autoDownload !== false;
-    settingsDraft.update.checkIntervalMinutes = settingsDraft.update.checkIntervalMinutes || 60;
+    if (!settingsDraft.update) {
+      settingsDraft.update = { ...DEFAULT_SETTINGS.update };
+    } else {
+      settingsDraft.update = { ...DEFAULT_SETTINGS.update, ...saved.update };
+    }
     // Update form elements
     document.querySelectorAll('input[name="settings-channel"]').forEach((radio) => {
       radio.checked = settingsDraft.update.channel === radio.value;
@@ -309,11 +363,17 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────
-  let appVersion = '1.5.2'; // fallback
+  let appVersion = '';
   if (window.electron && window.electron.getVersion) {
     try {
       appVersion = await window.electron.getVersion();
     } catch (_) {}
+  }
+  if (!appVersion) {
+    appVersion = '1.0.0';
+  }
+  if (game) {
+    game.appVersion = appVersion;
   }
   if (typeof UpdateManager === 'function') {
     const settings = (await loadSettings()) || {};
@@ -345,7 +405,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const notifyBtn = document.getElementById('bar-notify-btn');
 
   function timeAgo() {
-    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false });
   }
 
   // ── Notification list management ────────────────────────────────────────
@@ -533,8 +593,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             ],
             silent: true,
           });
-          // Also show a brief toast to draw attention
-          showToast('Update available: ' + label, 'info', 5000);
           break;
         }
         case 'not-available':
@@ -599,8 +657,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       stats.appendChild(statSpan('HP: ' + spec.hp));
       stats.appendChild(statSpan('Spd: ' + spec.speed));
       stats.appendChild(statSpan('+' + spec.reward + 'g'));
-      stats.appendChild(statSpan('Dmg: ' + spec.damage));
-      stats.appendChild(statSpan('Leak: ' + spec.leak));
+      if (spec.damage > 0) {
+        stats.appendChild(statSpan('Dmg: ' + spec.damage));
+      }
+      if (spec.leak) {
+        stats.appendChild(statSpan('Leak: ' + spec.leak));
+      }
       if (spec.shield)
         stats.appendChild(statSpan('Shield: ' + spec.shield + ' (max ' + Math.ceil(spec.shield * 1.5) + ')'));
       const mode = spec.attackMode || 'stop';
@@ -608,6 +670,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         stats.appendChild(statSpan('Slow: slows near troops, attacks closest'));
       } else if (mode === 'pass') {
         stats.appendChild(statSpan('Pass: penetration, hits each troop once'));
+      } else if (mode === 'heal' || mode === 'support') {
+        stats.appendChild(statSpan('Heal: heals nearby allies'));
       }
       row.appendChild(dot);
       row.appendChild(name);

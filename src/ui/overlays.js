@@ -8,14 +8,12 @@ export function drawWaveTransition(game) {
   const a = game.waveCompleteAnim;
   const elapsed = (performance.now() - a.startMs) / 1000;
   const totalTime = 2.5;
-  a.t = totalTime - elapsed;
-  if (a.t <= 0) {
+  const remaining = totalTime - elapsed;
+  if (remaining <= 0) {
     a.active = false;
     return;
   }
-
-  const c = RENDERER.ctx;
-  const progress = 1 - a.t / totalTime;
+  const progress = 1 - remaining / totalTime;
   let alpha = 0;
   if (progress < 0.2) alpha = progress / 0.2;
   else if (progress < 0.8) alpha = 1;
@@ -24,6 +22,7 @@ export function drawWaveTransition(game) {
 
   const cx = RENDERER.width / 2;
   const cy = RENDERER.height / 2;
+  const c = RENDERER.ctx;
 
   c.save();
   c.globalAlpha = alpha * 0.25;
