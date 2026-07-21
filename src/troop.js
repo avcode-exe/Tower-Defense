@@ -1,6 +1,7 @@
 import { CONFIG, TROOP_SPECS } from './config.js';
 import { PARTICLES } from './particles.js';
 import { AUDIO } from './audio.js';
+import { monstersInRange } from './utils.js';
 
 const STAT_LEVEL_PROPS = {
   dmg: 'dmgLevel',
@@ -19,25 +20,6 @@ function compareHealPriority(a, b) {
   const distDelta = a.distSq - b.distSq;
   if (distDelta !== 0) return distDelta;
   return a.index - b.index;
-}
-
-function monstersInRange(gx, gy, range, monsterTileIndex, gridSize) {
-  const results = [];
-  const r = Math.ceil(range);
-  for (let dx = -r; dx <= r; dx++) {
-    for (let dy = -r; dy <= r; dy++) {
-      const tx = gx + dx;
-      const ty = gy + dy;
-      if (tx < 0 || tx >= gridSize || ty < 0 || ty >= gridSize) continue;
-      const tile = monsterTileIndex[ty * gridSize + tx];
-      if (tile) {
-        for (let i = 0; i < tile.length; i++) {
-          results.push(tile[i]);
-        }
-      }
-    }
-  }
-  return results;
 }
 
 // A troop is a static defender placed on a tile. It has a target, a cooldown

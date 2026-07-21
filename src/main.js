@@ -8,6 +8,7 @@ import { AUDIO } from './audio.js';
 import { SaveSerializer } from './gamePersistence.js';
 import { DEFAULT_SETTINGS } from './config/settingsDefaults.js';
 import { showToast } from './ui/toast.js';
+import { POPUP_MAP, showPopup, hidePopup, persistCollapsed, initPopupButtons } from './ui/popupManager.js';
 
 let game = null;
 
@@ -140,95 +141,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
-
-  const barBtnFor = {
-    help: 'bar-controls-btn',
-    monsterInfo: 'bar-monster-btn',
-    settings: 'bar-settings-btn',
-    about: 'bar-about-btn',
-    dev: 'bar-dev-btn',
-  };
-  const popupFor = {
-    help: 'controls-popup',
-    monsterInfo: 'monster-popup',
-    settings: 'settings-popup',
-    about: 'about-popup',
-    dev: 'dev-popup',
-  };
-
-  // Close animation duration (must match CSS .bar-popup transition)
-  const POPUP_ANIM_MS = 300;
-
-  function showPopup(key) {
-    const popup = document.getElementById(popupFor[key]);
-    const btn = document.getElementById(barBtnFor[key]);
-    if (!popup) return;
-    // Find any currently-open popup (not this one) and close it first.
-    const openKey = Object.keys(popupFor).find((k) => k !== key && !UI_LAYOUT.collapsed[k]);
-    if (openKey) {
-      hidePopup(openKey);
-      // After the close animation finishes, open the target.
-      const openPopup = document.getElementById(popupFor[openKey]);
-      if (!openPopup) {
-        openTarget();
-        return;
-      }
-      let fallbackTimer = null;
-      const onDone = () => {
-        openPopup.removeEventListener('transitionend', onDone);
-        clearTimeout(fallbackTimer);
-        openTarget();
-      };
-      openPopup.addEventListener('transitionend', onDone);
-      // Fallback if transitionend never fires (e.g. element hidden).
-      fallbackTimer = setTimeout(openTarget, POPUP_ANIM_MS + 50);
-      return;
-    }
-    openTarget();
-
-    function openTarget() {
-      popup.classList.remove('bar-popup--closed');
-      if (btn) btn.classList.add('active');
-      UI_LAYOUT.collapsed[key] = false;
-    }
-  }
-  function hidePopup(key) {
-    const popup = document.getElementById(popupFor[key]);
-    const btn = document.getElementById(barBtnFor[key]);
-    if (popup) popup.classList.add('bar-popup--closed');
-    if (btn) btn.classList.remove('active');
-    UI_LAYOUT.collapsed[key] = true;
-  }
-
-  async function persistCollapsed() {
-    if (window.electron && window.electron.saveSettings) {
-      try {
-        const settings = (await window.electron.getSettings()) || {};
-        if (!settings.collapsed) settings.collapsed = {};
-        Object.assign(settings.collapsed, UI_LAYOUT.collapsed);
-        window.electron.saveSettings(settings);
-      } catch (err) {
-        /* ignore */
-      }
-    }
-  }
-
-  function togglePopup(key) {
-    UI_LAYOUT.collapsed[key] = !UI_LAYOUT.collapsed[key];
-    if (UI_LAYOUT.collapsed[key]) hidePopup(key);
-    else showPopup(key);
-    persistCollapsed();
-  }
-
-  Object.keys(barBtnFor).forEach((key) => {
-    const btn = document.getElementById(barBtnFor[key]);
-    if (btn) {
-      btn.addEventListener('click', () => togglePopup(key));
-    }
-  });
-
-  // Always start with bar popups hidden on launch
-  Object.keys(barBtnFor).forEach((key) => hidePopup(key));
+  initPopupButtons(UI_LAYOUT);
 
   // ── settings helpers ─────────────────────────────────────────────────────
   async function loadSettings() {
@@ -553,7 +466,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     notifyBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       // Close other popups
-      Object.keys(popupFor).forEach((k) => hidePopup(k));
+      Object.keys(POPUP_MAP).forEach((k) => hidePopup(k, UI_LAYOUT));
       if (notifyPanel) {
         const visible = notifyPanel.style.display === 'block';
         if (!visible) positionNotifyPanel();

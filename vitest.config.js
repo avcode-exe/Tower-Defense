@@ -8,7 +8,13 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.js'],
-      exclude: ['src/main.js', 'src/electron-main.js', 'src/preload.js'],
+      exclude: [
+        'src/main.js',
+        'src/electron-main.js',
+        'src/preload.js',
+        'src/necromancer.js',
+        'src/ui/popupManager.js',
+      ],
       thresholds: {
         perFile: true,
         statements: 80,

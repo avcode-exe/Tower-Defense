@@ -52,3 +52,24 @@ export function pixelToTile(px, py, out = {}) {
 export function inBounds(gx, gy) {
   return gx >= 0 && gx < CONFIG.GRID_SIZE && gy >= 0 && gy < CONFIG.GRID_SIZE;
 }
+
+// Collect all monsters from the spatial tile index within range of (gx, gy).
+// Returns an array of monster references alive or dead (caller must filter).
+export function monstersInRange(gx, gy, range, monsterTileIndex, gridSize) {
+  const results = [];
+  const r = Math.ceil(range);
+  for (let dx = -r; dx <= r; dx++) {
+    for (let dy = -r; dy <= r; dy++) {
+      const tx = gx + dx;
+      const ty = gy + dy;
+      if (tx < 0 || tx >= gridSize || ty < 0 || ty >= gridSize) continue;
+      const tile = monsterTileIndex[ty * gridSize + tx];
+      if (tile) {
+        for (let i = 0; i < tile.length; i++) {
+          results.push(tile[i]);
+        }
+      }
+    }
+  }
+  return results;
+}

@@ -10,6 +10,7 @@ import { Troop } from './troop.js';
 import { Projectile } from './projectile.js';
 import { WaveManager } from './waveManager.js';
 import { GameRuntimeController } from './gameRuntime.js';
+import { stepNecromancerRevives } from './necromancer.js';
 import { SaveSerializer, GameWorldFactory, GameSnapshotRestorer } from './gamePersistence.js';
 import { UI, UI_LAYOUT } from './ui/index.js';
 import { AUDIO } from './audio.js';
@@ -497,75 +498,7 @@ export class Game {
   }
 
   _stepNecromancerRevives() {
-    for (let i = 0; i < this.monsters.length; i++) {
-      this.monsters[i]._reviveLock = false;
-    }
-
-    const deadCandidates = [];
-    for (let j = 0; j < this.monsters.length; j++) {
-      const target = this.monsters[j];
-      if (target.alive || target.level === 'Y' || target.reachedEnd || target.reviveImmune) continue;
-      deadCandidates.push(target);
-    }
-
-    for (let i = 0; i < this.monsters.length; i++) {
-      const necro = this.monsters[i];
-      if (!necro.alive || necro.level !== 'Y') continue;
-
-      const range = (necro.spec.reviveRange ?? CONFIG.MONSTER_REVIVE_RANGE) * CONFIG.TILE_SIZE;
-      const rangeSq = range * range;
-      const maxTargets = necro.spec.reviveMaxTargets ?? CONFIG.MONSTER_REVIVE_MAX_TARGETS;
-      const glowDuration = necro.spec.reviveGlowDuration ?? CONFIG.MONSTER_REVIVE_GLOW_DURATION;
-
-      while ((necro.reviveCount || 0) < maxTargets) {
-        let best = null;
-        let bestDist = Infinity;
-        for (let j = 0; j < deadCandidates.length; j++) {
-          const target = deadCandidates[j];
-          if (target._reviveLock) continue;
-          const dx = target.x - necro.x;
-          const dy = target.y - necro.y;
-          const distSq = dx * dx + dy * dy;
-          if (distSq <= rangeSq && distSq < bestDist) {
-            bestDist = distSq;
-            best = target;
-          }
-        }
-        if (!best) break;
-
-        const ratio = necro.spec.reviveHpRatio ?? CONFIG.MONSTER_REVIVE_HP_RATIO;
-        best.hp = Math.max(1, Math.round(best.maxHp * ratio));
-        best.alive = true;
-        best.reviveImmune = true;
-        best.reviveDamageRatio = 0.5;
-        best.reachedEnd = false;
-        necro.reviveCount = (necro.reviveCount || 0) + 1;
-        necro.reviveUsed = true;
-        this._resetRevivedMonster(best);
-        best.reviveGlow = true;
-        best._reviveGlowTimer = necro.spec.reviveGlowDuration ?? glowDuration;
-        best._reviveLock = true;
-        this._getPopup('Revived', best.x, best.y - 12, 0.9, CONFIG.COLORS.revive);
-        PARTICLES.reviveBurst(best.x, best.y, CONFIG.COLORS.revive);
-      }
-    }
-  }
-
-  _resetRevivedMonster(m) {
-    m.stunTimer = 0;
-    m.slowTimer = 0;
-    m.speed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;
-    m.shatterArmed = false;
-    m.shatterBonus = 0;
-    m._slowColorTint = 0;
-    m._reviveGlowTimer = 0;
-    if (typeof m.clearBurn === 'function') m.clearBurn();
-    m.state = 'MOVING';
-    m.attackTarget = null;
-    m.attackTimer = 0;
-    m._pendingAttack = null;
-    m._lastPassTile = -1;
-    m._hitTroops = null;
+    stepNecromancerRevives(this);
   }
 
   _cleanupDead() {
@@ -1090,19 +1023,8 @@ export class Game {
   }
 
   _handleMapClick(px, py) {
-    const shieldShopRight = RENDERER.width - UI_LAYOUT.shieldShopWidth;
-    if (
-      px < UI_LAYOUT.shopWidth ||
-      py < UI_LAYOUT.hudHeight ||
-      py > RENDERER.height - UI_LAYOUT.previewHeight ||
-      px > shieldShopRight
-    ) {
-      return;
-    }
-    RENDERER.toWorldInto(px, py, this._centerScratch);
-    pixelToTile(this._centerScratch.x, this._centerScratch.y, this._tileScratch);
-    const tile = this._tileScratch;
-    if (!inBounds(tile.gx, tile.gy)) return;
+    const tile = this._pixelToGameTile(px, py);
+    if (!tile) return;
     const tIdx = this.findTroopAtTile(tile.gx, tile.gy);
     if (tIdx >= 0) {
       this.selectedTroopIndex = tIdx;
@@ -1174,7 +1096,10 @@ export class Game {
     window.electron.saveGame(this.getSaveData());
   }
 
-  _tryPlaceFromPointer(px, py, spec) {
+  // DRY: Convert pixel coords to tile coords, checking that the point is
+  // within the gameplay area (not in HUD/shop/shieldShop panels).
+  // Returns the tile scratch object or null if out-of-bounds / in a panel.
+  _pixelToGameTile(px, py) {
     const shieldShopRight = RENDERER.width - UI_LAYOUT.shieldShopWidth;
     if (
       px < UI_LAYOUT.shopWidth ||
@@ -1182,12 +1107,17 @@ export class Game {
       py > RENDERER.height - UI_LAYOUT.previewHeight ||
       px > shieldShopRight
     ) {
-      return;
+      return null;
     }
     RENDERER.toWorldInto(px, py, this._centerScratch);
     pixelToTile(this._centerScratch.x, this._centerScratch.y, this._tileScratch);
-    const tile = this._tileScratch;
-    if (!inBounds(tile.gx, tile.gy)) return;
+    if (!inBounds(this._tileScratch.gx, this._tileScratch.gy)) return null;
+    return this._tileScratch;
+  }
+
+  _tryPlaceFromPointer(px, py, spec) {
+    const tile = this._pixelToGameTile(px, py);
+    if (!tile) return;
     if (this.placeTroop(spec, tile.gx, tile.gy)) {
       this.selectedSpec = spec;
     } else {
