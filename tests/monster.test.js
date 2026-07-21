@@ -1,8 +1,8 @@
 // Known limitations:
-// - (known limitation: monster attack mode _pendingAttack not actually resolved by game.step without attacker reference)
 // - (known limitation: monster.reviveCount cannot exceed 1 without external revive triggers)
-// - (known limitation: shield regen timer is reset on damage; regenDelay is hardcoded CONST)
 // - (known limitation: no hard cap on _hitTroops Set growth for pass-mode monsters) [FIXED in v1.6.1]
+// - (known limitation: shield regen timer is reset on damage) [shieldRegenDelay is now spec-configurable, FIXED in v1.6.2]
+// - (known limitation: pending attack distance validation added in game._stepMonsterAttacks) [FIXED in v1.6.2]
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { CONFIG, MONSTER_SPECS } from '../src/config.js';
 import { PARTICLES } from '../src/particles.js';
@@ -459,6 +459,34 @@ describe('Monster', () => {
       m.hp = m.maxHp;
       m._updateRegen(1);
       expect(m.hp).toBe(m.maxHp);
+    });
+  });
+
+  describe('shieldRegenDelay (spec-configurable, L7 v1.6.2)', () => {
+    it('Shielded monster reads shieldRegenDelay from spec', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      expect(m.shieldRegenDelay).toBe(MONSTER_SPECS.S.shieldRegenDelay);
+      expect(m.shieldRegenDelay).toBe(3);
+    });
+
+    it('non-shielded monster falls back to CONFIG.SHIELD_REGEN_DELAY', () => {
+      // Grunt (level 1) has no shieldRegenDelay in spec
+      const m = new Monster(1, makeWaypoints(), makePath());
+      expect(m.shieldRegenDelay).toBe(CONFIG.SHIELD_REGEN_DELAY);
+    });
+
+    it('shieldRegenDelay controls regen start delay', () => {
+      const m = new Monster('S', makeWaypoints(), makePath());
+      m.shield -= 20;
+      const shieldAtStart = m.shield;
+      // Override to a custom delay for testing
+      m.shieldRegenDelay = 5;
+      m.shieldRegenTimer = 3; // below custom delay
+      m._updateRegen(1);
+      expect(m.shield).toBe(shieldAtStart); // unchanged, timer at 4 < 5
+      m.shieldRegenTimer = 5; // at delay
+      m._updateRegen(0.5);
+      expect(m.shield).toBeGreaterThan(shieldAtStart); // now regen starts
     });
   });
 

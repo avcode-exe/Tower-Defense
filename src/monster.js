@@ -51,7 +51,7 @@ export class Monster {
     this.shield = Math.round((this.spec.shield || 0) * hpMult);
     this.maxShield = this.shield > 0 ? Math.ceil(this.shield * 1.5) : 0;
     this.shieldRegenTimer = 0;
-    this.shieldRegenDelay = CONFIG.SHIELD_REGEN_DELAY;
+    this.shieldRegenDelay = this.spec.shieldRegenDelay ?? CONFIG.SHIELD_REGEN_DELAY;
 
     // Passive healing (Boss).
     this.healPerSecond = this.spec.healPerSecond || 0;

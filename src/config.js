@@ -242,6 +242,7 @@ export const MONSTER_SPECS = {
     attackRange: 1,
     attackMode: 'stop',
     shield: 69,
+    shieldRegenDelay: 3,
   },
   X: {
     name: 'Spear',

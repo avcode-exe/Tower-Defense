@@ -491,7 +491,7 @@ export class Game {
       m._pendingAttack = null;
       // Re-check target validity: monster may have moved out of range or died
       // after setting _pendingAttack in _updateStopMode.
-      if (target.alive) {
+      if (target.alive && m.tileDistanceTo(target.gx, target.gy) <= m.spec.attackRange) {
         this.damageTroop(m, target);
       }
     }

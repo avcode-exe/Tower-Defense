@@ -2768,6 +2768,61 @@ describe('Game', () => {
     });
   });
 
+  describe('_stepMonsterAttacks (L6 v1.6.2)', () => {
+    it('discards pending attack when target is out of range (distance gating)', () => {
+      const game = makeGame();
+      game.placeTroop(swordsmanSpec, 1, 1);
+      const troop = game.troops[0];
+      const hpBefore = troop.hp;
+      // Spawn monster close to troop
+      const m = placeMonsterAt(game, 1, 2, 2);
+      // Monster at (2,2), troop at (1,1) — Chebyshev distance = 1 (within attackRange=1)
+      m._pendingAttack = troop;
+      game._stepMonsterAttacks();
+      // Should hit because monster is within range
+      expect(troop.hp).toBeLessThan(hpBefore);
+    });
+
+    it('discards pending attack when target is out of range', () => {
+      const game = makeGame();
+      game.placeTroop(swordsmanSpec, 1, 1);
+      const troop = game.troops[0];
+      const hpBefore = troop.hp;
+      // Spawn monster, then move it far away
+      const m = placeMonsterAt(game, 1, 2, 2);
+      // Teleport monster far from troop — monster at (15,15), troop at (1,1) — Chebyshev = 14 > 1
+      m._tileGx = 15;
+      m._tileGy = 15;
+      m.x = 15 * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      m.y = 15 * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+      m._pendingAttack = troop;
+      game._stepMonsterAttacks();
+      // Should discard because monster moved out of range
+      expect(troop.hp).toBe(hpBefore);
+      expect(m._pendingAttack).toBeNull(); // cleared after processing
+    });
+
+    it('discards pending attack when target is dead', () => {
+      const game = makeGame();
+      game.placeTroop(swordsmanSpec, 1, 1);
+      const troop = game.troops[0];
+      const m = placeMonsterAt(game, 1, 2, 2);
+      troop.alive = false;
+      m._pendingAttack = troop;
+      game._stepMonsterAttacks();
+      expect(m._pendingAttack).toBeNull();
+    });
+
+    it('skips dead monsters', () => {
+      const game = makeGame();
+      const m = placeMonsterAt(game, 1, 2, 2);
+      m.alive = false;
+      m._pendingAttack = { alive: true, gx: 5, gy: 5 };
+      expect(() => game._stepMonsterAttacks()).not.toThrow();
+      expect(m._pendingAttack).toBeTruthy(); // not cleared because alive check skipped
+    });
+  });
+
   describe('Game constructor', () => {
     it('sets sellConfirmationEnabled when constructed with new', () => {
       const canvas = { getContext: vi.fn(() => ({})) };
