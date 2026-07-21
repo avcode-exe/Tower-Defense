@@ -123,4 +123,15 @@ describe('smoke tests', () => {
       expect(content).toContain(channel);
     }
   });
+
+  it('main.js contains unhandledrejection error handler', () => {
+    const filePath = path.resolve(root, 'src/main.js');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    expect(content).toContain("window.addEventListener('unhandledrejection'");
+    expect(content).toContain('window.onerror');
+    expect(content).toContain('Something went wrong');
+    expect(content).toContain('error-restart-btn');
+    expect(content).toContain('location.reload()');
+    expect(content).toContain('towerdefense-error-log');
+  });
 });

@@ -11,8 +11,61 @@ import { showToast } from './ui/toast.js';
 
 let game = null;
 
+// ── Error tracking: catch unhandled rejections and render error overlay ─────
+let _errorShown = false;
+let _errorOverlay = null;
+
+function showErrorOverlay(message) {
+  if (_errorShown) return;
+  _errorShown = true;
+
+  // Log to localStorage for post-mortem debugging
+  try {
+    const log = JSON.parse(localStorage.getItem('towerdefense-error-log') || '[]');
+    log.push({ message, time: Date.now() });
+    while (log.length > 20) log.shift();
+    localStorage.setItem('towerdefense-error-log', JSON.stringify(log));
+  } catch (_) {
+    /* localStorage may be full or unavailable */
+  }
+
+  _errorOverlay = document.createElement('div');
+  _errorOverlay.style.cssText =
+    'position:fixed;top:0;left:0;right:0;bottom:0;' +
+    'background:rgba(0,0,0,0.88);display:flex;flex-direction:column;' +
+    'align-items:center;justify-content:center;z-index:9999;' +
+    'font-family:system-ui,sans-serif;color:#e0e0e0;';
+  _errorOverlay.innerHTML =
+    '<h2 style="color:#e74c3c;margin:0 0 12px 0;font-size:20px;">Something went wrong</h2>' +
+    '<p id="error-msg" style="margin:0 0 24px 0;max-width:420px;text-align:center;font-size:13px;line-height:1.5;color:#aaa;"></p>' +
+    '<button id="error-restart-btn" style="padding:10px 28px;background:#238636;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-family:inherit;">Restart</button>' +
+    '<p style="margin:12px 0 0 0;font-size:10px;color:#666;">If this keeps happening, check the dev console (F12) for details.</p>';
+  const msgEl = _errorOverlay.querySelector('#error-msg');
+  if (msgEl) msgEl.textContent = message || 'An unexpected error occurred.';
+  document.body.appendChild(_errorOverlay);
+  const restartBtn = _errorOverlay.querySelector('#error-restart-btn');
+  if (restartBtn) {
+    restartBtn.addEventListener('click', () => location.reload());
+  }
+}
+
+function setupErrorTracking() {
+  window.addEventListener('unhandledrejection', (event) => {
+    event.preventDefault();
+    console.error('[error] Unhandled rejection:', event.reason);
+    const msg = event.reason && event.reason.message ? event.reason.message : String(event.reason || 'Unknown error');
+    showErrorOverlay(msg);
+  });
+  window.onerror = (message, source, lineno, colno, error) => {
+    console.error('[error] Uncaught exception:', message, source, lineno, colno);
+    const msg = (error && error.message) || String(message || 'Unknown error');
+    showErrorOverlay(msg);
+  };
+}
+
 // Bootstrap: wire up the canvas and start the game
 document.addEventListener('DOMContentLoaded', async () => {
+  setupErrorTracking();
   const canvas = document.getElementById('game');
   if (!canvas) return;
   game = new Game(canvas);

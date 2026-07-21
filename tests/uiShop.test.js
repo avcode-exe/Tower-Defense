@@ -1,5 +1,5 @@
 // (known limitation: drawShop uses RENDERER.ctx directly — all canvas mocks are vi.fn())
-// (known limitation: handleToggleClick calls RENDERER.resize with ctx.canvas which may be null)
+// (known limitation: handleToggleClick calls RENDERER.resize with ctx.canvas which may be null) [FIXED in v1.6.1]
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { CONFIG, LAYOUT, TROOP_SPECS } from '../src/config.js';
 import { UI_LAYOUT, UI_COLORS } from '../src/ui/constants.js';
@@ -7,6 +7,7 @@ import { UI_LAYOUT, UI_COLORS } from '../src/ui/constants.js';
 // Shared mock context factory
 function makeMockCtx() {
   return {
+    canvas: { width: 800, height: 600 },
     fillStyle: '',
     strokeStyle: '',
     lineWidth: 1,
@@ -461,6 +462,20 @@ describe('ui/shop', () => {
     it('returns false when no toggle button hit', () => {
       const result = handleToggleClick.call(uiCtx, 0, 0);
       expect(result).toBe(false);
+    });
+
+    it('returns false when RENDERER.ctx is null (race condition guard)', () => {
+      RENDERER.ctx = null;
+      const result = handleToggleClick.call(uiCtx, 588, 58);
+      expect(result).toBe(false);
+      expect(RENDERER.resize).not.toHaveBeenCalled();
+    });
+
+    it('returns false when RENDERER.ctx.canvas is null', () => {
+      RENDERER.ctx = { canvas: null };
+      const result = handleToggleClick.call(uiCtx, 588, 58);
+      expect(result).toBe(false);
+      expect(RENDERER.resize).not.toHaveBeenCalled();
     });
   });
 

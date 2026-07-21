@@ -134,6 +134,8 @@ export function updateHover(px, py) {
 }
 
 export function handleToggleClick(px, py) {
+  // Guard against null canvas (race condition on startup).
+  if (!RENDERER.ctx || !RENDERER.ctx.canvas) return false;
   if (this._toggleShieldShop && hitToggleButton(px, py, this._toggleShieldShop)) {
     UI_LAYOUT.collapsed.shieldShop = !UI_LAYOUT.collapsed.shieldShop;
     RENDERER.resize(RENDERER.ctx.canvas);

@@ -2,7 +2,7 @@
 // - (known limitation: monster attack mode _pendingAttack not actually resolved by game.step without attacker reference)
 // - (known limitation: monster.reviveCount cannot exceed 1 without external revive triggers)
 // - (known limitation: shield regen timer is reset on damage; regenDelay is hardcoded CONST)
-// - (known limitation: no hard cap on _hitTroops Set growth for pass-mode monsters)
+// - (known limitation: no hard cap on _hitTroops Set growth for pass-mode monsters) [FIXED in v1.6.1]
 import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { CONFIG, MONSTER_SPECS } from '../src/config.js';
 import { PARTICLES } from '../src/particles.js';
@@ -737,13 +737,15 @@ describe('Monster', () => {
       expect(m._pendingAttack).toBeNull();
     });
 
-    it('cleans up dead troops from _hitTroops', () => {
+    it('cleans up dead troops from _hitTroops (via periodic cleanup)', () => {
       const m = new Monster(2, makeWaypoints(), makePath());
       const t = makeTroopStub({ gx: 5, gy: 5, alive: false });
       m._hitTroops = new Set([t]);
       m._tileGx = 5;
       m._tileGy = 5;
       const tileIndex = makeTileIndex([]);
+      // Cleanup is periodic (every 10 calls). Set tick so next call triggers it.
+      m._cleanupTick = 9;
       m._updatePassMode(tileIndex);
       expect(m._hitTroops.has(t)).toBe(false);
     });
@@ -758,6 +760,86 @@ describe('Monster', () => {
       m._updatePassMode(tileIndex);
       expect(m._pendingAttack).toBe(t);
       expect(m._lastPassTile).toBe(5 * 16 + 5);
+    });
+  });
+
+  describe('_cleanupHitTroops', () => {
+    it('no-ops when _hitTroops is null', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      expect(() => m._cleanupHitTroops()).not.toThrow();
+      expect(m._hitTroops).toBeNull();
+    });
+
+    it('removes dead troop references from the Set', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      const t1 = makeTroopStub({ gx: 1, gy: 1, alive: false });
+      const t2 = makeTroopStub({ gx: 2, gy: 2, alive: true });
+      m._hitTroops = new Set([t1, t2]);
+      m._cleanupHitTroops();
+      expect(m._hitTroops.has(t1)).toBe(false);
+      expect(m._hitTroops.has(t2)).toBe(true);
+    });
+
+    it('enforces hard cap by removing oldest entries when over limit', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      m._hitTroopsCap = 3; // small cap for testing
+      m._hitTroops = new Set();
+      // Add 5 troops (all alive)
+      const troops = [];
+      for (let i = 0; i < 5; i++) {
+        const t = makeTroopStub({ gx: i, gy: i, alive: true });
+        troops.push(t);
+        m._hitTroops.add(t);
+      }
+      expect(m._hitTroops.size).toBe(5);
+      m._cleanupHitTroops();
+      // Should have removed oldest 2, keeping 3
+      expect(m._hitTroops.size).toBe(3);
+      // Oldest 2 should be gone (insertion order: first added = first iterated)
+      expect(m._hitTroops.has(troops[0])).toBe(false);
+      expect(m._hitTroops.has(troops[1])).toBe(false);
+      // Newest 3 should remain
+      expect(m._hitTroops.has(troops[2])).toBe(true);
+      expect(m._hitTroops.has(troops[3])).toBe(true);
+      expect(m._hitTroops.has(troops[4])).toBe(true);
+    });
+
+    it('does not remove entries when under cap', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      m._hitTroopsCap = 10;
+      m._hitTroops = new Set();
+      const troops = [];
+      for (let i = 0; i < 5; i++) {
+        const t = makeTroopStub({ gx: i, gy: i, alive: true });
+        troops.push(t);
+        m._hitTroops.add(t);
+      }
+      m._cleanupHitTroops();
+      expect(m._hitTroops.size).toBe(5);
+    });
+  });
+
+  describe('_updatePassMode with cap', () => {
+    it('respects _hitTroopsCap and stops adding when full', () => {
+      const m = new Monster(2, makeWaypoints(), makePath());
+      m._hitTroopsCap = 1; // very small cap
+      m._tileGx = 5;
+      m._tileGy = 5;
+      const t1 = makeTroopStub({ gx: 5, gy: 5, alive: true });
+      const t2 = makeTroopStub({ gx: 5, gy: 6, alive: true });
+      const tileIndex = makeTileIndex([t1, t2]);
+      // First pass: adds t1 (size goes to 1, at cap)
+      m._lastPassTile = -1;
+      m._updatePassMode(tileIndex);
+      expect(m._hitTroops.size).toBeLessThanOrEqual(1);
+      // Move to next tile
+      m._tileGx = 6;
+      m._tileGy = 6;
+      m._lastPassTile = -1;
+      // The cap check prevents adding more
+      // Since size is already at cap, t2 won't be added
+      m._updatePassMode(tileIndex);
+      expect(m._hitTroops.size).toBeLessThanOrEqual(1);
     });
   });
 

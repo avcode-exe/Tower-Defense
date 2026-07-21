@@ -464,4 +464,69 @@ describe('UpdateManager', () => {
     expect(els.progressPct.textContent).toBe('100%');
     expect(els.progressFill.style.width).toBe('100%');
   });
+
+  it('_handleProgress falls back to availableVersion when data.version is undefined (line 86)', () => {
+    const um = new UpdateManager(makeSettings());
+    um.settings.update.availableVersion = '1.5.0';
+    um._showProgress = vi.fn();
+    um._handleProgress({ percent: 50 }); // no version field
+    expect(um._showProgress).toHaveBeenCalledWith('1.5.0', 50);
+  });
+
+  it('_showProgress handles undefined pct (falls back to 0) (line 90)', () => {
+    const els = {
+      progressWrap: { style: { display: 'none' } },
+      progressPct: { textContent: '' },
+      progressVer: { textContent: '' },
+      progressFill: { style: { width: '' } },
+    };
+    const um = new UpdateManager(makeSettings());
+    um.els = els;
+    um._showProgress('2.0.0', undefined);
+    expect(els.progressPct.textContent).toBe('0%');
+    expect(els.progressFill.style.width).toBe('0%');
+  });
+
+  it('_showProgress handles null pct (falls back to 0)', () => {
+    const els = {
+      progressWrap: { style: { display: 'none' } },
+      progressPct: { textContent: '' },
+      progressVer: { textContent: '' },
+      progressFill: { style: { width: '' } },
+    };
+    const um = new UpdateManager(makeSettings());
+    um.els = els;
+    um._showProgress('2.0.0', null);
+    expect(els.progressPct.textContent).toBe('0%');
+  });
+
+  it('_handleDownloaded skips setting availableVersion when data.version is falsy (line 108)', () => {
+    const um = new UpdateManager(makeSettings());
+    um.settings.update.availableVersion = null;
+    um._showProgress = vi.fn();
+    um._handleDownloaded({}); // no version field
+    expect(um.settings.update.availableVersion).toBeNull();
+    expect(um._showProgress).toHaveBeenCalledWith(undefined, 100);
+  });
+
+  it('_handleDownloaded skips button creation when progressWrap is missing', () => {
+    const um = new UpdateManager(makeSettings());
+    um.els = {
+      progressWrap: null,
+      progressPct: { textContent: '' },
+      progressVer: { textContent: '' },
+      progressFill: { style: { width: '' } },
+    };
+    um._showProgress = vi.fn();
+    expect(() => um._handleDownloaded({ version: '2.0.0' })).not.toThrow();
+  });
+
+  it('skip initializes skippedVersions when undefined (line 85)', () => {
+    const um = new UpdateManager(makeSettings());
+    // Constructor initializes skippedVersions as [], so set it to falsy to test the || [] fallback
+    um.settings.update.skippedVersions = null;
+    um.skip('1.0.0');
+    expect(Array.isArray(um.settings.update.skippedVersions)).toBe(true);
+    expect(um.settings.update.skippedVersions).toContain('1.0.0');
+  });
 });

@@ -83,6 +83,8 @@ export class Monster {
     this._lastPassTile = -1;
     // Pass-mode penetration: track troops already hit so each troop is attacked at most once.
     this._hitTroops = null; // lazily allocated for pass-mode monsters only
+    this._hitTroopsCap = 200; // hard cap to prevent unbounded memory growth
+    this._cleanupTick = 0; // counter for periodic cleanup
 
     this._updatePosition();
   }
@@ -399,10 +401,31 @@ export class Monster {
     }
   }
 
-  _updatePassMode(troopTileIndex) {
-    if (!this._hitTroops) this._hitTroops = new Set();
+  _cleanupHitTroops() {
+    if (!this._hitTroops) return;
+    // Remove dead troop references.
     for (const t of this._hitTroops) {
       if (!t.alive) this._hitTroops.delete(t);
+    }
+    // Enforce hard cap: if still over cap after dead-removal, delete oldest entries.
+    // Since Set iterates in insertion order, the first entries are the oldest.
+    if (this._hitTroops.size > this._hitTroopsCap) {
+      const toDelete = this._hitTroops.size - this._hitTroopsCap;
+      let deleted = 0;
+      for (const t of this._hitTroops) {
+        if (deleted >= toDelete) break;
+        this._hitTroops.delete(t);
+        deleted++;
+      }
+    }
+  }
+
+  _updatePassMode(troopTileIndex) {
+    if (!this._hitTroops) this._hitTroops = new Set();
+    // Periodic cleanup: clean dead entries and enforce cap every 10 calls.
+    this._cleanupTick = (this._cleanupTick + 1) % 10;
+    if (this._cleanupTick === 0) {
+      this._cleanupHitTroops();
     }
     const gx = this._tileGx;
     const gy = this._tileGy;
@@ -421,7 +444,10 @@ export class Monster {
             const t = tileTroops[i];
             if (t.alive && !this._hitTroops.has(t)) {
               this._pendingAttack = t;
-              this._hitTroops.add(t);
+              // Only add if under cap (safety check in case periodic cleanup missed a burst).
+              if (this._hitTroops.size < this._hitTroopsCap) {
+                this._hitTroops.add(t);
+              }
               break;
             }
           }

@@ -895,7 +895,28 @@ describe('Troop', () => {
     });
   });
 
-  describe('update support mode with heal targets', () => {
+  describe('update support mode: heal target removal paths', () => {
+    it('removes self-referencing heal target during healing loop (line 505-506)', () => {
+      // pickHealTarget does NOT check t === this, but the healing loop does.
+      // So a healer can pick itself as a heal target, then the healing loop removes it.
+      const t = new Troop(healerSpec, 5, 5);
+      t.cooldown = 0;
+      t.targetRefresh = -1;
+      // Add self as heal target — pickHealTarget won't filter it out (no t === this check)
+      // But the healing loop WILL filter it out (t === this check at line 504)
+      t.healTargets = [t];
+      t.update(1 / 60, [], [], {
+        troops: [],
+        monsters: [],
+        _monsterTileIndex: null,
+        _troopIndexByRef: new Map(),
+        damageMonster: vi.fn(),
+        _getPopup: vi.fn(),
+      });
+      // self-target should be removed by the healing loop's t === this check
+      expect(t.healTargets.length).toBe(0);
+    });
+
     it('heals existing heal targets and shows popup', () => {
       const t = new Troop(healerSpec, 5, 5);
       t.cooldown = 0;
@@ -1148,6 +1169,55 @@ describe('Troop', () => {
     it('getTotalInvested handles support with healTargetLevel 1', () => {
       const t = new Troop(healerSpec, 0, 0);
       expect(t.getTotalInvested()).toBeGreaterThan(0);
+    });
+
+    it('compareHealPriority tiebreaker: returns index when ratio/hp/dist are equal', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      // Create 2 candidates with identical hpRatio, hp, and distSq
+      const target1 = {
+        alive: true,
+        x: t.x,
+        y: t.y,
+        hp: 50,
+        maxHp: 100,
+        spec: { type: 'melee' },
+        getHpRatio: () => 0.5,
+      };
+      const target2 = {
+        alive: true,
+        x: t.x,
+        y: t.y,
+        hp: 50,
+        maxHp: 100,
+        spec: { type: 'melee' },
+        getHpRatio: () => 0.5,
+      };
+      const result = t.pickHealTarget(
+        [target1, target2],
+        new Map([
+          [target1, 0],
+          [target2, 1],
+        ])
+      );
+      // Both are identical on all criteria, first by index (0) should win
+      expect(result).toBe(target1);
+    });
+
+    it('compareHealPriority tiebreaker: hp delta used when ratio equal, then distSq, then index', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const candidates = [
+        { alive: true, x: t.x, y: t.y, hp: 50, maxHp: 100, spec: { type: 'melee' }, getHpRatio: () => 0.5 },
+        { alive: true, x: t.x, y: t.y, hp: 30, maxHp: 100, spec: { type: 'melee' }, getHpRatio: () => 0.5 },
+      ];
+      const result = t.pickHealTarget(
+        candidates,
+        new Map([
+          [candidates[0], 0],
+          [candidates[1], 1],
+        ])
+      );
+      // Both have same ratio (0.5), so hp differs: candidate[1] has lower hp (30 < 50)
+      expect(result).toBe(candidates[1]);
     });
 
     it('getDamage returns cached value (line 89)', () => {
