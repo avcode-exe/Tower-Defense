@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.6.2] — TBD
+
+### 🐛 Bug Fixes
+
+- **Monster attack distance validation (L6)** — `_stepMonsterAttacks()` now validates Chebyshev tile distance between attacker and target before delivering damage. Previously only `target.alive` was checked — if a monster moved out of range between queuing an attack and execution, the attack was still delivered. This is a safety guard that formalizes existing behavior; no in-game scenario currently triggers out-of-range attacks.
+- **Shield regen delay spec-configurable (L7)** — Shield regen delay moved from a global `CONFIG.SHIELD_REGEN_DELAY` constant into `MONSTER_SPECS.S.shieldRegenDelay` (backward-compatible fallback via `??` operator). Future monster types can now have different regen delays without special cases in `monster.js`.
+
+### 🧪 Testing & Quality
+
+- **1,488 tests** (up from 1,420, +68 new tests)
+- **L12: Overlay branch coverage** — New `tests/uiOverlays.test.js` (14 tests) with proper canvas mock setup, deterministic `performance.now()` mocking, and full branch coverage of `drawWaveTransition` (fade-in, hold, fade-out, expired, early returns). Removed fragile overlay extra-branches tests from `uiRendering.test.js`. Overlays.js now at **100%** on all 4 coverage metrics.
+- **L13: electron-main.js coverage** — New `tests/electronMain.test.js` (50 tests) with `vi.mock('electron')`, `vi.mock('fs')` with proper ESM/CJS interop (`default` + named exports), and `vi.mock('os')`. Tests cover: all 13 IPC channel registrations, settings sanitization (7 edge cases: null, array, valid, oversized, skippedVersion filtering, channel validation, interval normalization), settings persistence (read with merge, fallback on error), save/load game handlers (valid, oversized, non-object), delete-save, window creation with BrowserWindow options, autoUpdater event wiring (7 event callbacks), sendStatus/handleUpdaterError/formatUpdaterError paths, and app lifecycle window-all-closed/before-quit/activate handlers.
+
+### ⚙️ Configuration
+
+- **Version bump** — 1.6.1 → 1.6.2-beta.1
+
 ## [1.6.1] — 2026-07-21
 
 ### 🐛 Bug Fixes

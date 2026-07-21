@@ -609,37 +609,3 @@ describe('drawShieldShop', () => {
     expect(_sharedCtx.fillText).toHaveBeenCalledWith('SHOP', expect.any(Number), expect.any(Number));
   });
 });
-
-// ── overlays extra branches ──
-describe('overlays extra branches (known limitation: drawWaveTransition progress branches)', () => {
-  let drawWaveTransition, drawOverlay, drawDevConfirmDialog;
-  beforeEach(async () => {
-    const mod = await import('../src/ui/overlays.js');
-    drawWaveTransition = mod.drawWaveTransition;
-    drawOverlay = mod.drawOverlay;
-    drawDevConfirmDialog = mod.drawDevConfirmDialog;
-  });
-
-  it('drawWaveTransition fade-out alpha when progress >= 0.8 (line 20)', () => {
-    // startMs = performance.now() - 2200 => elapsed ≈ 2.2s, progress ≈ 0.88 > 0.8
-    const game = { waveCompleteAnim: { active: true, waveNum: 1, startMs: performance.now() - 2200 } };
-    expect(() => drawWaveTransition(game)).not.toThrow();
-    expect(_sharedCtx.fillText).toHaveBeenCalledWith(
-      expect.stringContaining('Wave 1 Complete'),
-      expect.any(Number),
-      expect.any(Number)
-    );
-  });
-
-  it('drawWaveTransition alpha hold when 0.2 <= progress < 0.8', () => {
-    // startMs = performance.now() - 500 => elapsed ≈ 0.5s, remaining ≈ 2.0, progress ≈ 0.2
-    const game = { waveCompleteAnim: { active: true, waveNum: 2, startMs: performance.now() - 500 } };
-    expect(() => drawWaveTransition(game)).not.toThrow();
-  });
-
-  it('drawWaveTransition alpha fade-in when progress < 0.2', () => {
-    // startMs = performance.now() - 50 => elapsed ≈ 0.05s, remaining ≈ 2.45, progress ≈ 0.02
-    const game = { waveCompleteAnim: { active: true, waveNum: 3, startMs: performance.now() - 50 } };
-    expect(() => drawWaveTransition(game)).not.toThrow();
-  });
-});
