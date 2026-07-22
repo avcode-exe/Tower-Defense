@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 const mockIpcHandle = vi.fn();
 const mockIpcOn = vi.fn();
 const mockAppGetPath = vi.fn(() => '/tmp/test-userData');
-const mockAppGetVersion = vi.fn(() => '1.6.2-beta.1');
+const mockAppGetVersion = vi.fn(() => '1.6.2');
 const mockAppWhenReady = vi.fn(() => Promise.resolve());
 const mockAppOn = vi.fn();
 const mockAppQuit = vi.fn();
@@ -185,7 +185,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
   describe('get-version handler', () => {
     it('returns app.getVersion()', async () => {
       const result = await invokeHandle('get-version');
-      expect(result).toBe('1.6.2-beta.1');
+      expect(result).toBe('1.6.2');
       expect(mockAppGetVersion).toHaveBeenCalled();
     });
   });
@@ -310,7 +310,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
         throw new Error('read error');
       });
       const result = await invokeHandle('get-settings');
-      expect(result.version).toBe('1.6.2-beta.1');
+      expect(result.version).toBe('1.6.2');
     });
   });
 

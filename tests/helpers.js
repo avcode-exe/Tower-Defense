@@ -88,7 +88,7 @@ export function makeGame({ devMode = false, gold = 100000 } = {}) {
   game.devMonsterCounts = {};
   game._needsSaveCleanup = false;
   game._dragState = null;
-  game.appVersion = '1.6.0-beta.2';
+  game.appVersion = '1.6.2';
   return game;
 }
 
@@ -214,7 +214,7 @@ export function makeElectronStub(overrides = {}) {
       )
     ),
     saveSettings: vi.fn(async () => true),
-    getVersion: vi.fn(async () => '1.6.0-beta.2'),
+    getVersion: vi.fn(async () => '1.6.2'),
     sendManualCheck: vi.fn(),
     downloadUpdate: vi.fn(),
     requestRestartToUpdate: vi.fn(),

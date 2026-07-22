@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.6.2] — TBD
+## [1.6.2] — 2026-07-22
 
 ### 🐛 Bug Fixes
 
@@ -9,13 +9,16 @@
 
 ### 🧪 Testing & Quality
 
-- **1,488 tests** (up from 1,420, +68 new tests)
+- **1,532 tests** (up from 1,420, +112 new tests across 2 releases)
+- **45 test files** across the project (up from 41)
 - **L12: Overlay branch coverage** — New `tests/uiOverlays.test.js` (14 tests) with proper canvas mock setup, deterministic `performance.now()` mocking, and full branch coverage of `drawWaveTransition` (fade-in, hold, fade-out, expired, early returns). Removed fragile overlay extra-branches tests from `uiRendering.test.js`. Overlays.js now at **100%** on all 4 coverage metrics.
-- **L13: electron-main.js coverage** — New `tests/electronMain.test.js` (50 tests) with `vi.mock('electron')`, `vi.mock('fs')` with proper ESM/CJS interop (`default` + named exports), and `vi.mock('os')`. Tests cover: all 13 IPC channel registrations, settings sanitization (7 edge cases: null, array, valid, oversized, skippedVersion filtering, channel validation, interval normalization), settings persistence (read with merge, fallback on error), save/load game handlers (valid, oversized, non-object), delete-save, window creation with BrowserWindow options, autoUpdater event wiring (7 event callbacks), sendStatus/handleUpdaterError/formatUpdaterError paths, and app lifecycle window-all-closed/before-quit/activate handlers.
+- **L13 phase 1: electron-main.js coverage** — New `tests/electronMain.test.js` (50 tests) with `vi.mock('electron')`, `vi.mock('fs')` with proper ESM/CJS interop (`default` + named exports), and `vi.mock('os')`. Tests cover: all 13 IPC channel registrations, settings sanitization (7 edge cases: null, array, valid, oversized, skippedVersion filtering, channel validation, interval normalization), settings persistence (read with merge, fallback on error), save/load game handlers (valid, oversized, non-object), delete-save, window creation with BrowserWindow options, autoUpdater event wiring (7 event callbacks), sendStatus/handleUpdaterError/formatUpdaterError paths, and app lifecycle window-all-closed/before-quit/activate handlers.
+- **L13 phase 2: preload.js coverage (100%)** — New `tests/preload.test.js` (30 tests) with `vi.mock('electron')` capturing `contextBridge.exposeInMainWorld` API. Tests cover: all 15 Electron API methods (getSettings, saveSettings, getVersion, sendManualCheck, downloadUpdate, requestRestartToUpdate, skipUpdate, onUpdateStatus, setAutoDownload, setUpdateChannel, cancelUpdate, saveGame, loadGame, deleteSave) with type validation branches (null, array, string, number, boolean, function) via `isPlainObject` and explicit type guards (4 TypeError branches for saveSettings, 2 for skipUpdate, 2 for onUpdateStatus, 1 for setAutoDownload, 1 for setUpdateChannel, 3 for saveGame). preload.js now at **100%** on all 4 coverage metrics and added to vitest thresholds.
+- **L14: main.js coverage (~47%)** — New `tests/main.test.js` (14 tests) with comprehensive jsdom environment: canvas polyfill (`HTMLCanvasElement.prototype.getContext`), full DOM fixture (30+ elements), and Electron stub. Tests cover: module import, error tracking registration (`window.onerror`), Game/Input creation, save detection flow, settings loading and sync, UpdateManager initialization, about version display, monster info population, and notification system wiring. Handler body partially executes in jsdom. Main.js excluded from thresholds (~47% below 80% per-file minimum; deferred to v1.7.x).
 
 ### ⚙️ Configuration
 
-- **Version bump** — 1.6.1 → 1.6.2-beta.1
+- **Version bump** — 1.6.1 → 1.6.2 (stable release)
 
 ## [1.6.1] — 2026-07-21
 
