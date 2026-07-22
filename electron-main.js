@@ -34,6 +34,14 @@ const DEFAULT_SETTINGS = {
   version: app.getVersion(),
   update: { ...RENDERER_DEFAULTS.update },
   collapsed: { ...RENDERER_DEFAULTS.collapsed },
+  game: { ...RENDERER_DEFAULTS.game },
+  audio: { ...RENDERER_DEFAULTS.audio },
+  graphics: { ...RENDERER_DEFAULTS.graphics },
+  controls: {
+    scrollZoom: RENDERER_DEFAULTS.controls.scrollZoom,
+    keyBindings: { ...RENDERER_DEFAULTS.controls.keyBindings },
+  },
+  accessibility: { ...RENDERER_DEFAULTS.accessibility },
 };
 
 const MIN_CHECK_INTERVAL_MINUTES = 15;
@@ -50,10 +58,18 @@ function normalizeCheckIntervalMinutes(value) {
 function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null;
 
-  const ALLOWED_TOP_KEYS = ['update', 'collapsed'];
+  const ALLOWED_TOP_KEYS = ['update', 'collapsed', 'game', 'audio', 'graphics', 'controls', 'accessibility'];
   const sanitized = {
     update: { ...DEFAULT_SETTINGS.update },
     collapsed: { ...DEFAULT_SETTINGS.collapsed },
+    game: { ...DEFAULT_SETTINGS.game },
+    audio: { ...DEFAULT_SETTINGS.audio },
+    graphics: { ...DEFAULT_SETTINGS.graphics },
+    controls: {
+      scrollZoom: DEFAULT_SETTINGS.controls.scrollZoom,
+      keyBindings: { ...DEFAULT_SETTINGS.controls.keyBindings },
+    },
+    accessibility: { ...DEFAULT_SETTINGS.accessibility },
   };
 
   function validateUpdate(value) {
@@ -66,13 +82,36 @@ function sanitizeSettings(settings) {
     return true;
   }
 
+  function validateGame(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
+  function validateAudio(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
+  function validateGraphics(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
+  function validateControls(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
+  function validateAccessibility(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+    return true;
+  }
+
   for (const key of Object.keys(settings)) {
     if (!ALLOWED_TOP_KEYS.includes(key)) continue;
-    if (key === 'update' && validateUpdate(settings.update)) {
-      sanitized.update = settings.update;
-    } else if (key === 'collapsed' && validateCollapsed(settings.collapsed)) {
-      sanitized.collapsed = settings.collapsed;
-    }
+    // Sections are initialized with defaults above; individual field
+    // validation below overwrites only valid fields, preserving defaults
+    // for missing/invalid entries.
   }
 
   if (settings.update && typeof settings.update === 'object' && !Array.isArray(settings.update)) {
@@ -116,6 +155,78 @@ function sanitizeSettings(settings) {
     }
   }
 
+  if (settings.game && typeof settings.game === 'object' && !Array.isArray(settings.game)) {
+    if (typeof settings.game.startingGold === 'number') {
+      sanitized.game.startingGold = Math.max(0, Math.min(5000, settings.game.startingGold));
+    }
+    if (typeof settings.game.startingLives === 'number') {
+      sanitized.game.startingLives = Math.max(1, Math.min(100, settings.game.startingLives));
+    }
+    if (typeof settings.game.maxWave === 'number') {
+      sanitized.game.maxWave = Math.max(1, Math.min(20, settings.game.maxWave));
+    }
+    if (typeof settings.game.speedDefault === 'number') {
+      sanitized.game.speedDefault = Math.max(1, Math.min(10, settings.game.speedDefault));
+    }
+  }
+
+  if (settings.audio && typeof settings.audio === 'object' && !Array.isArray(settings.audio)) {
+    const volumeKeys = ['masterVolume', 'sfxVolume', 'ambientVolume', 'uiVolume'];
+    for (const vk of volumeKeys) {
+      if (typeof settings.audio[vk] === 'number') {
+        sanitized.audio[vk] = Math.max(0, Math.min(1, settings.audio[vk]));
+      }
+    }
+    const muteKeys = ['masterMute', 'sfxMute', 'ambientMute', 'uiMute'];
+    for (const mk of muteKeys) {
+      if (typeof settings.audio[mk] === 'boolean') sanitized.audio[mk] = settings.audio[mk];
+    }
+  }
+
+  if (settings.graphics && typeof settings.graphics === 'object' && !Array.isArray(settings.graphics)) {
+    if (
+      typeof settings.graphics.particleQuality === 'string' &&
+      ['Low', 'Medium', 'High', 'Ultra'].includes(settings.graphics.particleQuality)
+    ) {
+      sanitized.graphics.particleQuality = settings.graphics.particleQuality;
+    }
+    if (typeof settings.graphics.resolutionScale === 'number') {
+      sanitized.graphics.resolutionScale = Math.max(0.5, Math.min(2, settings.graphics.resolutionScale));
+    }
+    if (typeof settings.graphics.screenShake === 'number') {
+      sanitized.graphics.screenShake = Math.max(0, Math.min(1, settings.graphics.screenShake));
+    }
+  }
+
+  if (settings.controls && typeof settings.controls === 'object' && !Array.isArray(settings.controls)) {
+    if (typeof settings.controls.scrollZoom === 'boolean') sanitized.controls.scrollZoom = settings.controls.scrollZoom;
+    if (
+      settings.controls.keyBindings &&
+      typeof settings.controls.keyBindings === 'object' &&
+      !Array.isArray(settings.controls.keyBindings)
+    ) {
+      for (const key of Object.keys(DEFAULT_SETTINGS.controls.keyBindings)) {
+        if (
+          typeof settings.controls.keyBindings[key] === 'string' &&
+          settings.controls.keyBindings[key].length > 0 &&
+          settings.controls.keyBindings[key].length <= 20
+        ) {
+          sanitized.controls.keyBindings[key] = settings.controls.keyBindings[key];
+        }
+      }
+    }
+  }
+
+  if (settings.accessibility && typeof settings.accessibility === 'object' && !Array.isArray(settings.accessibility)) {
+    if (typeof settings.accessibility.colorblindMode === 'boolean')
+      sanitized.accessibility.colorblindMode = settings.accessibility.colorblindMode;
+    if (typeof settings.accessibility.fontSizeScale === 'number') {
+      sanitized.accessibility.fontSizeScale = Math.max(0.5, Math.min(2, settings.accessibility.fontSizeScale));
+    }
+    if (typeof settings.accessibility.reducedMotion === 'boolean')
+      sanitized.accessibility.reducedMotion = settings.accessibility.reducedMotion;
+  }
+
   return sanitized;
 }
 
@@ -131,6 +242,14 @@ function readSettings() {
     version: DEFAULT_SETTINGS.version,
     update: { ...DEFAULT_SETTINGS.update },
     collapsed: { ...DEFAULT_SETTINGS.collapsed },
+    game: { ...DEFAULT_SETTINGS.game },
+    audio: { ...DEFAULT_SETTINGS.audio },
+    graphics: { ...DEFAULT_SETTINGS.graphics },
+    controls: {
+      scrollZoom: DEFAULT_SETTINGS.controls.scrollZoom,
+      keyBindings: { ...DEFAULT_SETTINGS.controls.keyBindings },
+    },
+    accessibility: { ...DEFAULT_SETTINGS.accessibility },
   };
   let loaded = null;
   // Try persistent path first (survives uninstall/reinstall)
@@ -160,6 +279,24 @@ function readSettings() {
     }
     if (loaded.collapsed && typeof loaded.collapsed === 'object') {
       Object.assign(defaults.collapsed, loaded.collapsed);
+    }
+    if (loaded.game && typeof loaded.game === 'object') {
+      Object.assign(defaults.game, loaded.game);
+    }
+    if (loaded.audio && typeof loaded.audio === 'object') {
+      Object.assign(defaults.audio, loaded.audio);
+    }
+    if (loaded.graphics && typeof loaded.graphics === 'object') {
+      Object.assign(defaults.graphics, loaded.graphics);
+    }
+    if (loaded.controls && typeof loaded.controls === 'object') {
+      if (typeof loaded.controls.scrollZoom === 'boolean') defaults.controls.scrollZoom = loaded.controls.scrollZoom;
+      if (loaded.controls.keyBindings && typeof loaded.controls.keyBindings === 'object') {
+        Object.assign(defaults.controls.keyBindings, loaded.controls.keyBindings);
+      }
+    }
+    if (loaded.accessibility && typeof loaded.accessibility === 'object') {
+      Object.assign(defaults.accessibility, loaded.accessibility);
     }
     // Top-level keys (e.g. version)
     if (loaded.version !== undefined) defaults.version = loaded.version;

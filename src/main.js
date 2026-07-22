@@ -169,15 +169,64 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ── settings form (draft-based, saves only on Save click) ──────────────
   let settingsDraft = {};
 
+  function deepDefault(section, defaults) {
+    const result = {};
+    for (const key of Object.keys(defaults)) {
+      if (typeof defaults[key] === 'object' && defaults[key] !== null && !Array.isArray(defaults[key])) {
+        result[key] = deepDefault(section && section[key], defaults[key]);
+      } else {
+        result[key] = section && section[key] !== undefined ? section[key] : defaults[key];
+      }
+    }
+    return result;
+  }
+
   async function loadSettingsToForm() {
     const saved = (await loadSettings()) || {};
-    settingsDraft = JSON.parse(JSON.stringify(saved));
-    if (!settingsDraft.update) {
-      settingsDraft.update = { ...DEFAULT_SETTINGS.update };
-    } else {
-      settingsDraft.update = { ...DEFAULT_SETTINGS.update, ...saved.update };
-    }
-    // Update form elements
+    settingsDraft = {
+      update: { ...DEFAULT_SETTINGS.update, ...(saved.update || {}) },
+      collapsed: { ...DEFAULT_SETTINGS.collapsed, ...(saved.collapsed || {}) },
+      game: deepDefault(saved.game, DEFAULT_SETTINGS.game),
+      audio: deepDefault(saved.audio, DEFAULT_SETTINGS.audio),
+      graphics: deepDefault(saved.graphics, DEFAULT_SETTINGS.graphics),
+      controls: {
+        scrollZoom:
+          saved.controls?.scrollZoom !== undefined ? saved.controls.scrollZoom : DEFAULT_SETTINGS.controls.scrollZoom,
+        keyBindings: { ...DEFAULT_SETTINGS.controls.keyBindings, ...(saved.controls?.keyBindings || {}) },
+      },
+      accessibility: deepDefault(saved.accessibility, DEFAULT_SETTINGS.accessibility),
+    };
+
+    // Populate generic controls (data-section / data-field)
+    document.querySelectorAll('.settings-input, .settings-slider, .settings-select, .settings-toggle').forEach((el) => {
+      const section = el.getAttribute('data-section');
+      const field = el.getAttribute('data-field');
+      if (!section || !field || !settingsDraft[section]) return;
+      const value = settingsDraft[section][field];
+      if (value === undefined) return;
+      if (el.type === 'checkbox') {
+        el.checked = !!value;
+      } else if (el.type === 'range') {
+        el.value = value;
+        const valueSpan = el.parentElement.querySelector('.settings-value');
+        if (valueSpan) valueSpan.textContent = formatValue(field, value);
+      } else if (el.tagName.toLowerCase() === 'select') {
+        el.value = value;
+      } else {
+        el.value = value;
+      }
+    });
+
+    // Populate keybind inputs
+    const keyBindings = settingsDraft.controls.keyBindings;
+    document.querySelectorAll('.keybind-input').forEach((input) => {
+      const action = input.parentElement.getAttribute('data-action');
+      if (action && keyBindings[action]) {
+        input.value = keyBindings[action];
+      }
+    });
+
+    // Populate Update tab (legacy IDs)
     document.querySelectorAll('input[name="settings-channel"]').forEach((radio) => {
       radio.checked = settingsDraft.update.channel === radio.value;
     });
@@ -190,7 +239,120 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Load initial values
   await loadSettingsToForm();
 
-  // Wire up input listeners (update draft only)
+  function formatValue(field, value) {
+    if (field.includes('Volume')) return Math.round(value * 100) + '%';
+    if (field === 'resolutionScale') return value.toFixed(1) + 'x';
+    if (field === 'screenShake') return Math.round(value * 100) + '%';
+    if (field === 'fontSizeScale') return value.toFixed(1) + 'x';
+    return String(value);
+  }
+
+  // ── Tab navigation ──────────────────────────────────────────────────────
+  document.querySelectorAll('.settings-tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-tab');
+      document.querySelectorAll('.settings-tab-btn').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.settings-tab-panel').forEach((p) => p.classList.remove('active'));
+      btn.classList.add('active');
+      const panel = document.querySelector(`.settings-tab-panel[data-tab="${tab}"]`);
+      if (panel) panel.classList.add('active');
+    });
+  });
+
+  // ── Generic control listeners (update draft + runtime wiring) ──────────
+  document.querySelectorAll('.settings-input, .settings-slider, .settings-select, .settings-toggle').forEach((el) => {
+    const section = el.getAttribute('data-section');
+    const field = el.getAttribute('data-field');
+    if (!section || !field) return;
+
+    el.addEventListener('input', () => {
+      if (el.type === 'checkbox') {
+        settingsDraft[section][field] = el.checked;
+      } else if (el.type === 'range' || el.tagName.toLowerCase() === 'select' || el.type === 'number') {
+        const raw = el.value;
+        if (el.type === 'number') {
+          settingsDraft[section][field] = parseInt(raw, 10) || 0;
+        } else if (el.type === 'range') {
+          settingsDraft[section][field] = parseFloat(raw) || 0;
+        } else {
+          settingsDraft[section][field] = raw;
+        }
+        const valueSpan = el.parentElement.querySelector('.settings-value');
+        if (valueSpan) valueSpan.textContent = formatValue(field, settingsDraft[section][field]);
+      }
+      applyRuntimeSetting(section, field, settingsDraft[section][field]);
+    });
+  });
+
+  // ── Runtime wiring: apply settings immediately ──────────────────────────
+  function applyRuntimeSetting(section, field, value) {
+    if (section === 'audio') {
+      if (field === 'masterVolume') {
+        AUDIO.setVolume(value);
+      }
+      if (field === 'masterMute') {
+        if (value && !AUDIO.muted) AUDIO.toggleMute();
+        else if (!value && AUDIO.muted) AUDIO.toggleMute();
+      }
+    }
+    if (section === 'accessibility' && field === 'reducedMotion') {
+      if (value) {
+        document.body.classList.add('reduced-motion');
+      } else {
+        document.body.classList.remove('reduced-motion');
+      }
+    }
+    if (section === 'accessibility' && field === 'fontSizeScale') {
+      document.documentElement.style.fontSize = 16 * value + 'px';
+    }
+    if (section === 'accessibility' && field === 'colorblindMode') {
+      if (value) {
+        document.body.classList.add('colorblind-mode');
+      } else {
+        document.body.classList.remove('colorblind-mode');
+      }
+    }
+  }
+
+  // Apply initial runtime settings from loaded draft
+  (function applyInitialRuntimeSettings() {
+    if (settingsDraft.audio) {
+      AUDIO.setVolume(settingsDraft.audio.masterVolume);
+      if (settingsDraft.audio.masterMute && !AUDIO.muted) AUDIO.toggleMute();
+    }
+    if (settingsDraft.accessibility) {
+      if (settingsDraft.accessibility.reducedMotion) document.body.classList.add('reduced-motion');
+      if (settingsDraft.accessibility.colorblindMode) document.body.classList.add('colorblind-mode');
+      document.documentElement.style.fontSize = 16 * settingsDraft.accessibility.fontSizeScale + 'px';
+    }
+  })();
+
+  // ── Keybind capture ────────────────────────────────────────────────────
+  let keybindCaptureTarget = null;
+
+  document.querySelectorAll('.keybind-input').forEach((input) => {
+    input.addEventListener('click', () => {
+      keybindCaptureTarget = input;
+      input.focus();
+      input.select();
+    });
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!keybindCaptureTarget) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const action = keybindCaptureTarget.parentElement.getAttribute('data-action');
+    let key = e.key;
+    if (e.ctrlKey) key = 'Ctrl+' + key;
+    if (e.altKey) key = 'Alt+' + key;
+    if (e.shiftKey) key = 'Shift+' + key;
+    keybindCaptureTarget.value = key;
+    settingsDraft.controls.keyBindings[action] = key;
+    keybindCaptureTarget = null;
+  });
+
+  // ── Update tab listeners (legacy IDs) ───────────────────────────────────
   document.querySelectorAll('input[name="settings-channel"]').forEach((radio) => {
     radio.addEventListener('change', () => {
       settingsDraft.update.channel = radio.value;
@@ -261,18 +423,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Sync update channel on startup
   syncSettingsToMainProcess().catch((err) => {
     console.warn('[settings] failed to sync settings to main process', err);
-  });
-
-  // ── settings accordion ──────────────────────────────────────────────────────
-  document.querySelectorAll('.settings-section-header').forEach((header) => {
-    header.addEventListener('click', () => {
-      const targetId = header.getAttribute('data-target');
-      const target = document.getElementById(targetId);
-      if (!target) return;
-      const hidden = target.style.display === 'none';
-      target.style.display = hidden ? 'block' : 'none';
-      header.textContent = header.textContent.replace(/[▸▾]$/, '') + (hidden ? '▾' : '▸');
-    });
   });
 
   // ── UpdateManager ──────────────────────────────────────────────────────────

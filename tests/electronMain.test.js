@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 const mockIpcHandle = vi.fn();
 const mockIpcOn = vi.fn();
 const mockAppGetPath = vi.fn(() => '/tmp/test-userData');
-const mockAppGetVersion = vi.fn(() => '1.6.2');
+const mockAppGetVersion = vi.fn(() => '1.7.0-beta.1');
 const mockAppWhenReady = vi.fn(() => Promise.resolve());
 const mockAppOn = vi.fn();
 const mockAppQuit = vi.fn();
@@ -108,11 +108,11 @@ vi.mock('os', () => ({
 vi.mock('../src/githubReleaseFeed.js', () => ({
   selectNewestNewerPrereleaseTag: vi.fn(),
   selectNewestNewerRelease: vi.fn(),
-  resolveDownloadTag: vi.fn(async () => ({ tag: 'v1.6.2' })),
+  resolveDownloadTag: vi.fn(async () => ({ tag: 'v1.7.0-beta.1' })),
 }));
 
 vi.mock('../src/updateYamlParser.js', () => ({
-  parseUpdateInfo: vi.fn(() => ({ version: '1.6.2', files: [{ url: 'Tower-Defense-Setup-1.6.2.exe' }] })),
+  parseUpdateInfo: vi.fn(() => ({ version: '1.7.0-beta.1', files: [{ url: 'Tower-Defense-Setup-1.7.0-beta.1.exe' }] })),
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -185,7 +185,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
   describe('get-version handler', () => {
     it('returns app.getVersion()', async () => {
       const result = await invokeHandle('get-version');
-      expect(result).toBe('1.6.2');
+      expect(result).toBe('1.7.0-beta.1');
       expect(mockAppGetVersion).toHaveBeenCalled();
     });
   });
@@ -278,6 +278,143 @@ describe('electron-main (L13, >=50% coverage)', () => {
       const result = await invokeHandle('save-settings', null, 'not-an-object');
       expect(result).toBe(false);
     });
+
+    it('accepts settings with game section', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      const result = await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        game: { startingGold: 500, startingLives: 15, maxWave: 20, speedDefault: 2 },
+        collapsed: {},
+      });
+      expect(result).toBe(true);
+    });
+
+    it('accepts settings with audio section', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      const result = await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        audio: {
+          masterVolume: 0.8,
+          sfxVolume: 0.6,
+          ambientVolume: 0.4,
+          uiVolume: 0.5,
+          masterMute: false,
+          sfxMute: true,
+          ambientMute: false,
+          uiMute: false,
+        },
+        collapsed: {},
+      });
+      expect(result).toBe(true);
+    });
+
+    it('accepts settings with graphics section', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      const result = await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        graphics: { particleQuality: 'Ultra', resolutionScale: 1.5, screenShake: 0.5 },
+        collapsed: {},
+      });
+      expect(result).toBe(true);
+    });
+
+    it('accepts settings with controls section', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      const result = await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        controls: {
+          scrollZoom: false,
+          keyBindings: { pause: 'KeyP', startWave: 'Enter', restart: 'KeyR', sell: 'KeyS', speedUp: 'KeyF' },
+        },
+        collapsed: {},
+      });
+      expect(result).toBe(true);
+    });
+
+    it('accepts settings with accessibility section', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      const result = await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        accessibility: { colorblindMode: true, fontSizeScale: 1.2, reducedMotion: true },
+        collapsed: {},
+      });
+      expect(result).toBe(true);
+    });
+
+    it('clamps game.startingGold to max 5000', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        game: { startingGold: 99999, startingLives: 20, maxWave: 10, speedDefault: 1 },
+        collapsed: {},
+      });
+      const written = JSON.parse(mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1][1]);
+      expect(written.game.startingGold).toBe(5000);
+    });
+
+    it('rejects invalid particleQuality value', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        graphics: { particleQuality: 'Invalid', resolutionScale: 1, screenShake: 1 },
+        collapsed: {},
+      });
+      const written = JSON.parse(mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1][1]);
+      expect(written.graphics.particleQuality).toBe('Medium');
+    });
+
+    it('clamps resolutionScale to max 2', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        graphics: { particleQuality: 'Medium', resolutionScale: 5, screenShake: 1 },
+        collapsed: {},
+      });
+      const written = JSON.parse(mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1][1]);
+      expect(written.graphics.resolutionScale).toBe(2);
+    });
+
+    it('clamps audio volume to [0, 1]', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        audio: {
+          masterVolume: 5,
+          sfxVolume: -1,
+          ambientVolume: 0.5,
+          uiVolume: 0.5,
+          masterMute: false,
+          sfxMute: false,
+          ambientMute: false,
+          uiMute: false,
+        },
+        collapsed: {},
+      });
+      const written = JSON.parse(mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1][1]);
+      expect(written.audio.masterVolume).toBe(1);
+      expect(written.audio.sfxVolume).toBe(0);
+    });
+
+    it('rejects unknown top-level keys', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockMkdirSync.mockReturnValue(undefined);
+      await invokeHandle('save-settings', null, {
+        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
+        maliciousKey: { injected: true },
+        collapsed: {},
+      });
+      const written = JSON.parse(mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1][1]);
+      expect(written.maliciousKey).toBeUndefined();
+    });
   });
 
   describe('get-settings handler (readSettings)', () => {
@@ -310,7 +447,76 @@ describe('electron-main (L13, >=50% coverage)', () => {
         throw new Error('read error');
       });
       const result = await invokeHandle('get-settings');
-      expect(result.version).toBe('1.6.2');
+      expect(result.version).toBe('1.7.0-beta.1');
+    });
+
+    it('returns game settings from defaults', async () => {
+      mockExistsSync.mockReturnValue(false);
+      const result = await invokeHandle('get-settings');
+      expect(result.game).toBeDefined();
+      expect(result.game.startingGold).toBe(200);
+      expect(result.game.startingLives).toBe(20);
+      expect(result.game.maxWave).toBe(10);
+      expect(result.game.speedDefault).toBe(1);
+    });
+
+    it('returns audio settings from defaults', async () => {
+      mockExistsSync.mockReturnValue(false);
+      const result = await invokeHandle('get-settings');
+      expect(result.audio).toBeDefined();
+      expect(result.audio.masterVolume).toBe(0.5);
+      expect(result.audio.masterMute).toBe(false);
+    });
+
+    it('returns graphics settings from defaults', async () => {
+      mockExistsSync.mockReturnValue(false);
+      const result = await invokeHandle('get-settings');
+      expect(result.graphics).toBeDefined();
+      expect(result.graphics.particleQuality).toBe('Medium');
+      expect(result.graphics.resolutionScale).toBe(1);
+      expect(result.graphics.screenShake).toBe(1);
+    });
+
+    it('returns controls settings from defaults', async () => {
+      mockExistsSync.mockReturnValue(false);
+      const result = await invokeHandle('get-settings');
+      expect(result.controls).toBeDefined();
+      expect(result.controls.scrollZoom).toBe(true);
+      expect(result.controls.keyBindings.pause).toBe('Space');
+    });
+
+    it('returns accessibility settings from defaults', async () => {
+      mockExistsSync.mockReturnValue(false);
+      const result = await invokeHandle('get-settings');
+      expect(result.accessibility).toBeDefined();
+      expect(result.accessibility.colorblindMode).toBe(false);
+      expect(result.accessibility.fontSizeScale).toBe(1);
+      expect(result.accessibility.reducedMotion).toBe(false);
+    });
+
+    it('merges loaded game settings on top of defaults', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          game: { startingGold: 500, maxWave: 20 },
+        })
+      );
+      const result = await invokeHandle('get-settings');
+      expect(result.game.startingGold).toBe(500);
+      expect(result.game.maxWave).toBe(20);
+      expect(result.game.startingLives).toBe(20);
+    });
+
+    it('merges loaded controls keyBindings on top of defaults', async () => {
+      mockExistsSync.mockReturnValue(true);
+      mockReadFileSync.mockReturnValue(
+        JSON.stringify({
+          controls: { keyBindings: { pause: 'KeyP' } },
+        })
+      );
+      const result = await invokeHandle('get-settings');
+      expect(result.controls.keyBindings.pause).toBe('KeyP');
+      expect(result.controls.keyBindings.startWave).toBe('Enter');
     });
   });
 

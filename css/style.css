@@ -19,6 +19,21 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Accessibility runtime classes ── */
+.reduced-motion * {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+}
+.colorblind-mode {
+  filter: contrast(1.15) saturate(1.1);
+}
+.colorblind-mode .game-panel,
+.colorblind-mode .bar-popup,
+.colorblind-mode .bar-btn {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
 #wrap {
   position: fixed;
   inset: 8px;
@@ -238,6 +253,114 @@ body {
 .settings-section-body input[type='checkbox'] {
   cursor: pointer;
   vertical-align: middle;
+}
+
+/* ── Settings tabbed panel ── */
+.settings-tabs {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.settings-tab-btn {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    background 0.15s,
+    color 0.15s;
+}
+.settings-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.85);
+}
+.settings-tab-btn.active {
+  background: rgba(88, 166, 255, 0.15);
+  color: #58a6ff;
+  border-color: rgba(88, 166, 255, 0.3);
+}
+.settings-tabs-content {
+  font-size: 10px;
+  color: rgba(182, 194, 204, 0.7);
+}
+.settings-tab-panel {
+  display: none;
+}
+.settings-tab-panel.active {
+  display: block;
+}
+.settings-tab-panel label {
+  display: block;
+  margin: 4px 0;
+  cursor: pointer;
+}
+.settings-tab-panel input[type='number'] {
+  width: 50px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e6edf3;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-left: 6px;
+}
+.settings-tab-panel input[type='range'] {
+  width: 100px;
+  margin: 2px 6px;
+  vertical-align: middle;
+}
+.settings-tab-panel select {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e6edf3;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  margin-left: 6px;
+}
+.settings-tab-panel input[type='checkbox'] {
+  margin-left: 6px;
+}
+.settings-value {
+  display: inline-block;
+  width: 30px;
+  text-align: right;
+  color: rgba(182, 194, 204, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.settings-keybinds {
+  margin-top: 6px;
+}
+.keybind-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+.keybind-label {
+  width: 80px;
+  color: rgba(255, 255, 255, 0.7);
+}
+.keybind-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e6edf3;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-family: 'SFMono-Regular', Consolas, monospace;
+  text-align: center;
+  cursor: pointer;
+}
+#settings-popup {
+  min-width: 260px;
+  max-width: 320px;
 }
 
 /* ── Update progress bar ── */
