@@ -1,5 +1,38 @@
 # Changelog
 
+## [Unreleased]
+
+### 🐛 Bug Fixes
+
+- **Popup shortcut race condition** — `_handlePopupShortcut()` in `game.js` could call `openFn` twice (once from `transitionend` event, once from the fallback `setTimeout`). Added a `opened` guard flag to ensure `openFn` is idempotent.
+- **Duplicate `SHIELD_SHOP_WIDTH` in config** — `src/config.js` defined `SHIELD_SHOP_WIDTH` twice (250 and 220); the second definition silently overrode the first. Removed the duplicate.
+- **Missing `about` key in electron-main settings** — `DEFAULT_SETTINGS.collapsed` in `electron-main.js` was missing the `about: false` key that `settingsDefaults.js` includes. Synced the two definitions.
+- **Dead code in `resolveDownloadTag`** — Removed unreachable early return in `githubReleaseFeed.js`.
+- **Redundant `if (m.alive)` in `_stepMonsters`** — Removed redundant guard inside `if (m.hp <= 0)` block in `game.js`.
+- **Dead code `_compactMonsters`** — Removed unused method from `game.js`; updated test to use `_cleanupDead()`.
+
+### ⚙️ Performance
+
+- **Auto-save debounce** — `_stepWaveCompletion()` now only calls `_autoSave()` every 5 waves (`AUTO_SAVE_DEBOUNCE_WAVES`) instead of every wave, reducing disk I/O.
+- **Cached DPS/HPS in troop.js** — `getDps()` and `getHps()` now return cached values computed in `_recomputeStats()`, avoiding recomputation on every render call.
+- **Cached stat lines in shop.js** — `_buildStatLines()` caches its result on the troop object, invalidated on upgrade.
+- **Optimized `_buildTroopTileIndex`** — Removed redundant full rebuilds from `sellTroop()` and `killTroop()`; index is rebuilt only in `_cleanupDead()` which runs in the same step.
+- **Optimized `_updateMonsterTileIndex`** — Rewrote from full clear-and-rebuild to incremental updates: tracks `_prevTileIdx` on each monster and only moves entries between tiles when monsters cross tile boundaries.
+- **Dynamic particle cap** — `PARTICLES._maxPool` now scales with `navigator.hardwareConcurrency` (100–300 particles based on core count) instead of being hardcoded to 300.
+
+### 🧪 Testing & Quality
+
+- **8 new tests** — `SaveMigrator` test suite (6 tests), auto-save debounce test (1 test), incremental monster tile index test (1 test).
+- **Coverage improved** — Statements: 98.13% → 98.47%, Branches: 91.61% → 92.15%, Lines: 99.41% → 99.64%. `game.js` lines: 98.86% → 100%.
+
+### ⚙️ Configuration
+
+- **Magic numbers extracted** — Added named constants to `config.js` (`MAX_SPAWNS_PER_FRAME`, `HIT_TROOPS_CAP`, `PARTICLE_POOL_SIZE`, `DEV_MODE_CLICK_THRESHOLD`, `DEV_MODE_CLICK_WINDOW_MS`, `WAVE_TRANSITION_DURATION`, `AUTO_SAVE_DEBOUNCE_MS`, `AUTO_SAVE_DEBOUNCE_WAVES`, `REVIVE_REWARD_HP_RATIO`, `POPUP_ANIM_MS`) and replaced all hardcoded values across source files.
+
+### 💾 Persistence
+
+- **Save migration pipeline** — Added `SaveMigrator` to `gamePersistence.js` with versioned migration system. Legacy saves (v0, no version field) are migrated with sensible defaults. Integrated into `GameSnapshotRestorer.apply()`.
+
 ## [1.6.2] — 2026-07-22
 
 ### 🐛 Bug Fixes

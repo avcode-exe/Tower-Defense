@@ -1593,11 +1593,11 @@ describe('Game', () => {
     });
   });
 
-  describe('_compactMonsters', () => {
+  describe('_cleanupDead monster compaction', () => {
     it('removes dead monsters in-place', () => {
       const game = makeGame();
       game.monsters = [{ alive: false }, { alive: true }, { alive: false }];
-      game._compactMonsters();
+      game._cleanupDead();
       expect(game.monsters.length).toBe(1);
     });
   });
@@ -2836,6 +2836,83 @@ describe('Game', () => {
       expect(game._dragState).toBeNull();
       expect(typeof game._defaultDevCounts).toBe('function');
       vi.unstubAllGlobals();
+    });
+  });
+
+  describe('_stepWaveCompletion auto-save debounce', () => {
+    it('saves only every AUTO_SAVE_DEBOUNCE_WAVES waves', () => {
+      const game = makeGame();
+      game._lastSaveWave = 0;
+      const saveSpy = vi.spyOn(game, '_autoSave');
+      game.wave = { currentWave: 0, spawnIndex: 0, queue: [], onAllSpawnedAndCleared: vi.fn() };
+      game.monsters = [];
+
+      const runWave = () => {
+        game.state = 'WAVE_ACTIVE';
+        game._stepWaveCompletion();
+      };
+
+      // Wave 1: 1 - 0 = 1 < 5, no save
+      runWave();
+      expect(saveSpy).not.toHaveBeenCalled();
+
+      // Waves 2-4: still no save
+      game.wave.currentWave = 1;
+      runWave();
+      game.wave.currentWave = 2;
+      runWave();
+      game.wave.currentWave = 3;
+      runWave();
+      expect(saveSpy).not.toHaveBeenCalled();
+
+      // Wave 5: 5 - 0 = 5 >= 5, save!
+      game.wave.currentWave = 4;
+      runWave();
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+      expect(game._lastSaveWave).toBe(5);
+
+      // Wave 6-9: no save
+      for (let w = 5; w < 9; w++) {
+        game.wave.currentWave = w;
+        runWave();
+      }
+      expect(saveSpy).toHaveBeenCalledTimes(1);
+
+      // Wave 10: 10 - 5 = 5 >= 5, save!
+      game.wave.currentWave = 9;
+      runWave();
+      expect(saveSpy).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('_updateMonsterTileIndex incremental', () => {
+    it('only updates tiles when monsters move across boundaries', () => {
+      const game = makeGame();
+      const m = placeMonsterAt(game, 1, 5, 5);
+      game._updateMonsterTileIndex();
+      const tileIdx = Math.floor(m.y / CONFIG.TILE_SIZE) * CONFIG.GRID_SIZE + Math.floor(m.x / CONFIG.TILE_SIZE);
+      expect(game._monsterTileIndex[tileIdx]).toHaveLength(1);
+      expect(m._prevTileIdx).toBe(tileIdx);
+
+      // Second update: monster hasn't moved, no change.
+      game._updateMonsterTileIndex();
+      expect(game._monsterTileIndex[tileIdx]).toHaveLength(1);
+
+      // Move monster to a different tile.
+      const oldIdx = tileIdx;
+      m.x += CONFIG.TILE_SIZE * 2;
+      game._updateMonsterTileIndex();
+      const newIdx = Math.floor(m.y / CONFIG.TILE_SIZE) * CONFIG.GRID_SIZE + Math.floor(m.x / CONFIG.TILE_SIZE);
+      expect(newIdx).not.toBe(oldIdx);
+      expect(game._monsterTileIndex[oldIdx]).toBeNull();
+      expect(game._monsterTileIndex[newIdx]).toHaveLength(1);
+      expect(m._prevTileIdx).toBe(newIdx);
+
+      // Kill monster: removed from index.
+      m.alive = false;
+      game._updateMonsterTileIndex();
+      expect(game._monsterTileIndex[newIdx]).toBeNull();
+      expect(m._prevTileIdx).toBe(-1);
     });
   });
 });

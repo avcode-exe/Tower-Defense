@@ -37,7 +37,7 @@ export class Game {
     this.sellCooldownTimer = 0; // global seconds remaining before next sell allowed
 
     // Wave transition animation.
-    this.waveCompleteAnim = { active: false, waveNum: 0 };
+    this.waveCompleteAnim = { active: false, waveNum: 0, duration: CONFIG.WAVE_TRANSITION_DURATION };
 
     // World — built from a fresh seed via the persistence factory.
     this.seed = Math.floor(Math.random() * 0xffffffff);
@@ -85,6 +85,7 @@ export class Game {
     this.sellConfirmationEnabled = true;
     this.devMonsterCounts = this._defaultDevCounts();
     this._needsSaveCleanup = false;
+    this._lastSaveWave = 0;
 
     // Drag-to-place: when the user holds the mouse button after selecting a
     // troop from the shop, placement is deferred until release on a valid tile.
@@ -166,7 +167,8 @@ export class Game {
     this.sellCooldownTimer = CONFIG.SELL_COOLDOWN;
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
     this.selectedSpec = null;
-    this._buildTroopTileIndex();
+    // Note: _buildTroopTileIndex() is deferred to _cleanupDead() which runs
+    // in the same step() call, avoiding a redundant full rebuild.
     AUDIO.sell();
   }
 
@@ -302,7 +304,8 @@ export class Game {
     RENDERER.markCacheDirty();
     PARTICLES.troopDeath(troop.x, troop.y, troop.spec.color);
     this._getPopup('\u2620 Destroyed', troop.x, troop.y - 12, 1.0, '#ff4444');
-    this._buildTroopTileIndex();
+    // Note: _buildTroopTileIndex() is deferred to _cleanupDead() which runs
+    // in the same step() call, avoiding a redundant full rebuild.
     if (this.selectedTroopIndex >= 0) {
       const sel = this.troops[this.selectedTroopIndex];
       if (!sel || !sel.alive) this.selectedTroopIndex = -1;
@@ -413,19 +416,11 @@ export class Game {
     PARTICLES.update(dt);
   }
 
-  _compactMonsters() {
-    let mw = 0;
-    for (let i = 0; i < this.monsters.length; i++) {
-      if (this.monsters[i].alive) this.monsters[mw++] = this.monsters[i];
-    }
-    this.monsters.length = mw;
-  }
-
   _stepWaveSpawning(dt) {
     this.wave.update(dt);
     let spawnData = this.wave.popDueMonster();
     let spawnsThisFrame = 0;
-    const MAX_SPAWNS_PER_FRAME = 50;
+    const MAX_SPAWNS_PER_FRAME = CONFIG.MAX_SPAWNS_PER_FRAME;
     while (spawnData != null && spawnsThisFrame < MAX_SPAWNS_PER_FRAME) {
       this.spawnMonster(spawnData.level, spawnData.hpMult);
       spawnsThisFrame++;
@@ -457,14 +452,12 @@ export class Game {
       const m = this.monsters[i];
       if (!m.alive) continue;
       if (m.hp <= 0) {
-        if (m.alive) {
-          console.warn('[game] Monster HP desync on frame — force-killing without reward.', {
-            level: m.level,
-            hp: m.hp,
-            x: m.x,
-            y: m.y,
-          });
-        }
+        console.warn('[game] Monster HP desync on frame — force-killing without reward.', {
+          level: m.level,
+          hp: m.hp,
+          x: m.x,
+          y: m.y,
+        });
         m.alive = false;
         continue;
       }
@@ -536,7 +529,12 @@ export class Game {
     if (this.wave.spawnIndex < this.wave.queue.length) return;
     if (this.monsters.length > 0) return;
     const waveNum = this.wave.currentWave + 1;
-    this.waveCompleteAnim = { active: true, waveNum: waveNum, startMs: performance.now() };
+    this.waveCompleteAnim = {
+      active: true,
+      waveNum: waveNum,
+      startMs: performance.now(),
+      duration: CONFIG.WAVE_TRANSITION_DURATION,
+    };
     AUDIO.waveComplete();
     if (waveNum % 10 === 0) {
       const bonus = Math.min(CONFIG.BOSS_BONUS_BASE + waveNum * CONFIG.BOSS_BONUS_PER_WAVE, CONFIG.BOSS_BONUS_MAX);
@@ -560,7 +558,11 @@ export class Game {
       }
     }
     this.state = 'PRE_WAVE';
-    this._autoSave();
+    // Debounce auto-save: only save every N waves to reduce disk I/O.
+    if (waveNum - this._lastSaveWave >= CONFIG.AUTO_SAVE_DEBOUNCE_WAVES) {
+      this._lastSaveWave = waveNum;
+      this._autoSave();
+    }
   }
 
   _stepPopups(dt) {
@@ -622,30 +624,63 @@ export class Game {
   }
 
   // Build tile-based spatial index of alive monsters for fast targeting.
+  // Uses incremental updates: only moves monsters between tiles when they
+  // cross tile boundaries, instead of rebuilding the entire index every frame.
   _updateMonsterTileIndex() {
     const tiIdx = this._monsterTileIndex;
     const tiPool = this._tileIndexPool;
-    for (let i = 0; i < tiIdx.length; i++) {
-      if (tiIdx[i]) {
-        tiIdx[i].length = 0;
-        tiPool.push(tiIdx[i]);
-        tiIdx[i] = null;
-      }
-    }
     const G = CONFIG.GRID_SIZE;
     const T = CONFIG.TILE_SIZE;
-    for (let i = 0; i < this.monsters.length; i++) {
-      const m = this.monsters[i];
-      if (!m.alive) continue;
+    const monsters = this.monsters;
+
+    for (let i = 0; i < monsters.length; i++) {
+      const m = monsters[i];
+      const prevIdx = m._prevTileIdx;
+
+      if (!m.alive) {
+        // Remove dead monster from its previous tile.
+        if (prevIdx >= 0 && tiIdx[prevIdx]) {
+          const arr = tiIdx[prevIdx];
+          const pos = arr.indexOf(m);
+          if (pos >= 0) {
+            arr.splice(pos, 1);
+            if (arr.length === 0) {
+              tiPool.push(arr);
+              tiIdx[prevIdx] = null;
+            }
+          }
+        }
+        m._prevTileIdx = -1;
+        continue;
+      }
+
       const gx = Math.max(0, Math.min(G - 1, (m.x / T) | 0));
       const gy = Math.max(0, Math.min(G - 1, (m.y / T) | 0));
       const idx = gy * G + gx;
+
+      if (idx === prevIdx) continue; // no tile change, already indexed
+
+      // Remove from old tile.
+      if (prevIdx >= 0 && tiIdx[prevIdx]) {
+        const arr = tiIdx[prevIdx];
+        const pos = arr.indexOf(m);
+        if (pos >= 0) {
+          arr.splice(pos, 1);
+          if (arr.length === 0) {
+            tiPool.push(arr);
+            tiIdx[prevIdx] = null;
+          }
+        }
+      }
+
+      // Add to new tile.
       let arr = tiIdx[idx];
       if (!arr) {
         arr = tiPool.length > 0 ? tiPool.pop() : [];
         tiIdx[idx] = arr;
       }
       arr.push(m);
+      m._prevTileIdx = idx;
     }
   }
 
@@ -889,10 +924,10 @@ export class Game {
   _handleGoldClick(px, py) {
     if (!this._hitBox(px, py, LAYOUT.HUD.GOLD_AREA)) return;
     const now = performance.now();
-    if (now - this._goldClickTimer > 800) this._goldClicks = 0;
+    if (now - this._goldClickTimer > CONFIG.DEV_MODE_CLICK_WINDOW_MS) this._goldClicks = 0;
     this._goldClickTimer = now;
     this._goldClicks++;
-    if (this._goldClicks >= 3) {
+    if (this._goldClicks >= CONFIG.DEV_MODE_CLICK_THRESHOLD) {
       this._goldClicks = 0;
       this.devConfirmPending = true;
     }
@@ -1082,9 +1117,10 @@ export class Game {
     this.sellConfirmTroop = null;
     this.selectedSpec = null;
     this.selectedTroopIndex = -1;
-    this.waveCompleteAnim = { active: false, waveNum: 0 };
+    this.waveCompleteAnim = { active: false, waveNum: 0, duration: CONFIG.WAVE_TRANSITION_DURATION };
     this.lastTime = 0;
     this.accumulator = 0;
+    this._lastSaveWave = this.wave.currentWave;
   }
 
   _autoSave() {
@@ -1181,7 +1217,10 @@ export class Game {
     }
     this.togglePopupEl(openKey.popupId, true, openKey.btnId);
     const el = document.getElementById(openKey.popupId);
+    let opened = false;
     const openFn = () => {
+      if (opened) return;
+      opened = true;
       UI_LAYOUT.collapsed[match.collapsedKey] = false;
       this.togglePopupEl(match.popupId, false, match.btnId);
     };
@@ -1191,10 +1230,11 @@ export class Game {
     }
     const onDone = () => {
       el.removeEventListener('transitionend', onDone);
+      clearTimeout(fallbackTimer);
       openFn();
     };
     el.addEventListener('transitionend', onDone);
-    setTimeout(openFn, 350);
+    const fallbackTimer = setTimeout(openFn, CONFIG.POPUP_ANIM_MS + 50);
   }
 
   restart() {
@@ -1208,7 +1248,7 @@ export class Game {
     this.selectedTroopIndex = -1;
     this.sellCooldownTimer = 0;
     this.accumulator = 0;
-    this.waveCompleteAnim = { active: false, waveNum: 0 };
+    this.waveCompleteAnim = { active: false, waveNum: 0, duration: CONFIG.WAVE_TRANSITION_DURATION };
     this.devConfirmPending = false;
     this.resetConfirmPending = false;
     this.sellConfirmPending = false;

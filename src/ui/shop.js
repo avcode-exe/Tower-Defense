@@ -50,6 +50,8 @@ export function hitShop(px, py) {
 
 /** Build the stat-lines array for a troop — shared between height calculation and rendering. */
 export function _buildStatLines(t) {
+  // Return cached result if valid (invalidated on upgrade via _recomputeStats).
+  if (t._cachedStatLines) return t._cachedStatLines;
   const statLines = [];
   if (t.spec.type === 'support') {
     statLines.push(
@@ -95,6 +97,7 @@ export function _buildStatLines(t) {
       bold: true,
     });
   }
+  t._cachedStatLines = statLines;
   return statLines;
 }
 

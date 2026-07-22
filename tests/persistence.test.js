@@ -13,13 +13,14 @@ vi.mock('../src/ui/index.js', () => ({
 }));
 
 describe('SaveSerializer', () => {
-  let SaveSerializer, GameWorldFactory, GameSnapshotRestorer;
+  let SaveSerializer, GameWorldFactory, GameSnapshotRestorer, SaveMigrator;
 
   beforeAll(async () => {
     const mod = await import('../src/gamePersistence.js');
     SaveSerializer = mod.SaveSerializer;
     GameWorldFactory = mod.GameWorldFactory;
     GameSnapshotRestorer = mod.GameSnapshotRestorer;
+    SaveMigrator = mod.SaveMigrator;
   });
 
   describe('isValid', () => {
@@ -968,5 +969,68 @@ describe('SaveSerializer', () => {
       expect(game.troops[0].slowLevel).toBe(3);
       expect(game.troops[0].shield).toBe(10);
     });
+  });
+});
+
+describe('SaveMigrator', () => {
+  let SaveMigrator;
+
+  beforeAll(async () => {
+    const mod = await import('../src/gamePersistence.js');
+    SaveMigrator = mod.SaveMigrator;
+  });
+
+  it('returns null for null input', () => {
+    expect(SaveMigrator.migrate(null)).toBe(null);
+  });
+
+  it('returns non-object input unchanged', () => {
+    expect(SaveMigrator.migrate('string')).toBe('string');
+    expect(SaveMigrator.migrate(42)).toBe(42);
+  });
+
+  it('sets version to CURRENT_VERSION for already-versioned saves', () => {
+    const data = { version: '1.0.0', seed: 1, troops: [] };
+    const result = SaveMigrator.migrate(data);
+    expect(result.version).toBe(SaveMigrator.CURRENT_VERSION);
+    expect(result.seed).toBe(1);
+  });
+
+  it('migrates v0 (no version) save with defaults', () => {
+    const data = { seed: 1 };
+    const result = SaveMigrator.migrate(data);
+    expect(result.version).toBe(SaveMigrator.CURRENT_VERSION);
+    expect(result.gold).toBe(0);
+    expect(result.lives).toBe(0);
+    expect(result.speed).toBe(1);
+    expect(result.devMode).toBe(false);
+    expect(result.wave).toEqual({ currentWave: 0 });
+    expect(result.troops).toEqual([]);
+  });
+
+  it('does not override null values in v0 migration', () => {
+    const data = { seed: 1, gold: null, lives: null };
+    const result = SaveMigrator.migrate(data);
+    expect(result.gold).toBe(null);
+    expect(result.lives).toBe(null);
+  });
+
+  it('does not override existing values in v0 migration', () => {
+    const data = {
+      seed: 1,
+      gold: 500,
+      lives: 20,
+      speed: 2,
+      devMode: true,
+      wave: { currentWave: 5 },
+      troops: [{ specId: 'archer', gx: 1, gy: 1, hp: 10, maxHp: 10, shield: 0, maxShield: 0, healGoldSpent: 0 }],
+    };
+    const result = SaveMigrator.migrate(data);
+    expect(result.gold).toBe(500);
+    expect(result.lives).toBe(20);
+    expect(result.speed).toBe(2);
+    expect(result.devMode).toBe(true);
+    expect(result.wave).toEqual({ currentWave: 5 });
+    expect(result.troops).toHaveLength(1);
   });
 });

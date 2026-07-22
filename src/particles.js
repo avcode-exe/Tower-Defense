@@ -191,7 +191,12 @@ const EFFECT_DEFS = {
 export const PARTICLES = {
   _pool: [],
   _activeCount: 0,
-  _maxPool: 300,
+  // Dynamic particle cap based on hardware: more CPU cores → more particles.
+  _maxPool: (() => {
+    const base = CONFIG.PARTICLE_POOL_SIZE;
+    const cores = typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4;
+    return Math.min(base, Math.max(100, cores * 50));
+  })(),
   _buckets: [],
   _bucketKeys: [],
   _colorToIndex: {},

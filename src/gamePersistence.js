@@ -10,6 +10,44 @@ import { UI } from './ui/index.js';
 
 const TRANSIENT_ARRAY_KEYS = ['_projectilePool', '_splashHitBuf', '_chainBuf', '_tileIndexPool'];
 
+/**
+ * Save migration pipeline.
+ *
+ * Each migrator is a function that takes raw save data and returns updated
+ * data.  Migrators are applied in order from oldest to newest.  A save with
+ * no version field is treated as v0 (legacy).
+ */
+export const SaveMigrator = {
+  CURRENT_VERSION: '1.0.0',
+
+  migrate(data) {
+    if (!data || typeof data !== 'object') return data;
+    const version = data.version || '0.0.0';
+
+    if (version === '0.0.0') {
+      data = this._migrateV0(data);
+    }
+    // Future migrations: if (version < '1.1.0') data = this._migrateV1(data);
+
+    data.version = this.CURRENT_VERSION;
+    return data;
+  },
+
+  // Legacy saves (pre-versioning): ensure all expected fields exist with
+  // sensible defaults so the restorer can proceed safely.  Only fills in
+  // fields that are completely absent; null values are left as-is because
+  // the restorer handles them (e.g. null gold → dev mode Infinity).
+  _migrateV0(data) {
+    if (data.gold === undefined) data.gold = 0;
+    if (data.lives === undefined) data.lives = 0;
+    if (!data.wave) data.wave = { currentWave: 0 };
+    if (!Array.isArray(data.troops)) data.troops = [];
+    if (data.speed === undefined) data.speed = 1;
+    if (data.devMode === undefined) data.devMode = false;
+    return data;
+  },
+};
+
 function resetTransientBuffers(game) {
   for (const key of TRANSIENT_ARRAY_KEYS) {
     game[key] = [];
@@ -125,6 +163,8 @@ export const GameSnapshotRestorer = {
   // Apply a save onto an existing Game instance.  Rebuilds world geometry
   // and restores all persistent fields.
   apply(game, data) {
+    // Run migration pipeline to bring legacy saves up to current format.
+    data = SaveMigrator.migrate(data);
     const world = GameWorldFactory.createFresh(data.seed);
 
     game.speed = data.speed || 1;
@@ -217,7 +257,7 @@ export const GameSnapshotRestorer = {
 
     // Wave manager.
     game.wave = new WaveManager();
-    game.waveCompleteAnim = { active: false, waveNum: 0 };
+    game.waveCompleteAnim = { active: false, waveNum: 0, duration: CONFIG.WAVE_TRANSITION_DURATION };
 
     game._onProjectileImpact = (proj) => game.applyProjectileImpact(proj);
 

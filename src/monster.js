@@ -78,12 +78,13 @@ export class Monster {
     // Cached tile coordinates (updated in _updatePosition).
     this._tileGx = 0;
     this._tileGy = 0;
+    this._prevTileIdx = -1; // for incremental monster tile index updates
 
     // Pass-mode: track last tile hit to prevent per-frame multi-hit.
     this._lastPassTile = -1;
     // Pass-mode penetration: track troops already hit so each troop is attacked at most once.
     this._hitTroops = null; // lazily allocated for pass-mode monsters only
-    this._hitTroopsCap = 200; // hard cap to prevent unbounded memory growth
+    this._hitTroopsCap = CONFIG.HIT_TROOPS_CAP; // hard cap to prevent unbounded memory growth
     this._cleanupTick = 0; // counter for periodic cleanup
 
     this._updatePosition();
@@ -403,9 +404,13 @@ export class Monster {
 
   _cleanupHitTroops() {
     if (!this._hitTroops) return;
-    // Remove dead troop references.
+    // Collect dead entries first to avoid mutating the Set during iteration.
+    const dead = [];
     for (const t of this._hitTroops) {
-      if (!t.alive) this._hitTroops.delete(t);
+      if (!t.alive) dead.push(t);
+    }
+    for (let i = 0; i < dead.length; i++) {
+      this._hitTroops.delete(dead[i]);
     }
     // Enforce hard cap: if still over cap after dead-removal, delete oldest entries.
     // Since Set iterates in insertion order, the first entries are the oldest.

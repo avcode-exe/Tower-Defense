@@ -77,4 +77,5 @@ export function resetRevivedMonster(m) {
   m._pendingAttack = null;
   m._lastPassTile = -1;
   m._hitTroops = null;
+  m._prevTileIdx = -1; // reset for incremental tile index
 }

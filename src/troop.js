@@ -87,10 +87,10 @@ export class Troop {
     return this._cachedDamage;
   }
   getDps() {
-    return this._cachedDamage / this._cachedAttackSpeed;
+    return this._cachedDps;
   }
   getHps() {
-    return this.spec.type === 'support' ? this._cachedDamage / this._cachedAttackSpeed : 0;
+    return this._cachedHps;
   }
   getHealTargetCount() {
     return this.healTargetLevel;
@@ -129,6 +129,10 @@ export class Troop {
             this.spec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, this.slowLevel - 1) * 1000
           ) / 1000
         : 0;
+    // Cache DPS/HPS to avoid recomputing on every render call.
+    this._cachedDps = this._cachedDamage / this._cachedAttackSpeed;
+    this._cachedHps = this.spec.type === 'support' ? this._cachedDamage / this._cachedAttackSpeed : 0;
+    this._cachedStatLines = null; // invalidated on upgrade, recomputed lazily
   }
 
   // Cost for next upgrade of a stat: base cost * 1.35^(level-1).

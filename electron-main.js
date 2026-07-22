@@ -12,6 +12,7 @@ import {
   resolveDownloadTag,
 } from './src/githubReleaseFeed.js';
 import { parseUpdateInfo } from './src/updateYamlParser.js';
+import { DEFAULT_SETTINGS as RENDERER_DEFAULTS } from './src/config/settingsDefaults.js';
 
 const { autoUpdater } = electronUpdater;
 const __dirname = path.dirname(fileURLToPath(import.meta?.url || ''));
@@ -31,25 +32,8 @@ const SAVE_PATH = path.join(app.getPath('userData'), 'game-save.json');
 const DEFAULT_SETTINGS = {
   // Canonical source of truth for field shapes: src/config/settingsDefaults.js (renderer side).
   version: app.getVersion(),
-  update: {
-    channel: 'release',
-    autoDownload: false,
-    checkOnStartup: true,
-    checkIntervalMinutes: 60,
-    skippedVersions: [],
-    showProgressBar: true,
-    availableVersion: null,
-    releaseType: null,
-  },
-  collapsed: {
-    hud: false,
-    shop: false,
-    preview: false,
-    shieldShop: false,
-    help: true,
-    monsterInfo: true,
-    settings: true,
-  },
+  update: { ...RENDERER_DEFAULTS.update },
+  collapsed: { ...RENDERER_DEFAULTS.collapsed },
 };
 
 const MIN_CHECK_INTERVAL_MINUTES = 15;

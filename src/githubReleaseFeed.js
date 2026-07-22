@@ -146,18 +146,17 @@ async function resolveDownloadTag(owner, repo, feedTag) {
   const tagWithV = feedTag.startsWith('v') ? feedTag : 'v' + feedTag;
   const tagWithoutV = feedTag.startsWith('v') ? feedTag.slice(1) : feedTag;
 
-  if (tagWithV === tagWithoutV) return { tag: tagWithV, variant: null };
-
   const testUrl = (tag) =>
     `https://github.com/${owner}/${repo}/releases/download/${encodeURIComponent(tag)}/latest.yml`;
 
-  try {
-    if (await headRequest(testUrl(tagWithV))) return { tag: tagWithV, variant: 'v-prefixed' };
-  } catch (_) {}
+  // Run both HEAD requests in parallel to avoid sequential timeout delays.
+  const [withVResult, withoutVResult] = await Promise.allSettled([
+    headRequest(testUrl(tagWithV)),
+    headRequest(testUrl(tagWithoutV)),
+  ]);
 
-  try {
-    if (await headRequest(testUrl(tagWithoutV))) return { tag: tagWithoutV, variant: 'bare' };
-  } catch (_) {}
+  if (withVResult.status === 'fulfilled' && withVResult.value) return { tag: tagWithV, variant: 'v-prefixed' };
+  if (withoutVResult.status === 'fulfilled' && withoutVResult.value) return { tag: tagWithoutV, variant: 'bare' };
 
   return { tag: feedTag, variant: null };
 }

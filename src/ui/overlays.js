@@ -7,7 +7,7 @@ export function drawWaveTransition(game) {
   if (!game.waveCompleteAnim || !game.waveCompleteAnim.active) return;
   const a = game.waveCompleteAnim;
   const elapsed = (performance.now() - a.startMs) / 1000;
-  const totalTime = 2.5;
+  const totalTime = a.duration || CONFIG.WAVE_TRANSITION_DURATION;
   const remaining = totalTime - elapsed;
   if (remaining <= 0) {
     a.active = false;
