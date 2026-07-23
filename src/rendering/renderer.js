@@ -19,6 +19,14 @@ export const RENDERER = {
   _autoCollapsed: false,
   _prevCollapseShop: false,
   _prevCollapseShield: false,
+  // Cache guard for updateAutoCollapse — avoids re-computing layout math
+  // every frame when nothing relevant has changed.
+  _lastCheckWidth: 0,
+  _lastCheckHeight: 0,
+  _lastCheckZoom: 0,
+  _lastCheckZoomUI: 0,
+  _lastCheckCollapsedShop: false,
+  _lastCheckCollapsedShield: false,
 
   // Cached offscreen canvases for static layers (grid, path)
   _bgCache: null, // ground + grid lines
@@ -53,9 +61,9 @@ export const RENDERER = {
     this.height = rect.height;
 
     // Check auto-collapse BEFORE layout computation so the layout uses
-    // the updated collapse state. The restore condition uses the expanded
-    // map width (what the map would look like with full sidebars) which
-    // naturally prevents flip-flop without needing an allowRestore flag.
+    // the updated collapse state. Reset cache guard so updateAutoCollapse
+    // always re-evaluates after a window resize or panel toggle.
+    this._lastCheckWidth = 0;
     this._checkAutoCollapse();
 
     const MARGIN = 12;
@@ -111,11 +119,14 @@ export const RENDERER = {
     const shieldW = UI_LAYOUT.collapsed.shieldShop ? 20 * zoom : UI_LAYOUT.SHIELD_SHOP_WIDTH;
     const maxSidebarW = Math.max(shopW, shieldW);
 
-    // Current rendered map width (used for collapse check)
+    // Current rendered map width (used for collapse check).
+    // Use local `zoom` (from UI_LAYOUT._zoom) instead of `this.zoom` so the
+    // check is consistent even when called outside the render loop (e.g.
+    // from resize() when RENDERER.zoom may still hold a stale value).
     const availW = this.width - UI_LAYOUT.shopWidth - UI_LAYOUT.shieldShopWidth - MARGIN * 2;
     const sX = Math.max(0.25, availW / mapSize);
     const scale = Math.min(1, sX);
-    const ez = scale >= 1 ? this.zoom : 1;
+    const ez = scale >= 1 ? zoom : 1;
     const renderedMapW = mapSize * scale * ez;
 
     // Expanded map width: what the map would look like with full sidebars
@@ -125,7 +136,7 @@ export const RENDERER = {
     const expandedMaxW = Math.max(expandedShopW, expandedShieldW);
     const expandedAvailW = this.width - expandedShopW - expandedShieldW - MARGIN * 2;
     const expandedScale = Math.min(1, Math.max(0.25, expandedAvailW / mapSize));
-    const expandedEz = expandedScale >= 1 ? this.zoom : 1;
+    const expandedEz = expandedScale >= 1 ? zoom : 1;
     const expandedRenderedMapW = mapSize * expandedScale * expandedEz;
 
     // If the user manually toggled a sidebar while auto-collapsed, respect
@@ -167,10 +178,34 @@ export const RENDERER = {
   },
 
   /** Public wrapper for external callers (like renderGame). Returns true if
-   *  collapse state changed, so callers can trigger a re-layout. */
+   *  collapse state changed, so callers can trigger a re-layout.
+   *  Skips the check entirely when nothing relevant changed since the last
+   *  call — avoids re-computing layout math every frame. */
   updateAutoCollapse() {
-    return this._checkAutoCollapse();
+    if (
+      this._lastCheckWidth === this.width &&
+      this._lastCheckHeight === this.height &&
+      this._lastCheckZoom === this.zoom &&
+      this._lastCheckZoomUI === UI_LAYOUT._zoom &&
+      this._lastCheckCollapsedShop === UI_LAYOUT.collapsed.shop &&
+      this._lastCheckCollapsedShield === UI_LAYOUT.collapsed.shieldShop
+    ) {
+      return false;
+    }
+
+    const changed = this._checkAutoCollapse();
+
+    this._lastCheckWidth = this.width;
+    this._lastCheckHeight = this.height;
+    this._lastCheckZoom = this.zoom;
+    this._lastCheckZoomUI = UI_LAYOUT._zoom;
+    this._lastCheckCollapsedShop = UI_LAYOUT.collapsed.shop;
+    this._lastCheckCollapsedShield = UI_LAYOUT.collapsed.shieldShop;
+
+    return changed;
   },
+
+  // (cache guard reset is done inline in resize() by setting _lastCheckWidth = 0)
 
   // (Re)build static background + path caches at device-pixel resolution for
   // sharp rendering on HiDPI displays.

@@ -142,22 +142,22 @@ export function handleToggleClick(px, py) {
   if (!RENDERER.ctx || !RENDERER.ctx.canvas) return false;
   if (this._toggleShieldShop && hitToggleButton(px, py, this._toggleShieldShop)) {
     UI_LAYOUT.collapsed.shieldShop = !UI_LAYOUT.collapsed.shieldShop;
-    RENDERER.resize(RENDERER.ctx.canvas);
+    RENDERER.resize();
     return true;
   }
   if (this._toggleHud && hitToggleButton(px, py, this._toggleHud)) {
     UI_LAYOUT.collapsed.hud = !UI_LAYOUT.collapsed.hud;
-    RENDERER.resize(RENDERER.ctx.canvas);
+    RENDERER.resize();
     return true;
   }
   if (this._toggleShop && hitToggleButton(px, py, this._toggleShop)) {
     UI_LAYOUT.collapsed.shop = !UI_LAYOUT.collapsed.shop;
-    RENDERER.resize(RENDERER.ctx.canvas);
+    RENDERER.resize();
     return true;
   }
   if (this._togglePreview && hitToggleButton(px, py, this._togglePreview)) {
     UI_LAYOUT.collapsed.preview = !UI_LAYOUT.collapsed.preview;
-    RENDERER.resize(RENDERER.ctx.canvas);
+    RENDERER.resize();
     return true;
   }
   return false;

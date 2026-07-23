@@ -45,25 +45,23 @@ export function drawHUD(game) {
   const goldW = c.measureText(goldStr).width;
   const livesW = c.measureText(livesStr).width;
   c.font = 'bold ' + Math.round(15 * zoom) + 'px system-ui, sans-serif';
-  const waveW = c.measureText(waveStr).width;  // Base positions (in zoom-scaled pixels) — use `let` so they can be
-  // capped at zoom=1 in 2-line mode.
-  let goldX = zp(14);
-  let livesDefX = zp(120);
-  let waveDefX = zp(200);
-  let rstDefX = zp(310);
+  const waveW = c.measureText(waveStr).width;  // Base positions (in zoom-scaled pixels)
+  const goldX = zp(14);
+  const livesDefX = zp(120);
+  const waveDefX = zp(200);
+  const rstDefX = zp(310);
   const rstW = zp(50);
 
   // Right-anchored reference
   const sx = w - LAYOUT.HUD.SPEED_OFFSET;
 
-  // Gaps in display pixels between left-anchored sections (before text) — `let`
-  // so they can be recomputed after capping positions in 2-line mode.
-  let gap1 = livesDefX - (goldX + zp(20) + goldW);  // gold end → lives heart
-  let gap2 = waveDefX - (livesDefX + zp(18) + livesW); // lives end → wave text
-  let gap3 = rstDefX - (waveDefX + waveW);           // wave end → reset btn
+  // Gaps in display pixels between left-anchored sections (before text)
+  const gap1 = livesDefX - (goldX + zp(20) + goldW);  // gold end → lives heart
+  const gap2 = waveDefX - (livesDefX + zp(18) + livesW); // lives end → wave text
+  const gap3 = rstDefX - (waveDefX + waveW);           // wave end → reset btn
 
-  // Left-anchored section right edge — `let` so it can be recomputed.
-  let leftEnd = rstDefX + rstW;
+  // Left-anchored section right edge
+  const leftEnd = rstDefX + rstW;
   // Left edge of right-anchored section (monsters count extends furthest left during waves)
   const rightStart = game.state === 'WAVE_ACTIVE' || game.state === 'PAUSED' ? sx - zp(130) : sx - zp(50);
 
