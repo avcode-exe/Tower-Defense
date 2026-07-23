@@ -480,6 +480,99 @@ body {
   width: max-content;
 }
 
+/* ── Save / Load popup ── */
+#save-popup {
+  /* inherits .bar-popup sizing; override min-width/max-width via inline style */
+}
+.save-slot-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  cursor: default;
+  transition: background 0.15s;
+}
+.save-slot-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.save-slot-preview {
+  width: 48px;
+  height: 36px;
+  border-radius: 3px;
+  background: rgba(0, 0, 0, 0.3);
+  flex-shrink: 0;
+  object-fit: cover;
+}
+.save-slot-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.save-slot-name {
+  font-size: 10px;
+  color: rgba(230, 237, 243, 0.8);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.save-slot-detail {
+  font-size: 9px;
+  color: rgba(182, 194, 204, 0.45);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.save-slot-actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+.save-action-btn {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, color 0.15s;
+}
+.save-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+}
+.save-action-btn.load {
+  background: rgba(46, 160, 67, 0.15);
+  color: #2ea043;
+  border-color: rgba(46, 160, 67, 0.25);
+}
+.save-action-btn.load:hover {
+  background: rgba(46, 160, 67, 0.25);
+}
+.save-action-btn.delete {
+  background: rgba(218, 54, 51, 0.1);
+  color: #da3633;
+  border-color: rgba(218, 54, 51, 0.2);
+}
+.save-action-btn.delete:hover {
+  background: rgba(218, 54, 51, 0.2);
+}
+.save-action-btn.overwrite {
+  background: rgba(88, 166, 255, 0.1);
+  color: #58a6ff;
+  border-color: rgba(88, 166, 255, 0.2);
+}
+.save-action-btn.overwrite:hover {
+  background: rgba(88, 166, 255, 0.2);
+}
+
 /* ── About popup ── */
 #about-popup {
   min-width: 280px;

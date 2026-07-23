@@ -29,6 +29,7 @@ const PERSISTENT_SETTINGS_PATH = path.join(PERSISTENT_DIR, 'settings.json');
 // App-specific paths (userData) for save data that's OK to lose on uninstall
 const SETTINGS_PATH = path.join(app.getPath('userData'), 'settings.json');
 const SAVE_PATH = path.join(app.getPath('userData'), 'game-save.json');
+const SAVE_DIR = path.join(app.getPath('userData'), 'saves');
 const DEFAULT_SETTINGS = {
   // Canonical source of truth for field shapes: src/config/settingsDefaults.js (renderer side).
   version: app.getVersion(),
@@ -644,42 +645,126 @@ ipcMain.on('cancel-update', () => {
   autoUpdater.autoDownload = false;
 });
 
-ipcMain.handle('save-game', (_event, data) => {
+// ── Save helpers ──
+
+/** Return the file path for a save slot name (e.g. "autosave.0" → saves/autosave.0.json) */
+function saveSlotPath(slot) {
+  const safeName = String(slot).replace(/[^a-zA-Z0-9._-]/g, '_');
+  return path.join(SAVE_DIR, safeName + '.json');
+}
+
+/** Scan the save directory and return a list of { slot, meta } entries. */
+function listSaveSlots() {
+  try {
+    if (!fs.existsSync(SAVE_DIR)) return [];
+    const entries = fs.readdirSync(SAVE_DIR, { withFileTypes: true });
+    const results = [];
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.json')) continue;
+      const slot = entry.name.slice(0, -5); // strip .json
+      const fp = path.join(SAVE_DIR, entry.name);
+      try {
+        const stat = fs.statSync(fp);
+        if (stat.size > 1024 * 1024) continue; // too large
+        const raw = fs.readFileSync(fp, 'utf-8');
+        const data = JSON.parse(raw);
+        results.push({
+          slot,
+          meta: {
+            timestamp: (data._meta && data._meta.timestamp) || stat.mtimeMs,
+            wave: data._meta ? data._meta.wave : (data.wave && data.wave.currentWave) || 0,
+            gold: data._meta ? data._meta.gold : data.gold,
+            lives: data._meta ? data._meta.lives : data.lives,
+            version: data._meta ? data._meta.version : data.version || '0.0.0',
+            preview: (data._meta && data._meta.preview) || null,
+          },
+        });
+      } catch (_) {
+        // Skip corrupt files
+        continue;
+      }
+    }
+    return results;
+  } catch (_) {
+    return [];
+  }
+}
+
+function readSaveSlot(slot) {
+  try {
+    const fp = saveSlotPath(slot);
+    if (!fs.existsSync(fp)) return null;
+    const stat = fs.statSync(fp);
+    if (stat.size > 1024 * 1024) return null;
+    return JSON.parse(fs.readFileSync(fp, 'utf-8'));
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeSaveSlot(slot, data) {
   try {
     if (!data || typeof data !== 'object') return false;
     const compact = JSON.stringify(data);
-    if (compact.length > 1024 * 1024) return false; // 1MB limit
+    if (compact.length > 1024 * 1024) return false;
     const json = JSON.stringify(data, null, 2);
-    fs.mkdirSync(path.dirname(SAVE_PATH), { recursive: true });
-    fs.writeFileSync(SAVE_PATH, json, 'utf-8');
+    fs.mkdirSync(SAVE_DIR, { recursive: true });
+    fs.writeFileSync(saveSlotPath(slot), json, 'utf-8');
     return true;
-  } catch (err) {
-    console.error('[save] failed:', err);
+  } catch (_) {
     return false;
   }
+}
+
+function deleteSaveSlot(slot) {
+  try {
+    const fp = saveSlotPath(slot);
+    if (fs.existsSync(fp)) fs.unlinkSync(fp);
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+// ── Legacy single-save handlers (backward compat) ──
+
+const LEGACY_SLOT = 'autosave.0';
+
+ipcMain.handle('save-game', (_event, data) => {
+  return writeSaveSlot(LEGACY_SLOT, data);
 });
 
 ipcMain.handle('load-game', () => {
-  try {
-    if (fs.existsSync(SAVE_PATH)) {
-      const stat = fs.statSync(SAVE_PATH);
-      if (stat.size > 1024 * 1024) return null; // 1MB limit
-      return JSON.parse(fs.readFileSync(SAVE_PATH, 'utf-8'));
-    }
-  } catch (err) {
-    console.error('[save] load failed:', err);
-  }
-  return null;
+  return readSaveSlot(LEGACY_SLOT);
 });
 
 ipcMain.handle('delete-save', () => {
-  try {
-    if (fs.existsSync(SAVE_PATH)) fs.unlinkSync(SAVE_PATH);
-    return true;
-  } catch (err) {
-    console.error('[save] delete failed:', err);
-    return false;
-  }
+  return deleteSaveSlot(LEGACY_SLOT);
+});
+
+// ── Save rotation IPC handlers ──
+
+/** List all save slots with metadata. Returns { slot, meta }[]. */
+ipcMain.handle('list-saves', () => {
+  return listSaveSlots();
+});
+
+/** Save data to a named slot. Returns boolean. */
+ipcMain.handle('save-game-slot', (_event, slot, data) => {
+  if (typeof slot !== 'string' || !slot) return false;
+  return writeSaveSlot(slot, data);
+});
+
+/** Load data from a named slot. Returns parsed object or null. */
+ipcMain.handle('load-game-slot', (_event, slot) => {
+  if (typeof slot !== 'string' || !slot) return false;
+  return readSaveSlot(slot);
+});
+
+/** Delete a named save slot. Returns boolean. */
+ipcMain.handle('delete-save-slot', (_event, slot) => {
+  if (typeof slot !== 'string' || !slot) return false;
+  return deleteSaveSlot(slot);
 });
 
 function createWindow() {

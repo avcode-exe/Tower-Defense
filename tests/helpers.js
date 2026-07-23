@@ -225,6 +225,11 @@ export function makeElectronStub(overrides = {}) {
     setAutoDownload: vi.fn(),
     setUpdateChannel: vi.fn(),
     onUpdateStatus: vi.fn(() => () => {}),
+    // Save rotation methods
+    listSaves: vi.fn(async () => []),
+    saveGameSlot: vi.fn(async () => true),
+    loadGameSlot: vi.fn(async () => null),
+    deleteSaveSlot: vi.fn(async () => true),
     ...overrides,
   };
 }

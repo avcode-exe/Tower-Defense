@@ -9,6 +9,7 @@ export const BAR_BTN_MAP = {
   settings: 'bar-settings-btn',
   about: 'bar-about-btn',
   dev: 'bar-dev-btn',
+  save: 'bar-save-btn',
 };
 
 export const POPUP_MAP = {
@@ -17,6 +18,7 @@ export const POPUP_MAP = {
   settings: 'settings-popup',
   about: 'about-popup',
   dev: 'dev-popup',
+  save: 'save-popup',
 };
 
 export function showPopup(key, UI_LAYOUT) {

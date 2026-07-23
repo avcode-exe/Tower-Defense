@@ -121,6 +121,7 @@ describe('save serializer key set contract', () => {
     };
     const data = SaveSerializer.fromGame(game, '1.6.0');
     expect(Object.keys(data).sort()).toEqual([
+      '_meta',
       'devMode',
       'devMonsterCounts',
       'gold',

@@ -11,7 +11,7 @@ import { Projectile } from './projectile.js';
 import { WaveManager } from './waveManager.js';
 import { GameRuntimeController } from './gameRuntime.js';
 import { stepNecromancerRevives } from './necromancer.js';
-import { SaveSerializer, GameWorldFactory, GameSnapshotRestorer } from './gamePersistence.js';
+import { SaveSerializer, SaveRotationManager, GameWorldFactory, GameSnapshotRestorer } from './gamePersistence.js';
 import { UI, UI_LAYOUT } from './ui/index.js';
 import { AUDIO } from './audio.js';
 import { pixelToTile, tileCenterInto, inBounds } from './utils.js';
@@ -94,6 +94,9 @@ export class Game {
 
     // Zoom indicator: timestamp of last zoom change, used for fade-in/out animation.
     this._zoomIndicatorTime = 0;
+
+    // Auto-save indicator: seconds remaining to show the "Saved" badge in the HUD.
+    this._autoSaveIndicatorTimer = 0;
 
     // Drag-to-place: when the user holds the mouse button after selecting a
     // troop from the shop, placement is deferred until release on a valid tile.
@@ -420,6 +423,10 @@ export class Game {
     }
     this._updateMonsterTileIndex();
     PARTICLES.update(dt);
+    // Decay the auto-save indicator timer
+    if (this._autoSaveIndicatorTimer > 0) {
+      this._autoSaveIndicatorTimer = Math.max(0, this._autoSaveIndicatorTimer - dt);
+    }
   }
 
   _stepWaveSpawning(dt) {
@@ -1154,15 +1161,86 @@ export class Game {
     this.lastTime = 0;
     this.accumulator = 0;
     this._lastSaveWave = this.wave.currentWave;
+    this._autoSaveIndicatorTimer = 0;
   }
 
   _autoSave() {
     if (!window.electron || !window.electron.saveGame) return;
+    // Legacy cleanup: if _needsSaveCleanup is set, delete all old single-file saves
     if (this._needsSaveCleanup && window.electron.deleteSave) {
       window.electron.deleteSave();
       this._needsSaveCleanup = false;
     }
-    window.electron.saveGame(this.getSaveData());
+    // Save rotation: pick the LRU auto-save slot and write to it
+    this._saveToRotationSlot(this.getSaveData());
+    // Show the auto-save badge in the HUD for 2 seconds
+    this._autoSaveIndicatorTimer = 2.0;
+  }
+
+  /** Save to the LRU auto-save slot. */
+  async _saveToRotationSlot(saveData) {
+    if (!window.electron || !window.electron.listSaves) {
+      // Fallback: single-file save
+      if (window.electron.saveGame) window.electron.saveGame(saveData);
+      return;
+    }
+    try {
+      const existing = await window.electron.listSaves();
+      // Filter to auto-save slots only
+      const autoSaves = Array.isArray(existing)
+        ? existing.filter((e) => e && e.slot && e.slot.startsWith('autosave.'))
+        : [];
+      const slot = SaveRotationManager.selectSlotForWrite(autoSaves);
+      await window.electron.saveGameSlot(slot, saveData);
+    } catch (_) {
+      // Fallback to legacy save on error
+      if (window.electron.saveGame) window.electron.saveGame(saveData);
+    }
+  }
+
+  /** Save to a manual named slot. Returns boolean. */
+  async saveToSlot(slotName) {
+    if (!window.electron || !window.electron.saveGameSlot) return false;
+    try {
+      const data = SaveSerializer.fromGame(this, this.appVersion, true);
+      await window.electron.saveGameSlot(slotName, data);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /** Load from a named slot. Returns boolean for success. */
+  async loadFromSlot(slotName) {
+    if (!window.electron || !window.electron.loadGameSlot) return false;
+    try {
+      const data = await window.electron.loadGameSlot(slotName);
+      if (!data) return false;
+      this.restore(data);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /** List all save slots with metadata. */
+  async listSaves() {
+    if (!window.electron || !window.electron.listSaves) return [];
+    try {
+      return await window.electron.listSaves();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /** Delete a save slot. Returns boolean. */
+  async deleteSlot(slotName) {
+    if (!window.electron || !window.electron.deleteSaveSlot) return false;
+    try {
+      return await window.electron.deleteSaveSlot(slotName);
+    } catch (_) {
+      return false;
+    }
   }
 
   // DRY: Convert pixel coords to tile coords, checking that the point is
@@ -1322,6 +1400,7 @@ export class Game {
     this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();
+    this._autoSaveIndicatorTimer = 0;
     this.start(); // re-start the background loop
   }
 

@@ -268,5 +268,28 @@ export function drawHUD(game) {
     c.fillText('x' + game.wave.currentMultiplier.toFixed(2), multX, hudY);
   }
 
+  // ── Auto-save indicator badge: fades out over 2 seconds ──
+  if (game._autoSaveIndicatorTimer > 0) {
+    const ratio = Math.min(1, game._autoSaveIndicatorTimer / 2.0);
+    const alpha = 0.15 + 0.85 * Math.max(0, ratio);
+    // Position the badge after the wave multiplier area (rstX + rstW + zp(70))
+    // so it doesn't overlap with the wave 10+ indicator at rstX + rstW + zp(8).
+    const badgeX = rstX + rstW + zp(70);
+    const badgeY = zp(14);
+    const badgeW = zp(56);
+    const badgeH = zp(22);
+    c.save();
+    c.globalAlpha = alpha;
+    // Badge background
+    fillStrokeRoundedRect(c, badgeX, badgeY, badgeW, badgeH, zp(4), 'rgba(46,160,67,0.15)', 'rgba(46,160,67,0.3)');
+    // Checkmark + text
+    c.fillStyle = '#3fb950';
+    zoomFont(c, 9, 'bold ');
+    c.textAlign = 'center';
+    c.textBaseline = 'middle';
+    c.fillText('\u2713 Saved', badgeX + badgeW / 2, badgeY + badgeH / 2 + 1);
+    c.restore();
+  }
+
   c.textBaseline = 'alphabetic';
 }

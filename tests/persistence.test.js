@@ -315,7 +315,7 @@ describe('SaveSerializer', () => {
         troops: [],
       };
       const data = SaveSerializer.fromGame(game, undefined);
-      expect(data.version).toBe('1.0.0');
+      expect(data.version).toBe(SaveMigrator.CURRENT_VERSION);
     });
   });
 
@@ -386,6 +386,7 @@ describe('SaveSerializer', () => {
         markPathTiles: vi.fn(),
         _buildTroopTileIndex: vi.fn(),
         _needsSaveCleanup: false,
+        _defaultDevCounts: vi.fn(() => ({})),
       };
     }
 
@@ -800,6 +801,7 @@ describe('SaveSerializer', () => {
         restart: vi.fn(),
         markPathTiles: vi.fn(),
         _buildTroopTileIndex: vi.fn(),
+        _defaultDevCounts: vi.fn(() => ({})),
       };
       GameSnapshotRestorer.apply(game, {
         speed: 2,
@@ -969,6 +971,269 @@ describe('SaveSerializer', () => {
       expect(game.troops[0].slowLevel).toBe(3);
       expect(game.troops[0].shield).toBe(10);
     });
+  });
+});
+
+// ── Helper: fake game objects for meta-data tests ──
+function makeMetaGame(overrides = {}) {
+  return {
+    wave: { currentWave: 5 },
+    gold: 1000,
+    lives: 20,
+    ...overrides,
+  };
+}
+
+describe('SaveRotationManager', () => {
+  let SaveRotationManager, SaveMigrator;
+
+  beforeAll(async () => {
+    const mod = await import('../src/gamePersistence.js');
+    SaveRotationManager = mod.SaveRotationManager;
+    SaveMigrator = mod.SaveMigrator;
+  });
+
+  describe('autoSaveSlots', () => {
+    it('returns 3 slot names', () => {
+      const slots = SaveRotationManager.autoSaveSlots();
+      expect(slots).toHaveLength(3);
+    });
+
+    it('prefixed with autosave.', () => {
+      const slots = SaveRotationManager.autoSaveSlots();
+      for (const s of slots) {
+        expect(s).toMatch(/^autosave\.\d+$/);
+      }
+    });
+  });
+
+  describe('selectSlotForWrite', () => {
+    it('returns first slot when no existing slots', () => {
+      expect(SaveRotationManager.selectSlotForWrite([])).toBe('autosave.0');
+    });
+
+    it('returns first slot when input is null', () => {
+      expect(SaveRotationManager.selectSlotForWrite(null)).toBe('autosave.0');
+    });
+
+    it('returns the oldest slot by timestamp (LRU eviction)', () => {
+      const existing = [
+        { slot: 'autosave.0', meta: { timestamp: 300 } },
+        { slot: 'autosave.1', meta: { timestamp: 100 } }, // oldest
+        { slot: 'autosave.2', meta: { timestamp: 200 } },
+      ];
+      expect(SaveRotationManager.selectSlotForWrite(existing)).toBe('autosave.1');
+    });
+
+    it('handles single existing slot', () => {
+      const existing = [{ slot: 'autosave.0', meta: { timestamp: 500 } }];
+      expect(SaveRotationManager.selectSlotForWrite(existing)).toBe('autosave.0');
+    });
+
+    it('handles entries with missing meta', () => {
+      const existing = [
+        { slot: 'autosave.0', meta: null },
+        { slot: 'autosave.1' },
+        { slot: 'autosave.2', meta: { timestamp: 999 } },
+      ];
+      // Entries without timestamps get ts=0 — the first such entry is oldest
+      const result = SaveRotationManager.selectSlotForWrite(existing);
+      expect(result).toBe('autosave.0');
+    });
+
+    it('falls back to first slot when no known slot matches', () => {
+      const existing = [{ slot: 'manual_save', meta: { timestamp: 100 } }];
+      expect(SaveRotationManager.selectSlotForWrite(existing)).toBe('autosave.0');
+    });
+
+    it('handles entries with slot property but no known names', () => {
+      const existing = [
+        { slot: 'unknown.0', meta: { timestamp: 50 } },
+        { slot: 'unknown.1', meta: { timestamp: 150 } },
+      ];
+      expect(SaveRotationManager.selectSlotForWrite(existing)).toBe('autosave.0');
+    });
+
+    it('filters out entries without slot property', () => {
+      const existing = [
+        { meta: { timestamp: 100 } }, // no slot property
+        { slot: 'autosave.0', meta: { timestamp: 300 } },
+        { slot: 'autosave.1', meta: { timestamp: 200 } },
+      ];
+      expect(SaveRotationManager.selectSlotForWrite(existing)).toBe('autosave.1');
+    });
+  });
+
+  describe('makeMetaData', () => {
+    it('extracts wave, gold, lives from game', () => {
+      const meta = SaveRotationManager.makeMetaData(makeMetaGame());
+      expect(meta.wave).toBe(5);
+      expect(meta.gold).toBe(1000);
+      expect(meta.lives).toBe(20);
+      expect(meta.version).toBe(SaveMigrator.CURRENT_VERSION);
+      expect(meta.timestamp).toBeGreaterThan(0);
+    });
+
+    it('stores null gold for dev mode (Infinity)', () => {
+      const meta = SaveRotationManager.makeMetaData(makeMetaGame({ gold: Infinity }));
+      expect(meta.gold).toBeNull();
+    });
+
+    it('stores null lives for dev mode (Infinity)', () => {
+      const meta = SaveRotationManager.makeMetaData(makeMetaGame({ lives: Infinity }));
+      expect(meta.lives).toBeNull();
+    });
+
+    it('defaults wave to 0 when game lacks wave', () => {
+      const meta = SaveRotationManager.makeMetaData(makeMetaGame({ wave: null }));
+      expect(meta.wave).toBe(0);
+    });
+
+    it('defaults wave to 0 when wave has no currentWave', () => {
+      const meta = SaveRotationManager.makeMetaData(makeMetaGame({ wave: {} }));
+      expect(meta.wave).toBe(0);
+    });
+  });
+
+  describe('extractMeta', () => {
+    it('reads from _meta field when present', () => {
+      const data = {
+        _meta: { timestamp: 100, wave: 3, gold: 500, lives: 10, version: '1.7.0' },
+        gold: 999, // should NOT be used
+      };
+      const meta = SaveRotationManager.extractMeta(data);
+      expect(meta.wave).toBe(3);
+      expect(meta.gold).toBe(500);
+      expect(meta.timestamp).toBe(100);
+    });
+
+    it('falls back to top-level fields when _meta missing', () => {
+      const data = {
+        gold: 200,
+        lives: 15,
+        wave: { currentWave: 7 },
+        version: '1.6.0',
+      };
+      const meta = SaveRotationManager.extractMeta(data);
+      expect(meta.wave).toBe(7);
+      expect(meta.gold).toBe(200);
+      expect(meta.lives).toBe(15);
+    });
+
+    it('returns null for null input', () => {
+      expect(SaveRotationManager.extractMeta(null)).toBeNull();
+    });
+
+    it('returns null for undefined input', () => {
+      expect(SaveRotationManager.extractMeta(undefined)).toBeNull();
+    });
+
+    it('returns null for non-object input', () => {
+      expect(SaveRotationManager.extractMeta('string')).toBeNull();
+    });
+
+    it('preserves preview from _meta', () => {
+      const data = {
+        _meta: { timestamp: 100, wave: 1, gold: 100, lives: 10, version: '1.7.0', preview: 'data:image/jpeg;base64,abc123' },
+      };
+      const meta = SaveRotationManager.extractMeta(data);
+      expect(meta.preview).toBe('data:image/jpeg;base64,abc123');
+    });
+  });
+
+  describe('summarize', () => {
+    it('returns formatted string with all fields', () => {
+      const meta = { wave: 5, gold: 1000, lives: 20, timestamp: new Date('2026-07-23T12:00:00').getTime() };
+      const s = SaveRotationManager.summarize(meta);
+      expect(s).toContain('Wave 5');
+      expect(s).toContain('1000g');
+      expect(s).toContain('20 lives');
+    });
+
+    it('handles partial metadata (missing fields)', () => {
+      const meta = { wave: 3 };
+      const s = SaveRotationManager.summarize(meta);
+      expect(s).toContain('Wave 3');
+      expect(s).not.toContain('g');
+      expect(s).not.toContain('lives');
+    });
+
+    it('returns placeholder for null input', () => {
+      expect(SaveRotationManager.summarize(null)).toBe('Unknown save');
+    });
+
+    it('returns placeholder for undefined input', () => {
+      expect(SaveRotationManager.summarize(undefined)).toBe('Unknown save');
+    });
+
+    it('handles gold-only metadata', () => {
+      const meta = { gold: 500 };
+      const s = SaveRotationManager.summarize(meta);
+      expect(s).toContain('500g');
+    });
+  });
+});
+
+describe('captureSavePreview', () => {
+  it('returns null in Node.js environment (no document)', async () => {
+    const { captureSavePreview } = await import('../src/gamePersistence.js');
+    expect(captureSavePreview()).toBeNull();
+  });
+});
+
+describe('compareVersions', () => {
+  let SaveMigrator;
+
+  beforeAll(async () => {
+    const mod = await import('../src/gamePersistence.js');
+    SaveMigrator = mod.SaveMigrator;
+  });
+
+  function cmp(a, b) {
+    return SaveMigrator.compareVersions(a, b);
+  }
+
+  it('equal versions return 0', () => {
+    expect(cmp('1.7.0', '1.7.0')).toBe(0);
+  });
+
+  it('major version dominates', () => {
+    expect(cmp('2.0.0', '1.9.9')).toBeGreaterThan(0);
+    expect(cmp('1.0.0', '2.0.0')).toBeLessThan(0);
+  });
+
+  it('minor version', () => {
+    expect(cmp('1.8.0', '1.7.0')).toBeGreaterThan(0);
+    expect(cmp('1.7.0', '1.8.0')).toBeLessThan(0);
+  });
+
+  it('patch version', () => {
+    expect(cmp('1.7.1', '1.7.0')).toBeGreaterThan(0);
+    expect(cmp('1.7.0', '1.7.1')).toBeLessThan(0);
+  });
+
+  it('pre-release has lower precedence than release', () => {
+    expect(cmp('1.7.0-beta.1', '1.7.0')).toBeLessThan(0);
+    expect(cmp('1.7.0', '1.7.0-beta.1')).toBeGreaterThan(0);
+  });
+
+  it('pre-release vs pre-release with same numeric parts', () => {
+    expect(cmp('1.7.0-alpha', '1.7.0-beta')).toBe(0); // same numeric, both pre
+  });
+
+  it('different length numeric segments', () => {
+    expect(cmp('1.7', '1.7.0')).toBe(0);
+    expect(cmp('1.7.0.1', '1.7.0')).toBeGreaterThan(0);
+  });
+
+  it('identical strings return 0 early', () => {
+    expect(cmp('1.7.0', '1.7.0')).toBe(0);
+  });
+
+  it('handles non-numeric segments gracefully', () => {
+    // Non-numeric parts map to 0, so '1.x.0' == '1.0.0'
+    expect(cmp('1.x.0', '1.0.0')).toBe(0);
+    expect(cmp('1.0.0', '1.x.0')).toBe(0);
   });
 });
 

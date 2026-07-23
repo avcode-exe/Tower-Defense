@@ -449,6 +449,245 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.updateManager.init();
   }
 
+  // ── Save / Load popup ───────────────────────────────────────────────────
+  const savePopup = document.getElementById('save-popup');
+  const saveSlotList = document.getElementById('save-slot-list');
+  const saveSlotEmpty = document.getElementById('save-slot-empty');
+  const saveSlotName = document.getElementById('save-slot-name');
+  const saveNowBtn = document.getElementById('save-now-btn');
+  const saveRefreshBtn = document.getElementById('save-refresh-btn');
+  const saveStatusMsg = document.getElementById('save-status-msg');
+  const saveConfirmDialog = document.getElementById('save-confirm-dialog');
+  const saveConfirmName = document.getElementById('save-confirm-name');
+  const saveConfirmYes = document.getElementById('save-confirm-yes');
+  const saveConfirmNo = document.getElementById('save-confirm-no');
+
+  let _saveSlotsCache = [];
+  let _pendingSaveName = null;
+
+  function showSaveStatus(text, isError) {
+    if (!saveStatusMsg) return;
+    saveStatusMsg.textContent = text;
+    saveStatusMsg.style.color = isError ? '#da3633' : '#3fb950';
+    saveStatusMsg.style.opacity = '1';
+    setTimeout(() => {
+      saveStatusMsg.style.opacity = '0';
+    }, 2000);
+  }
+
+  function slotDisplayName(slot) {
+    if (slot.startsWith('autosave.')) return 'Auto-save ' + slot.slice(-1);
+    return slot;
+  }
+
+  function formatSaveTime(ts) {
+    if (!ts) return '';
+    try {
+      const d = new Date(ts);
+      return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  async function refreshSaveSlots() {
+    if (!game || !game.listSaves) return;
+    try {
+      const slots = await game.listSaves();
+      _saveSlotsCache = Array.isArray(slots) ? slots : [];
+      renderSaveSlots();
+    } catch (_) {
+      _saveSlotsCache = [];
+      renderSaveSlots();
+    }
+  }
+
+  function renderSaveSlots() {
+    if (!saveSlotList || !saveSlotEmpty) return;
+    // Show auto-saves first (sorted by slot index), then manual saves (by timestamp desc)
+    const autoSaves = _saveSlotsCache
+      .filter((e) => e && e.slot && e.slot.startsWith('autosave.'))
+      .sort((a, b) => a.slot.localeCompare(b.slot));
+    const manualSaves = _saveSlotsCache
+      .filter((e) => e && e.slot && !e.slot.startsWith('autosave.'))
+      .sort((a, b) => {
+        const tsA = (a.meta && a.meta.timestamp) || 0;
+        const tsB = (b.meta && b.meta.timestamp) || 0;
+        return tsB - tsA;
+      });
+    const allSaves = [...autoSaves, ...manualSaves];
+    saveSlotEmpty.style.display = allSaves.length === 0 ? 'block' : 'none';
+    saveSlotList.innerHTML = '';
+    for (const entry of allSaves) {
+      const slot = entry.slot;
+      const meta = entry.meta || {};
+      const card = document.createElement('div');
+      card.className = 'save-slot-card';
+
+      // Preview thumbnail
+      const previewImg = document.createElement('img');
+      previewImg.className = 'save-slot-preview';
+      previewImg.alt = '';
+      if (meta.preview && typeof meta.preview === 'string' && meta.preview.startsWith('data:')) {
+        previewImg.src = meta.preview;
+      }
+      card.appendChild(previewImg);
+
+      // Info block
+      const info = document.createElement('div');
+      info.className = 'save-slot-info';
+      const nameEl = document.createElement('div');
+      nameEl.className = 'save-slot-name';
+      nameEl.textContent = slotDisplayName(slot);
+      info.appendChild(nameEl);
+      const detailEl = document.createElement('div');
+      detailEl.className = 'save-slot-detail';
+      const parts = [];
+      if (meta.wave != null) parts.push('Wave ' + meta.wave);
+      if (meta.gold != null) parts.push(meta.gold + 'g');
+      if (meta.lives != null) parts.push(meta.lives + ' lives');
+      const timeStr = formatSaveTime(meta.timestamp);
+      if (timeStr) parts.push(timeStr);
+      detailEl.textContent = parts.join(' · ');
+      info.appendChild(detailEl);
+      card.appendChild(info);
+
+      // Action buttons
+      const actions = document.createElement('div');
+      actions.className = 'save-slot-actions';
+
+      // Overwrite button (for auto-saves) or none (manual saves use Save Now)
+      if (slot.startsWith('autosave.')) {
+        const overwriteBtn = document.createElement('button');
+        overwriteBtn.className = 'save-action-btn overwrite';
+        overwriteBtn.textContent = 'Save';
+        overwriteBtn.title = 'Overwrite this auto-save slot';
+        overwriteBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!game || !game.saveToSlot) return;
+          const ok = await game.saveToSlot(slot);
+          showSaveStatus(ok ? 'Saved to ' + slotDisplayName(slot) : 'Save failed', !ok);
+          if (ok) refreshSaveSlots();
+        });
+        actions.appendChild(overwriteBtn);
+      }
+
+      // Load button
+      const loadBtn = document.createElement('button');
+      loadBtn.className = 'save-action-btn load';
+      loadBtn.textContent = 'Load';
+      loadBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!game || !game.loadFromSlot) return;
+        // Close the popup before loading
+        if (savePopup) savePopup.classList.add('bar-popup--closed');
+        const btn = document.getElementById('bar-save-btn');
+        if (btn) btn.classList.remove('active');
+        if (UI_LAYOUT) UI_LAYOUT.collapsed.save = true;
+        const ok = await game.loadFromSlot(slot);
+        if (!ok) showSaveStatus('Load failed', true);
+      });
+      actions.appendChild(loadBtn);
+
+      // Delete button (only for manual saves, protect auto-saves)
+      if (!slot.startsWith('autosave.')) {
+        const delBtn = document.createElement('button');
+        delBtn.className = 'save-action-btn delete';
+        delBtn.textContent = 'Del';
+        delBtn.title = 'Delete this save slot';
+        delBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          if (!game || !game.deleteSlot) return;
+          const ok = await game.deleteSlot(slot);
+          showSaveStatus(ok ? 'Deleted ' + slotDisplayName(slot) : 'Delete failed', !ok);
+          if (ok) refreshSaveSlots();
+        });
+        actions.appendChild(delBtn);
+      }
+
+      card.appendChild(actions);
+      saveSlotList.appendChild(card);
+    }
+  }
+
+  // Refresh on popup open
+  if (savePopup) {
+    const observer = new MutationObserver(() => {
+      if (!savePopup.classList.contains('bar-popup--closed')) {
+        refreshSaveSlots();
+      }
+    });
+    observer.observe(savePopup, { attributes: true, attributeFilter: ['class'] });
+  }
+
+  function hideSaveConfirm() {
+    if (saveConfirmDialog) saveConfirmDialog.style.display = 'none';
+    _pendingSaveName = null;
+  }
+
+  async function executeNamedSave(name) {
+    if (!game || !game.saveToSlot) return;
+    const ok = await game.saveToSlot(name);
+    showSaveStatus(ok ? 'Saved as "' + name + '"' : 'Save failed', !ok);
+    if (ok) {
+      if (saveSlotName) saveSlotName.value = '';
+      refreshSaveSlots();
+    }
+  }
+
+  // Confirm dialog button wiring (once)
+  if (saveConfirmYes) {
+    saveConfirmYes.addEventListener('click', async () => {
+      const name = _pendingSaveName;
+      hideSaveConfirm();
+      if (name) await executeNamedSave(name);
+    });
+  }
+  if (saveConfirmNo) {
+    saveConfirmNo.addEventListener('click', () => {
+      hideSaveConfirm();
+    });
+  }
+
+  // Save Now button
+  if (saveNowBtn) {
+    saveNowBtn.addEventListener('click', async () => {
+      if (!game || !game.saveToSlot) return;
+      const name = saveSlotName ? saveSlotName.value.trim() : '';
+      if (!name) {
+        // Save to first auto-save slot
+        const ok = await game.saveToSlot('autosave.0');
+        showSaveStatus(ok ? 'Quick saved' : 'Save failed', !ok);
+        if (ok) refreshSaveSlots();
+        return;
+      }
+      // Check if this named slot already exists
+      const existing = _saveSlotsCache.find((e) => e && e.slot === name);
+      if (existing) {
+        // Show confirmation dialog
+        _pendingSaveName = name;
+        if (saveConfirmName) saveConfirmName.textContent = name;
+        if (saveConfirmDialog) saveConfirmDialog.style.display = 'block';
+        return;
+      }
+      await executeNamedSave(name);
+    });
+  }
+
+  // Refresh button
+  if (saveRefreshBtn) {
+    saveRefreshBtn.addEventListener('click', () => {
+      refreshSaveSlots();
+    });
+  }
+
+  // Enter key in slot name triggers Save Now
+  if (saveSlotName) {
+    saveSlotName.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && saveNowBtn) saveNowBtn.click();
+    });
+  }
+
   // ── About version display ───────────────────────────────────────────────
   const aboutVersionEl = document.getElementById('about-version');
   if (aboutVersionEl) {

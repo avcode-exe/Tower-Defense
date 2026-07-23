@@ -51,4 +51,28 @@ contextBridge.exposeInMainWorld('electron', {
   },
   loadGame: () => ipcRenderer.invoke('load-game'),
   deleteSave: () => ipcRenderer.invoke('delete-save'),
+
+  // Save rotation: named slots
+  listSaves: () => ipcRenderer.invoke('list-saves'),
+  saveGameSlot: (slot, data) => {
+    if (typeof slot !== 'string' || !slot) {
+      throw new TypeError('saveGameSlot expects a non-empty slot name');
+    }
+    if (!isPlainObject(data)) {
+      throw new TypeError('saveGameSlot expects a plain object');
+    }
+    return ipcRenderer.invoke('save-game-slot', slot, data);
+  },
+  loadGameSlot: (slot) => {
+    if (typeof slot !== 'string' || !slot) {
+      throw new TypeError('loadGameSlot expects a non-empty slot name');
+    }
+    return ipcRenderer.invoke('load-game-slot', slot);
+  },
+  deleteSaveSlot: (slot) => {
+    if (typeof slot !== 'string' || !slot) {
+      throw new TypeError('deleteSaveSlot expects a non-empty slot name');
+    }
+    return ipcRenderer.invoke('delete-save-slot', slot);
+  },
 });
