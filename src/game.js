@@ -2,7 +2,7 @@
 // routes input to logic.
 
 import { RENDERER } from './rendering/renderer.js';
-import { CONFIG, LAYOUT, TROOP_SPECS, PROJECTILE_STYLES, MONSTER_DEV_ORDER } from './config.js';
+import { CONFIG, LAYOUT, LAYOUT_ZOOM, TROOP_SPECS, PROJECTILE_STYLES, MONSTER_DEV_ORDER } from './config.js';
 import { TILE } from './grid.js';
 import { PARTICLES } from './particles.js';
 import { Monster } from './monster.js';
@@ -76,6 +76,8 @@ export class Game {
     this.runtime.installResize(canvas);
 
     this.devMode = false;
+    this.scrollZoom = true;
+    this.zoom = 1;
     this.devConfirmPending = false;
     this._goldClicks = 0;
     this._goldClickTimer = 0;
@@ -86,6 +88,9 @@ export class Game {
     this.devMonsterCounts = this._defaultDevCounts();
     this._needsSaveCleanup = false;
     this._lastSaveWave = 0;
+
+    // Zoom indicator: timestamp of last zoom change, used for fade-in/out animation.
+    this._zoomIndicatorTime = 0;
 
     // Drag-to-place: when the user holds the mouse button after selecting a
     // troop from the shop, placement is deferred until release on a valid tile.
@@ -935,21 +940,20 @@ export class Game {
 
   _handleHUDClicks(px, py) {
     if (UI_LAYOUT.collapsed.hud) return;
-    if (this._hitBox(px, py, LAYOUT.HUD.RESET_BTN)) {
+    const rstBtn = UI._resetBtn || LAYOUT.HUD.RESET_BTN;
+    if (this._hitBox(px, py, rstBtn)) {
       this.resetConfirmPending = true;
       return;
     }
-    if (this._hitBox(px, py, LAYOUT.HUD.MUTE_BTN)) {
-      AUDIO.toggleMute();
-      return;
-    }
     const w = RENDERER.width;
+    const sOff = UI._speedBtnOffsetY || 0;
+    const sGap = UI._speedBtnGap || 28;
     for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
       const r = {
-        x: w - LAYOUT.HUD.SPEED_OFFSET + i * 28,
-        y: 14,
+        x: w - LAYOUT.HUD.SPEED_OFFSET + i * sGap,
+        y: sOff + 14,
         w: LAYOUT.HUD.SPEED_BTN_W,
-        h: LAYOUT.HUD.SPEED_BTN_H,
+        h: UI._speedBtnH || LAYOUT.HUD.SPEED_BTN_H,
       };
       if (this._hitBox(px, py, r)) {
         this.speed = CONFIG.GAME_SPEEDS[i];
@@ -1137,6 +1141,7 @@ export class Game {
   // Returns the tile scratch object or null if out-of-bounds / in a panel.
   _pixelToGameTile(px, py) {
     const shieldShopRight = RENDERER.width - UI_LAYOUT.shieldShopWidth;
+    // UI_LAYOUT.hudHeight automatically includes the 2-line extra height
     if (
       px < UI_LAYOUT.shopWidth ||
       py < UI_LAYOUT.hudHeight ||
@@ -1191,6 +1196,35 @@ export class Game {
     }
     // Panel toggle shortcuts (bar popups): Alt+C (Controls), Alt+M (Monsters), Alt+U (Settings), Alt+D (Dev)
     if (e.altKey) this._handlePopupShortcut(e);
+
+    // Zoom shortcuts: Ctrl + / Ctrl - / Ctrl 0
+    if (e.ctrlKey && this.scrollZoom !== false) {
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        this.zoom = Math.min(2, (this.zoom || 1) + 0.1);
+        this._applyZoom();
+        return;
+      }
+      if (e.key === '-') {
+        e.preventDefault();
+        this.zoom = Math.max(1, (this.zoom || 1) - 0.1);
+        this._applyZoom();
+        return;
+      }
+      if (e.key === '0') {
+        e.preventDefault();
+        this.zoom = 1;
+        this._applyZoom();
+        return;
+      }
+    }
+  }
+
+  _applyZoom() {
+    UI_LAYOUT._zoom = this.zoom || 1;
+    LAYOUT_ZOOM.value = this.zoom || 1;
+    RENDERER.resize();
+    this._zoomIndicatorTime = performance.now();
   }
 
   _handlePopupShortcut(e) {

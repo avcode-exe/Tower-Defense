@@ -136,223 +136,204 @@
 
     <div id="settings-popup" class="bar-popup bar-popup--closed game-panel">
       <strong>Settings</strong>
-      <div class="settings-tabs">
-        <button type="button" class="settings-tab-btn active" data-tab="game">Game</button>
-        <button type="button" class="settings-tab-btn" data-tab="audio">Audio</button>
-        <button type="button" class="settings-tab-btn" data-tab="graphics">Graphics</button>
-        <button type="button" class="settings-tab-btn" data-tab="controls">Controls</button>
-        <button type="button" class="settings-tab-btn" data-tab="accessibility">Accessibility</button>
-        <button type="button" class="settings-tab-btn" data-tab="update">Update</button>
-      </div>
-      <div class="settings-tabs-content">
-        <div class="settings-tab-panel active" data-tab="game">
-          <label>Starting Gold
-            <input type="number" class="settings-input" data-section="game" data-field="startingGold" min="0" max="5000" step="10" />
-          </label>
-          <label>Starting Lives
-            <input type="number" class="settings-input" data-section="game" data-field="startingLives" min="1" max="100" step="1" />
-          </label>
-          <label>Max Wave
-            <input type="number" class="settings-input" data-section="game" data-field="maxWave" min="1" max="20" step="1" />
-          </label>
-          <label>Speed Default
-            <input type="number" class="settings-input" data-section="game" data-field="speedDefault" min="1" max="10" step="1" />
-          </label>
+      <div class="settings-sidebar-layout">
+        <div class="settings-sidebar">
+          <button type="button" class="settings-tab-btn active" data-tab="audio">Audio</button>
+          <button type="button" class="settings-tab-btn" data-tab="graphics">Graphics</button>
+          <button type="button" class="settings-tab-btn" data-tab="controls">Controls</button>
+          <button type="button" class="settings-tab-btn" data-tab="accessibility">Accessibility</button>
+          <button type="button" class="settings-tab-btn" data-tab="update">Update</button>
         </div>
-        <div class="settings-tab-panel" data-tab="audio">
-          <label>Master
-            <input type="range" class="settings-slider" data-section="audio" data-field="masterVolume" min="0" max="1" step="0.01" aria-label="Master volume" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute Master
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="masterMute" aria-label="Mute master volume" />
-          </label>
-          <label>SFX
-            <input type="range" class="settings-slider" data-section="audio" data-field="sfxVolume" min="0" max="1" step="0.01" aria-label="SFX volume" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute SFX
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="sfxMute" aria-label="Mute SFX" />
-          </label>
-          <label>Ambient
-            <input type="range" class="settings-slider" data-section="audio" data-field="ambientVolume" min="0" max="1" step="0.01" aria-label="Ambient volume" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute Ambient
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="ambientMute" aria-label="Mute ambient" />
-          </label>
-          <label>UI
-            <input type="range" class="settings-slider" data-section="audio" data-field="uiVolume" min="0" max="1" step="0.01" aria-label="UI volume" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute UI
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="uiMute" aria-label="Mute UI" />
-          </label>
-        </div>
-        <div class="settings-tab-panel" data-tab="graphics">
-          <label>Particle Quality
-            <select class="settings-select" data-section="graphics" data-field="particleQuality">
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Ultra">Ultra</option>
-            </select>
-          </label>
-          <label>Resolution Scale
-            <input type="range" class="settings-slider" data-section="graphics" data-field="resolutionScale" min="0.5" max="2" step="0.1" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Screen Shake
-            <input type="range" class="settings-slider" data-section="graphics" data-field="screenShake" min="0" max="1" step="0.1" />
-            <span class="settings-value"></span>
-          </label>
-        </div>
-        <div class="settings-tab-panel" data-tab="controls">
-          <label>Scroll Wheel Zoom
-            <input type="checkbox" class="settings-toggle" data-section="controls" data-field="scrollZoom" aria-label="Enable scroll wheel zoom" />
-          </label>
-          <div class="settings-keybinds">
-            <div class="keybind-row" data-action="pause">
-              <span class="keybind-label">Pause</span>
-              <input type="text" class="keybind-input" readonly aria-label="Pause keybind" />
-            </div>
-            <div class="keybind-row" data-action="startWave">
-              <span class="keybind-label">Start Wave</span>
-              <input type="text" class="keybind-input" readonly aria-label="Start wave keybind" />
-            </div>
-            <div class="keybind-row" data-action="restart">
-              <span class="keybind-label">Restart</span>
-              <input type="text" class="keybind-input" readonly aria-label="Restart keybind" />
-            </div>
-            <div class="keybind-row" data-action="sell">
-              <span class="keybind-label">Sell</span>
-              <input type="text" class="keybind-input" readonly aria-label="Sell keybind" />
-            </div>
-            <div class="keybind-row" data-action="speedUp">
-              <span class="keybind-label">Speed Up</span>
-              <input type="text" class="keybind-input" readonly aria-label="Speed up keybind" />
+        <div class="settings-tabs-content">
+          <div class="settings-tab-panel active" data-tab="audio">
+            <div class="audio-section">
+              <div class="audio-row">
+                <label class="audio-label">Master</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="masterVolume" min="0" max="1" step="0.01" aria-label="Master volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="masterMute" aria-label="Mute master volume" />
+              </div>
+              <div class="audio-row">
+                <label class="audio-label">SFX</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="sfxVolume" min="0" max="1" step="0.01" aria-label="SFX volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="sfxMute" aria-label="Mute SFX" />
+              </div>
+              <div class="audio-row">
+                <label class="audio-label">Ambient</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="ambientVolume" min="0" max="1" step="0.01" aria-label="Ambient volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="ambientMute" aria-label="Mute ambient" />
+              </div>
+              <div class="audio-row">
+                <label class="audio-label">UI</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="uiVolume" min="0" max="1" step="0.01" aria-label="UI volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="uiMute" aria-label="Mute UI" />
+              </div>
             </div>
           </div>
-        </div>
-        <div class="settings-tab-panel" data-tab="accessibility">
-          <label>Colorblind Mode (High Contrast)
-            <input type="checkbox" class="settings-toggle" data-section="accessibility" data-field="colorblindMode" aria-label="Enable colorblind mode" />
-          </label>
-          <label>Font Size Scale
-            <input type="range" class="settings-slider" data-section="accessibility" data-field="fontSizeScale" min="0.5" max="2" step="0.1" aria-label="Font size scale" />
-            <span class="settings-value"></span>
-          </label>
+          <div class="settings-tab-panel" data-tab="graphics">
+            <label>Particle Quality
+              <select class="settings-select" data-section="graphics" data-field="particleQuality">
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Ultra">Ultra</option>
+              </select>
+            </label>
+            <label>Resolution Scale
+              <input type="range" class="settings-slider" data-section="graphics" data-field="resolutionScale" min="0.5" max="2" step="0.1" aria-label="Resolution scale" />
+              <span class="settings-value"></span>
+            </label>
+            <label>Screen Shake
+              <input type="range" class="settings-slider" data-section="graphics" data-field="screenShake" min="0" max="1" step="0.1" aria-label="Screen shake intensity" />
+              <span class="settings-value"></span>
+            </label>
+          </div>
+          <div class="settings-tab-panel" data-tab="controls">
+          <label>Keyboard Zoom (Ctrl +/-)
+            <input type="checkbox" class="settings-toggle" data-section="controls" data-field="scrollZoom" aria-label="Enable keyboard zoom with Ctrl + / Ctrl -" />
+            </label>
+            <div class="settings-keybinds">
+              <div class="keybind-row" data-action="pause">
+                <span class="keybind-label">Pause</span>
+                <input type="text" class="keybind-input" readonly aria-label="Pause keybind" />
+              </div>
+              <div class="keybind-row" data-action="startWave">
+                <span class="keybind-label">Start Wave</span>
+                <input type="text" class="keybind-input" readonly aria-label="Start wave keybind" />
+              </div>
+              <div class="keybind-row" data-action="restart">
+                <span class="keybind-label">Restart</span>
+                <input type="text" class="keybind-input" readonly aria-label="Restart keybind" />
+              </div>
+              <div class="keybind-row" data-action="sell">
+                <span class="keybind-label">Sell</span>
+                <input type="text" class="keybind-input" readonly aria-label="Sell keybind" />
+              </div>
+              <div class="keybind-row" data-action="speedUp">
+                <span class="keybind-label">Speed Up</span>
+                <input type="text" class="keybind-input" readonly aria-label="Speed up keybind" />
+              </div>
+            </div>
+          </div>
+          <div class="settings-tab-panel" data-tab="accessibility">
+            <label>Colorblind Mode (High Contrast)
+              <input type="checkbox" class="settings-toggle" data-section="accessibility" data-field="colorblindMode" aria-label="Enable colorblind mode" />
+            </label>
           <label>Reduced Motion
             <input type="checkbox" class="settings-toggle" data-section="accessibility" data-field="reducedMotion" aria-label="Enable reduced motion" />
           </label>
         </div>
-        <div class="settings-tab-panel" data-tab="update">
-          <label style="display: block; margin: 4px 0; cursor: pointer">
-            <input
-              type="radio"
-              name="settings-channel"
-              value="release"
-              checked
-              aria-label="Release only stable channel"
-            />
-            Release only (stable)
-          </label>
-          <label style="display: block; margin: 4px 0; cursor: pointer">
-            <input
-              type="radio"
-              name="settings-channel"
-              value="pre-release"
-              aria-label="Pre-release beta alpha rc channel"
-            />
-            Pre-release (beta, alpha, rc)
-          </label>
-          <label style="display: block; margin: 8px 0; cursor: pointer">
-            <input
-              type="checkbox"
-              id="settings-auto-download"
-              checked
-              aria-label="Auto-download updates when confirmed"
-            />
-            Auto-download when confirmed
-          </label>
-          <label style="display: block; margin: 4px 0; cursor: pointer">
-            <input type="checkbox" id="settings-sell-confirmation" checked aria-label="Confirm before selling troops" />
-            Sell confirmation
-          </label>
-          <label style="display: block; margin: 4px 0">
-            Check interval (min):
-            <input
-              type="number"
-              id="settings-interval"
-              value="60"
-              min="15"
-              step="15"
-              aria-label="Update check interval in minutes"
+          <div class="settings-tab-panel" data-tab="update">
+            <label style="display: block; margin: 4px 0; cursor: pointer">
+              <input
+                type="radio"
+                name="settings-channel"
+                value="release"
+                checked
+                aria-label="Release only stable channel"
+              />
+              Release only (stable)
+            </label>
+            <label style="display: block; margin: 4px 0; cursor: pointer">
+              <input
+                type="radio"
+                name="settings-channel"
+                value="pre-release"
+                aria-label="Pre-release beta alpha rc channel"
+              />
+              Pre-release (beta, alpha, rc)
+            </label>
+            <label style="display: block; margin: 8px 0; cursor: pointer">
+              <input
+                type="checkbox"
+                id="settings-auto-download"
+                checked
+                aria-label="Auto-download updates when confirmed"
+              />
+              Auto-download when confirmed
+            </label>
+            <label style="display: block; margin: 4px 0; cursor: pointer">
+              <input type="checkbox" id="settings-sell-confirmation" checked aria-label="Confirm before selling troops" />
+              Sell confirmation
+            </label>
+            <label style="display: block; margin: 4px 0">
+              Check interval (min):
+              <input
+                type="number"
+                id="settings-interval"
+                value="60"
+                min="15"
+                step="15"
+                aria-label="Update check interval in minutes"
+                style="
+                  width: 60px;
+                  background: rgba(7, 11, 15, 0.85);
+                  border: 1px solid rgba(255, 255, 255, 0.1);
+                  color: #e6edf3;
+                  padding: 2px 4px;
+                  border-radius: 4px;
+                  font-size: 10px;
+                "
+              />
+            </label>
+            <button
+              id="settings-check-now-btn"
               style="
-                width: 60px;
-                background: rgba(255, 255, 255, 0.06);
-                border: 1px solid rgba(255, 255, 255, 0.1);
-                color: #e6edf3;
-                padding: 2px 4px;
-                border-radius: 4px;
+                margin-top: 8px;
+                background: rgba(88, 166, 255, 0.12);
+                color: #58a6ff;
+                border: 1px solid rgba(88, 166, 255, 0.25);
+                padding: 4px 14px;
+                border-radius: 6px;
+                cursor: pointer;
                 font-size: 10px;
+                font-family: inherit;
               "
-            />
-          </label>
-          <button
-            id="settings-check-now-btn"
-            style="
-              margin-top: 8px;
-              background: rgba(88, 166, 255, 0.12);
-              color: #58a6ff;
-              border: 1px solid rgba(88, 166, 255, 0.25);
-              padding: 4px 14px;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 10px;
-              font-family: inherit;
-            "
-          >
-            Check Now
-          </button>
-        </div>
-        <div style="display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; align-items: center">
-          <span
-            id="settings-save-status"
-            style="font-size: 10px; color: #3fb950; margin-right: 6px; opacity: 0; transition: opacity 0.3s"
-            >✓ Saved</span
-          >
-          <button
-            id="settings-cancel-btn"
-            style="
-              background: rgba(255, 255, 255, 0.08);
-              color: rgba(255, 255, 255, 0.6);
-              border: 1px solid rgba(255, 255, 255, 0.12);
-              padding: 4px 14px;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 10px;
-              font-family: inherit;
-            "
-          >
-            Cancel
-          </button>
-          <button
-            id="settings-save-btn"
-            style="
-              background: #238636;
-              color: #fff;
-              border: none;
-              padding: 4px 14px;
-              border-radius: 6px;
-              cursor: pointer;
-              font-size: 10px;
-              font-family: inherit;
-              transition: background 0.2s;
-            "
-          >
-            Save
-          </button>
+            >
+              Check Now
+            </button>
+          </div>
+          <div class="settings-actions">
+            <span
+              id="settings-save-status"
+              style="font-size: 10px; color: #3fb950; margin-right: 6px; opacity: 0; transition: opacity 0.3s"
+              >✓ Saved</span
+            >
+            <button
+              id="settings-cancel-btn"
+              style="
+                background: rgba(255, 255, 255, 0.08);
+                color: rgba(255, 255, 255, 0.6);
+                border: 1px solid rgba(255, 255, 255, 0.12);
+                padding: 4px 14px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 10px;
+                font-family: inherit;
+              "
+            >
+              Cancel
+            </button>
+            <button
+              id="settings-save-btn"
+              style="
+                background: #238636;
+                color: #fff;
+                border: none;
+                padding: 4px 14px;
+                border-radius: 6px;
+                cursor: pointer;
+                font-size: 10px;
+                font-family: inherit;
+                transition: background 0.2s;
+              "
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
     </div>

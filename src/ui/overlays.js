@@ -1,7 +1,7 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG } from '../config.js';
-import { UI_COLORS } from './constants.js';
-import { UIRoundRect, fillStrokeRoundedRect } from './utils.js';
+import { UI_COLORS, zp } from './constants.js';
+import { UIRoundRect, fillStrokeRoundedRect , zoomFont } from './utils.js';
 
 export function drawWaveTransition(game) {
   if (!game.waveCompleteAnim || !game.waveCompleteAnim.active) return;
@@ -31,16 +31,16 @@ export function drawWaveTransition(game) {
   c.globalAlpha = alpha;
 
   c.fillStyle = UI_COLORS.textBright;
-  c.font = 'bold 32px system-ui, sans-serif';
+  zoomFont(c, 32, 'bold ');
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.shadowColor = 'rgba(0,0,0,0.5)';
-  c.shadowBlur = 10;
+  c.shadowBlur = zp(10);
   c.shadowOffsetX = 0;
   c.shadowOffsetY = 4;
   c.fillText('Wave ' + a.waveNum + ' Complete', cx, cy - 10);
 
-  c.font = '16px system-ui, sans-serif';
+  zoomFont(c, 16);
   c.fillStyle = UI_COLORS.textDim;
   c.shadowBlur = 0;
   c.fillText('Get ready for the next wave', cx, cy + 16);
@@ -54,12 +54,12 @@ export function drawOverlay(game) {
   c.fillStyle = 'rgba(0,0,0,0.7)';
   c.fillRect(0, 0, RENDERER.width, RENDERER.height);
   c.fillStyle = UI_COLORS.red;
-  c.font = 'bold 52px system-ui, sans-serif';
+  zoomFont(c, 52, 'bold ');
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.fillText('DEFEAT', RENDERER.width / 2, RENDERER.height / 2 - 14);
   c.fillStyle = UI_COLORS.textDim;
-  c.font = '14px system-ui, sans-serif';
+  zoomFont(c, 14);
   c.fillText('Press R to restart', RENDERER.width / 2, RENDERER.height / 2 + 28);
   c.textBaseline = 'alphabetic';
 }
@@ -75,12 +75,12 @@ export function drawDevConfirmDialog(game) {
   const px = (RENDERER.width - pw) / 2;
   const py = (RENDERER.height - ph) / 2;
 
-  fillStrokeRoundedRect(c, px, py, pw, ph, 12, '#111a24', 'rgba(88,166,255,0.2)');
+  fillStrokeRoundedRect(c, px, py, pw, ph, zp(12), '#111a24', 'rgba(88,166,255,0.2)');
 
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.fillStyle = UI_COLORS.textBright;
-  c.font = 'bold 15px system-ui, sans-serif';
+  zoomFont(c, 15, 'bold ');
   if (game.sellConfirmPending) {
     c.fillText(
       'Sell ' +
@@ -92,17 +92,17 @@ export function drawDevConfirmDialog(game) {
       py + 45
     );
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '12px system-ui, sans-serif';
+    zoomFont(c, 12);
     c.fillText('Sold troops cannot be recovered.', RENDERER.width / 2, py + 70);
   } else if (game.resetConfirmPending) {
     c.fillText('Reset game?', RENDERER.width / 2, py + 45);
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '12px system-ui, sans-serif';
+    zoomFont(c, 12);
     c.fillText('All progress will be lost.', RENDERER.width / 2, py + 70);
   } else {
     c.fillText('Toggle DEV mode?', RENDERER.width / 2, py + 45);
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '12px system-ui, sans-serif';
+    zoomFont(c, 12);
     c.fillText('This will restart the game.', RENDERER.width / 2, py + 70);
   }
 
@@ -116,16 +116,16 @@ export function drawDevConfirmDialog(game) {
   const yesColor = game.resetConfirmPending ? '#da3633' : '#2ea043';
 
   c.fillStyle = yesColor;
-  UIRoundRect(c, yesX, btnY, btnW, btnH, 8);
+  UIRoundRect(c, yesX, btnY, btnW, btnH, zp(8));
   c.fill();
   c.fillStyle = '#fff';
-  c.font = 'bold 11px system-ui, sans-serif';
+  zoomFont(c, 11, 'bold ');
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   c.fillText(game.resetConfirmPending ? 'Reset' : 'Yes', yesX + btnW / 2, btnY + btnH / 2);
 
   c.fillStyle = 'rgba(255,255,255,0.08)';
-  UIRoundRect(c, noX, btnY, btnW, btnH, 8);
+  UIRoundRect(c, noX, btnY, btnW, btnH, zp(8));
   c.fill();
   c.fillStyle = UI_COLORS.textDim;
   c.fillText('No', noX + btnW / 2, btnY + btnH / 2);

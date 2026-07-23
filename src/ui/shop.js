@@ -1,6 +1,6 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG, LAYOUT, TROOP_SPECS } from '../config.js';
-import { UI_LAYOUT, UI_COLORS } from './constants.js';
+import { UI_LAYOUT, UI_COLORS, zp } from './constants.js';
 import { AUDIO } from '../audio.js';
 import { clamp } from '../utils.js';
 import {
@@ -10,14 +10,15 @@ import {
   _wrapText,
   _drawShopTooltip,
   fillStrokeRoundedRect,
+  zoomFont,
 } from './utils.js';
 
 export function shopCardRect(i, shopScrollY) {
   const gap = LAYOUT.SHOP.CARD_GAP;
   const x = LAYOUT.SHOP.BTN_PAD;
   const cardH = LAYOUT.SHOP.CARD_H;
-  const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
-  const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
+  const cardW = UI_LAYOUT.SHOP_WIDTH - zp(24);
+  const baseY = UI_LAYOUT.hudHeight + zp(8) + i * (cardH + gap);
   return { x, y: baseY - shopScrollY, w: cardW, h: cardH };
 }
 
@@ -26,8 +27,8 @@ export function shopCardRectInto(i, out, shopScrollY) {
   const gap = LAYOUT.SHOP.CARD_GAP;
   const x = LAYOUT.SHOP.BTN_PAD;
   const cardH = LAYOUT.SHOP.CARD_H;
-  const cardW = UI_LAYOUT.SHOP_WIDTH - 24;
-  const baseY = UI_LAYOUT.hudHeight + 8 + i * (cardH + gap);
+  const cardW = UI_LAYOUT.SHOP_WIDTH - zp(24);
+  const baseY = UI_LAYOUT.hudHeight + zp(8) + i * (cardH + gap);
   out.x = x;
   out.y = baseY - shopScrollY;
   out.w = cardW;
@@ -37,7 +38,7 @@ export function shopCardRectInto(i, out, shopScrollY) {
 
 export function hitShop(px, py) {
   if (UI_LAYOUT.collapsed.shop) return -1;
-  const areaTop = UI_LAYOUT.hudHeight + 8;
+  const areaTop = UI_LAYOUT.hudHeight + zp(8);
   const areaBottom = this._cardAreaBottom || RENDERER.height;
   const r = this._hitShopScratch || (this._hitShopScratch = { x: 0, y: 0, w: 0, h: 0 });
   for (let i = 0; i < TROOP_SPECS.length; i++) {
@@ -104,8 +105,8 @@ export function _buildStatLines(t) {
 /** Compute the panel height for a troop's stats display. */
 export function computeSelectedTroopPanelHeight(t) {
   const statLines = _buildStatLines(t);
-  const lineH = 14;
-  return 14 + statLines.length * lineH + 8;
+  const lineH = zp(14);
+  return zp(14) + statLines.length * lineH + zp(8);
 }
 
 export function _updateCardAreaBottom(game) {
@@ -114,8 +115,8 @@ export function _updateCardAreaBottom(game) {
     if (t && t.alive) {
       const panelH = computeSelectedTroopPanelHeight(t);
       const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
-      const panelY = upgradeBtnY - panelH - 4;
-      this._cardAreaBottom = panelY - 4; // 4px gap above panel
+      const panelY = upgradeBtnY - panelH - zp(4);
+      this._cardAreaBottom = panelY - zp(4); // 4px gap above panel
       return;
     }
   }
@@ -182,17 +183,17 @@ export function drawShop(game) {
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(0, UI_LAYOUT.hudHeight, 20, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
     c.fillStyle = UI_COLORS.panelBorder;
-    c.fillRect(20, UI_LAYOUT.hudHeight, 1, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
+    c.fillRect(zp(20), UI_LAYOUT.hudHeight, 1, h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight);
     c.save();
     c.translate(10, (h - UI_LAYOUT.hudHeight - UI_LAYOUT.previewHeight) / 2 + UI_LAYOUT.hudHeight);
     c.rotate(-Math.PI / 2);
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '8px system-ui, sans-serif';
+    zoomFont(c, 8);
     c.textAlign = 'center';
     c.textBaseline = 'middle';
     c.fillText('TROOPS', 0, 0);
     c.restore();
-    const btnRect = { x: 2, y: UI_LAYOUT.hudHeight + 4, w: 16, h: 16 };
+    const btnRect = { x: zp(2), y: UI_LAYOUT.hudHeight + zp(4), w: zp(16), h: zp(16) };
     this._toggleShop = btnRect;
     drawToggleButton(c, btnRect, true, 'right');
     c.textBaseline = 'alphabetic';
@@ -203,22 +204,22 @@ export function drawShop(game) {
   c.fillStyle = UI_COLORS.panelBg;
   c.fillRect(0, UI_LAYOUT.hudHeight, UI_LAYOUT.SHOP_WIDTH, h - UI_LAYOUT.hudHeight);
 
-  const btnRect = { x: UI_LAYOUT.SHOP_WIDTH - 19, y: UI_LAYOUT.hudHeight + 5, w: 16, h: 16 };
+  const btnRect = { x: UI_LAYOUT.SHOP_WIDTH - zp(19), y: UI_LAYOUT.hudHeight + zp(5), w: zp(16), h: zp(16) };
   this._toggleShop = btnRect;
   drawToggleButton(c, btnRect, false, 'left');
 
   // Shop header.
   c.fillStyle = UI_COLORS.textDim;
-  c.font = '10px system-ui, sans-serif';
+  zoomFont(c, 10);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
-  c.fillText('TROOPS', 12, UI_LAYOUT.hudHeight + 16);
+  c.fillText('TROOPS', zp(12), UI_LAYOUT.hudHeight + zp(16));
 
   // Compute card area bounds and clamp scroll
   const CARD_H = LAYOUT.SHOP.CARD_H,
     CARD_GAP = LAYOUT.SHOP.CARD_GAP;
   const totalContentH = TROOP_SPECS.length * (CARD_H + CARD_GAP) - CARD_GAP;
-  const areaTop = UI_LAYOUT.hudHeight + 8;
+  const areaTop = UI_LAYOUT.hudHeight + zp(8);
   // Dynamic bottom based on selected troop's panel (calculated in _updateCardAreaBottom)
   // If no troop selected, use preview height as bottom.
   this._updateCardAreaBottom(game);
@@ -231,7 +232,7 @@ export function drawShop(game) {
   // Clip to card area (extended for tooltips)
   c.save();
   c.beginPath();
-  c.rect(0, areaTop, RENDERER.width, visibleH + 100);
+  c.rect(0, areaTop, RENDERER.width, visibleH + zp(100));
   c.clip();
 
   const _shopScratch = this._shopScratch || (this._shopScratch = { x: 0, y: 0, w: 0, h: 0 });
@@ -250,77 +251,77 @@ export function drawShop(game) {
     } else {
       c.fillStyle = '#131d28';
     }
-    UIRoundRect(c, r.x, r.y, r.w, r.h, 8);
+    UIRoundRect(c, r.x, r.y, r.w, r.h, zp(8));
     c.fill();
 
     // Left accent bar.
     c.fillStyle = spec.color;
-    UIRoundRect(c, r.x, r.y + 6, 3, r.h - 12, 1.5);
+    UIRoundRect(c, r.x, r.y + zp(6), zp(3), r.h - zp(12), 1.5);
     c.fill();
 
     // Hover glow border.
     if (isHovered && !isSelected) {
       c.strokeStyle = spec.color + '40';
       c.lineWidth = 1;
-      UIRoundRect(c, r.x, r.y, r.w, r.h, 8);
+      UIRoundRect(c, r.x, r.y, r.w, r.h, zp(8));
       c.stroke();
     }
 
     // ── Row 1: Color dot + Name ──
-    const leftPad = r.x + 10;
+    const leftPad = r.x + zp(10);
     c.fillStyle = spec.color;
     c.beginPath();
-    c.arc(leftPad + 4, r.y + 13, 4, 0, Math.PI * 2);
+    c.arc(leftPad + zp(4), r.y + zp(13), zp(4), 0, Math.PI * 2);
     c.fill();
 
     c.fillStyle = affordable ? UI_COLORS.textBright : UI_COLORS.textDim;
-    c.font = 'bold 11px system-ui, sans-serif';
+    zoomFont(c, 11, 'bold ');
     c.textAlign = 'left';
     c.textBaseline = 'middle';
-    c.fillText(spec.name, leftPad + 14, r.y + 13);
+    c.fillText(spec.name, leftPad + zp(14), r.y + zp(13));
 
     // Type badge (right-aligned).
     const typeLabel = spec.type === 'melee' ? 'MELEE' : spec.type === 'support' ? 'SUPRT' : 'RANGE';
-    c.font = '7px system-ui, sans-serif';
-    const typeW = c.measureText(typeLabel).width + 6;
-    const badgeX = r.x + r.w - typeW - 6;
+    zoomFont(c, 7);
+    const typeW = c.measureText(typeLabel).width + zp(6);
+    const badgeX = r.x + r.w - typeW - zp(6);
     c.fillStyle =
       spec.type === 'melee'
         ? 'rgba(231,76,60,0.25)'
         : spec.type === 'support'
           ? 'rgba(46,204,113,0.25)'
           : 'rgba(39,174,96,0.25)';
-    UIRoundRect(c, badgeX, r.y + 6, typeW, 13, 3);
+    UIRoundRect(c, badgeX, r.y + zp(6), typeW, 13, zp(3));
     c.fill();
     c.fillStyle = spec.type === 'melee' ? '#e74c3c' : spec.type === 'support' ? '#2ecc71' : '#27ae60';
     c.textAlign = 'center';
-    c.fillText(typeLabel, badgeX + typeW / 2, r.y + 12);
+    c.fillText(typeLabel, badgeX + typeW / 2, r.y + zp(12));
 
     // ── Row 2: Cost + HP ──
     c.textAlign = 'left';
     c.fillStyle = affordable ? UI_COLORS.gold : UI_COLORS.textDim;
-    c.font = '10px system-ui, sans-serif';
-    c.fillText(spec.cost + 'g', leftPad, r.y + 30);
+    zoomFont(c, 10);
+    c.fillText(spec.cost + 'g', leftPad, r.y + zp(30));
 
     c.fillStyle = 'rgba(231,76,60,0.7)';
-    c.font = '9px system-ui, sans-serif';
-    c.fillText('♥' + spec.hp, leftPad + 40, r.y + 30);
+    zoomFont(c, 9);
+    c.fillText('♥' + spec.hp, leftPad + zp(40), r.y + zp(30));
 
     // ── Row 3: Stats (clipped) ──
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '9px system-ui, sans-serif';
+    zoomFont(c, 9);
     c.save();
     c.beginPath();
     c.rect(r.x, r.y, r.w, r.h);
     c.clip();
-    c.fillText(spec._statsStr, leftPad, r.y + 44);
+    c.fillText(spec._statsStr, leftPad, r.y + zp(44));
     c.restore();
 
     // Selected outline.
     if (isSelected) {
       c.strokeStyle = 'rgba(88,166,255,0.5)';
       c.lineWidth = 1.5;
-      UIRoundRect(c, r.x, r.y, r.w, r.h, 8);
+      UIRoundRect(c, r.x, r.y, r.w, r.h, zp(8));
       c.stroke();
     }
 
@@ -342,7 +343,7 @@ export function drawShop(game) {
     const barH = Math.max(20, visibleH * (visibleH / totalContentH));
     const barY = areaTop + (visibleH - barH) * (this.shopScrollY / maxScroll);
     c.fillStyle = 'rgba(255,255,255,0.3)';
-    UIRoundRect(c, UI_LAYOUT.SHOP_WIDTH - 5, barY, 5, barH, 1.5);
+    UIRoundRect(c, UI_LAYOUT.SHOP_WIDTH - zp(5), barY, zp(5), barH, 1.5);
     c.fill();
   }
 
@@ -352,41 +353,36 @@ export function drawShop(game) {
     if (t && t.alive) {
       const panelH = computeSelectedTroopPanelHeight(t);
       const upgradeBtnY = RENDERER.height - LAYOUT.SHOP.UPGRADE_BTN_Y_OFFSET;
-      const panelY = upgradeBtnY - panelH - 4;
+      const panelY = upgradeBtnY - panelH - zp(4);
 
       fillStrokeRoundedRect(
-        c,
-        8,
-        panelY,
-        UI_LAYOUT.SHOP_WIDTH - 16,
-        panelH,
-        8,
+        c, zp(8), panelY, UI_LAYOUT.SHOP_WIDTH - zp(16), panelH, zp(8),
         UI_COLORS.cardBg,
         UI_COLORS.panelBorder
       );
 
       c.fillStyle = UI_COLORS.textBright;
-      c.font = 'bold 12px system-ui, sans-serif';
+      zoomFont(c, 12, 'bold ');
       c.textAlign = 'left';
       c.textBaseline = 'middle';
-      c.fillText(t.spec.name, 18, panelY + 14);
+      c.fillText(t.spec.name, 18, panelY + zp(14));
 
-      c.font = '10px system-ui, sans-serif';
+      zoomFont(c, 10);
       c.textBaseline = 'middle';
       const statLines = _buildStatLines(t);
       const lineH = 14;
-      const startY = 26;
+      const startY = zp(26);
       c.textBaseline = 'middle';
       for (let i = 0; i < statLines.length; i++) {
         const line = statLines[i];
         const y = panelY + startY + i * lineH;
         if (typeof line === 'string') {
           c.fillStyle = UI_COLORS.textDim;
-          c.font = '10px system-ui, sans-serif';
+          zoomFont(c, 10);
           c.fillText(line, 18, y);
         } else {
           c.fillStyle = line.color || UI_COLORS.textDim;
-          c.font = (line.bold ? 'bold ' : '') + '10px system-ui, sans-serif';
+          zoomFont(c, 10, line.bold ? 'bold ' : '');
           c.fillText(line.text, 18, y);
         }
       }
@@ -439,27 +435,27 @@ export function drawShop(game) {
         visibleBtnIdx++;
 
         if (t.isMaxed(stat)) {
-          fillStrokeRoundedRect(c, btn.x, btn.y, btn.w, btn.h, 6, 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.1)');
+          fillStrokeRoundedRect(c, btn.x, btn.y, btn.w, btn.h, zp(6), 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.1)');
           c.fillStyle = UI_COLORS.textDim;
-          c.font = 'bold 8px system-ui, sans-serif';
+          zoomFont(c, 8, 'bold ');
           c.textAlign = 'center';
           c.textBaseline = 'middle';
-          c.fillText(statLabels[stat], btn.x + btn.w / 2, btn.y + 12);
+          c.fillText(statLabels[stat], btn.x + btn.w / 2, btn.y + zp(12));
           c.fillStyle = 'rgba(255,255,255,0.15)';
-          c.font = '7px system-ui, sans-serif';
-          c.fillText('MAX', btn.x + btn.w / 2, btn.y + 27);
+          zoomFont(c, 7);
+          c.fillText('MAX', btn.x + btn.w / 2, btn.y + zp(27));
         } else {
           const btnBg = affordable ? statColors[stat] : 'rgba(255,255,255,0.04)';
           const btnBorder = affordable ? null : 'rgba(255,255,255,0.06)';
-          fillStrokeRoundedRect(c, btn.x, btn.y, btn.w, btn.h, 6, btnBg, btnBorder);
+          fillStrokeRoundedRect(c, btn.x, btn.y, btn.w, btn.h, zp(6), btnBg, btnBorder);
           c.fillStyle = affordable ? '#fff' : UI_COLORS.textDim;
-          c.font = 'bold 9px system-ui, sans-serif';
+          zoomFont(c, 9, 'bold ');
           c.textAlign = 'center';
           c.textBaseline = 'middle';
-          c.fillText(statLabels[stat], btn.x + btn.w / 2, btn.y + 14);
+          c.fillText(statLabels[stat], btn.x + btn.w / 2, btn.y + zp(14));
           c.fillStyle = affordable ? 'rgba(255,255,255,0.7)' : UI_COLORS.textDim;
-          c.font = '8px system-ui, sans-serif';
-          c.fillText('(' + cost + 'g)', btn.x + btn.w / 2, btn.y + 28);
+          zoomFont(c, 8);
+          c.fillText('(' + cost + 'g)', btn.x + btn.w / 2, btn.y + zp(28));
         }
       }
 
@@ -474,49 +470,39 @@ export function drawShop(game) {
       if (isMaxHp) {
         // Max HP — greyed out
         fillStrokeRoundedRect(
-          c,
-          LAYOUT.SHOP.BTN_PAD,
-          healBtnY,
-          healBtnW,
-          LAYOUT.SHOP.HEAL_BTN_H,
-          6,
+          c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, zp(6),
           'rgba(255,255,255,0.04)',
           'rgba(255,255,255,0.06)'
         );
         c.fillStyle = UI_COLORS.textDim;
-        c.font = 'bold 9px system-ui, sans-serif';
+        zoomFont(c, 9, 'bold ');
         c.textAlign = 'center';
         c.textBaseline = 'middle';
-        c.fillText('HEAL  MAX HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + 14);
+        c.fillText('HEAL  MAX HP', LAYOUT.SHOP.BTN_PAD + healBtnW / 2, healBtnY + zp(14));
       } else {
         // Can heal — show cost and HP
         const healBg = healAffordable ? '#2ea043' : 'rgba(255,255,255,0.04)';
         const healBorder = healAffordable ? null : 'rgba(255,255,255,0.06)';
         fillStrokeRoundedRect(
-          c,
-          LAYOUT.SHOP.BTN_PAD,
-          healBtnY,
-          healBtnW,
-          LAYOUT.SHOP.HEAL_BTN_H,
-          6,
+          c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, zp(6),
           healBg,
           healBorder
         );
         c.fillStyle = healAffordable ? '#fff' : UI_COLORS.textDim;
-        c.font = 'bold 10px system-ui, sans-serif';
+        zoomFont(c, 10, 'bold ');
         c.textAlign = 'center';
         c.textBaseline = 'middle';
         c.fillText(
           'HEAL  +' + Math.ceil(t.maxHp * CONFIG.TROOP_HEAL_HP_RATIO) + ' HP',
           LAYOUT.SHOP.BTN_PAD + healBtnW / 2,
-          healBtnY + 10
+          healBtnY + zp(10)
         );
         c.fillStyle = healAffordable ? 'rgba(255,255,255,0.7)' : UI_COLORS.textDim;
-        c.font = '8px system-ui, sans-serif';
+        zoomFont(c, 8);
         c.fillText(
           '(' + healCost + 'g)  ' + t.getHpPercent() + '% HP',
           LAYOUT.SHOP.BTN_PAD + healBtnW / 2,
-          healBtnY + 22
+          healBtnY + zp(22)
         );
       }
 
@@ -533,40 +519,25 @@ export function drawShop(game) {
 
       if (isDevDelete) {
         fillStrokeRoundedRect(
-          c,
-          sellBtn.x,
-          sellBtn.y,
-          sellBtn.w,
-          sellBtn.h,
-          6,
+          c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, zp(6),
           'rgba(218,54,51,0.15)',
           'rgba(218,54,51,0.25)'
         );
       } else if (onCooldown) {
         fillStrokeRoundedRect(
-          c,
-          sellBtn.x,
-          sellBtn.y,
-          sellBtn.w,
-          sellBtn.h,
-          6,
+          c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, zp(6),
           'rgba(128,128,128,0.12)',
           'rgba(128,128,128,0.2)'
         );
       } else {
         fillStrokeRoundedRect(
-          c,
-          sellBtn.x,
-          sellBtn.y,
-          sellBtn.w,
-          sellBtn.h,
-          6,
+          c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, zp(6),
           'rgba(212,118,30,0.12)',
           'rgba(212,118,30,0.2)'
         );
       }
       c.fillStyle = isDevDelete ? UI_COLORS.red : onCooldown ? UI_COLORS.textDim : UI_COLORS.orange;
-      c.font = 'bold 10px system-ui, sans-serif';
+      zoomFont(c, 10, 'bold ');
       c.textAlign = 'center';
       c.textBaseline = 'middle';
 
@@ -575,14 +546,14 @@ export function drawShop(game) {
       } else if (onCooldown) {
         c.fillText('Cooldown: ' + Math.ceil(cd) + 's', sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 - 1);
         c.fillStyle = UI_COLORS.textDim;
-        c.font = '8px system-ui, sans-serif';
-        c.fillText(t.spec.name, sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 + 11);
+        zoomFont(c, 8);
+        c.fillText(t.spec.name, sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 + zp(11));
       } else {
         const refund = Math.ceil(t.getTotalInvested() * CONFIG.SELL_REFUND_RATIO);
         c.fillText('Sell +' + refund + 'g', sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 - 1);
         c.fillStyle = UI_COLORS.textDim;
-        c.font = '8px system-ui, sans-serif';
-        c.fillText(t.spec.name, sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 + 11);
+        zoomFont(c, 8);
+        c.fillText(t.spec.name, sellBtn.x + sellBtn.w / 2, sellBtn.y + sellBtn.h / 2 + zp(11));
       }
     }
   }

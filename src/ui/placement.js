@@ -1,8 +1,8 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG } from '../config.js';
-import { UI_LAYOUT } from './constants.js';
+import { UI_LAYOUT, zp } from './constants.js';
 import { pixelToTile, tileCenterInto, inBounds } from '../utils.js';
-import { UIRoundRect, clipToGameplayArea } from './utils.js';
+import { UIRoundRect, clipToGameplayArea, zoomFont } from './utils.js';
 
 const VALID_SUPPORT_RANGE = 'rgba(46,204,113,0.5)';
 const VALID_DAMAGE_RANGE = 'rgba(88,166,255,0.5)';
@@ -20,11 +20,11 @@ function drawSupportPlacementPreviewText(hps) {
   const c = RENDERER.ctx;
   const lineH = 12;
   const panelW = 72;
-  const x = Math.min(RENDERER.hoverPx + 10, RENDERER.width - panelW);
-  const y = Math.min(RENDERER.hoverPy + 10, RENDERER.height - lineH);
+  const x = Math.min(RENDERER.hoverPx + zp(10), RENDERER.width - panelW);
+  const y = Math.min(RENDERER.hoverPy + zp(10), RENDERER.height - lineH);
 
   c.save();
-  c.font = '10px system-ui, sans-serif';
+  zoomFont(c, 10);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
   c.fillStyle = SUPPORT_TEXT;
@@ -41,11 +41,11 @@ function drawDamagePlacementPreviewText(dps, burnDps = 0) {
   const c = RENDERER.ctx;
   const lineH = 12;
   const panelW = burnDps > 0 ? 120 : 72;
-  const x = Math.min(RENDERER.hoverPx + 10, RENDERER.width - panelW);
-  const y = Math.min(RENDERER.hoverPy + 10, RENDERER.height - lineH * (burnDps > 0 ? 2 : 1));
+  const x = Math.min(RENDERER.hoverPx + zp(10), RENDERER.width - panelW);
+  const y = Math.min(RENDERER.hoverPy + zp(10), RENDERER.height - lineH * (burnDps > 0 ? 2 : 1));
 
   c.save();
-  c.font = '10px system-ui, sans-serif';
+  zoomFont(c, 10);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
   c.fillStyle = DAMAGE_TEXT;
@@ -68,11 +68,11 @@ function drawPlacementInvalidReason(game, gx, gy) {
   const c = RENDERER.ctx;
   const lineH = 12;
   const panelW = 120;
-  const x = Math.min(RENDERER.hoverPx + 10, RENDERER.width - panelW);
-  const y = Math.min(RENDERER.hoverPy + 22, RENDERER.height - lineH);
+  const x = Math.min(RENDERER.hoverPx + zp(10), RENDERER.width - panelW);
+  const y = Math.min(RENDERER.hoverPy + zp(22), RENDERER.height - lineH);
 
   c.save();
-  c.font = '10px system-ui, sans-serif';
+  zoomFont(c, 10);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
   c.fillStyle = INVALID_TEXT;
@@ -125,7 +125,7 @@ export function drawPlacementGhost(game) {
   c.globalAlpha = 0.5;
   c.fillStyle = game.selectedSpec.color;
   const s = CONFIG.TILE_SIZE - 8;
-  UIRoundRect(c, center.x - s / 2, center.y - s / 2, s, s, 4);
+  UIRoundRect(c, center.x - s / 2, center.y - s / 2, s, s, zp(4));
   c.fill();
   c.restore();
 

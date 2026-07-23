@@ -2,26 +2,51 @@ import { CONFIG } from '../config.js';
 import { COLLAPSED_KEYS, makeCollapsedDefaults } from '../config/settingsDefaults.js';
 
 export const UI_LAYOUT = {
-  HUD_HEIGHT: 56,
-  SHOP_WIDTH: 250,
-  PREVIEW_HEIGHT: 80,
-  SHIELD_SHOP_WIDTH: CONFIG.SHIELD_SHOP_WIDTH,
+  _HUD_HEIGHT: 56,
+  _SHOP_WIDTH: 250,
+  _PREVIEW_HEIGHT: 80,
+  _SHIELD_SHOP_WIDTH: CONFIG.SHIELD_SHOP_WIDTH,
+  _zoom: 1,
+  /** Extra pixels added to hudHeight when the HUD uses 2-line fallback.
+   *  Set by drawHUD() so sidebars (shop, shield shop) know the actual
+   *  HUD bottom and don't overlap the compact speed row. */
+  _extraHudHeight: 0,
 
   collapsed: makeCollapsedDefaults(),
 
+  get HUD_HEIGHT() {
+    return this._HUD_HEIGHT * this._zoom;
+  },
+  get SHOP_WIDTH() {
+    return this._SHOP_WIDTH * this._zoom;
+  },
+  get PREVIEW_HEIGHT() {
+    return this._PREVIEW_HEIGHT * this._zoom;
+  },
+  get SHIELD_SHOP_WIDTH() {
+    return this._SHIELD_SHOP_WIDTH * this._zoom;
+  },
+
   get hudHeight() {
-    return this.collapsed.hud ? 20 : this.HUD_HEIGHT;
+    const base = this.collapsed.hud ? 20 * this._zoom : this.HUD_HEIGHT;
+    return base + (this._extraHudHeight || 0);
   },
   get shopWidth() {
-    return this.collapsed.shop ? 20 : this.SHOP_WIDTH;
+    return this.collapsed.shop ? 20 * this._zoom : this.SHOP_WIDTH;
   },
   get previewHeight() {
-    return this.collapsed.preview ? 20 : this.PREVIEW_HEIGHT;
+    return this.collapsed.preview ? 20 * this._zoom : this.PREVIEW_HEIGHT;
   },
   get shieldShopWidth() {
-    return this.collapsed.shieldShop ? 20 : this.SHIELD_SHOP_WIDTH;
+    return this.collapsed.shieldShop ? 20 * this._zoom : this.SHIELD_SHOP_WIDTH;
   },
 };
+
+/** Scale a pixel value by the current UI zoom factor. All hardcoded pixel
+ *  values in drawing code should use this to scale with zoom. */
+export function zp(px) {
+  return Math.round(px * (UI_LAYOUT._zoom || 1));
+}
 
 export const UI_COLORS = {
   panelBg: '#0c1219',

@@ -26,6 +26,7 @@ vi.mock('../src/rendering/renderer.js', () => ({
     applyMapTransform: vi.fn(),
     drawStaticLayers: vi.fn(),
     restoreTransform: vi.fn(),
+    endFrame: vi.fn(),
     markCacheDirty: vi.fn(),
     _rebuildCache: vi.fn(),
     toWorldInto: vi.fn((px, py, out) => {
@@ -42,6 +43,7 @@ vi.mock('../src/rendering/renderer.js', () => ({
     scale: 1,
     canvas: null,
     ctx: null,
+    updateAutoCollapse: vi.fn(() => false),
   },
 }));
 
@@ -265,6 +267,7 @@ describe('gameRenderer', () => {
       expect(RENDERER.applyMapTransform).toHaveBeenCalled();
       expect(RENDERER.drawStaticLayers).toHaveBeenCalled();
       expect(RENDERER.restoreTransform).toHaveBeenCalled();
+      expect(RENDERER.endFrame).toHaveBeenCalled();
     });
 
     it('draws troop body with fill and stroke', () => {
@@ -588,12 +591,6 @@ describe('gameRenderer', () => {
     it('reset button returns pointer', () => {
       const rstBtn = LAYOUT.HUD.RESET_BTN;
       const result = hitTestCursor(makeGame(), rstBtn.x + 5, rstBtn.y + 5);
-      expect(result).toBe('pointer');
-    });
-
-    it('mute button returns pointer', () => {
-      const muteBtn = LAYOUT.HUD.MUTE_BTN;
-      const result = hitTestCursor(makeGame(), muteBtn.x + 5, muteBtn.y + 5);
       expect(result).toBe('pointer');
     });
 

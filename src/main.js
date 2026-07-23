@@ -186,7 +186,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     settingsDraft = {
       update: { ...DEFAULT_SETTINGS.update, ...(saved.update || {}) },
       collapsed: { ...DEFAULT_SETTINGS.collapsed, ...(saved.collapsed || {}) },
-      game: deepDefault(saved.game, DEFAULT_SETTINGS.game),
       audio: deepDefault(saved.audio, DEFAULT_SETTINGS.audio),
       graphics: deepDefault(saved.graphics, DEFAULT_SETTINGS.graphics),
       controls: {
@@ -243,7 +242,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (field.includes('Volume')) return Math.round(value * 100) + '%';
     if (field === 'resolutionScale') return value.toFixed(1) + 'x';
     if (field === 'screenShake') return Math.round(value * 100) + '%';
-    if (field === 'fontSizeScale') return value.toFixed(1) + 'x';
     return String(value);
   }
 
@@ -302,8 +300,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.body.classList.remove('reduced-motion');
       }
     }
+    if (section === 'controls' && field === 'scrollZoom') {
+      if (game) game.scrollZoom = value;
+    }
     if (section === 'accessibility' && field === 'fontSizeScale') {
-      document.documentElement.style.fontSize = 16 * value + 'px';
+      document.documentElement.style.setProperty('--font-scale', value);
     }
     if (section === 'accessibility' && field === 'colorblindMode') {
       if (value) {
@@ -320,10 +321,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       AUDIO.setVolume(settingsDraft.audio.masterVolume);
       if (settingsDraft.audio.masterMute && !AUDIO.muted) AUDIO.toggleMute();
     }
+    if (settingsDraft.controls && game) {
+      game.scrollZoom = settingsDraft.controls.scrollZoom;
+    }
     if (settingsDraft.accessibility) {
       if (settingsDraft.accessibility.reducedMotion) document.body.classList.add('reduced-motion');
       if (settingsDraft.accessibility.colorblindMode) document.body.classList.add('colorblind-mode');
-      document.documentElement.style.fontSize = 16 * settingsDraft.accessibility.fontSizeScale + 'px';
     }
   })();
 

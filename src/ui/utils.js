@@ -2,6 +2,13 @@ import { RENDERER } from '../rendering/renderer.js';
 import { UI_LAYOUT, UI_COLORS } from './constants.js';
 import { CONFIG } from '../config.js';
 
+/** Set a zoom-scaled font on the canvas context. All UI font sizes should
+ *  use this instead of hardcoding px values, so they scale with the zoom level. */
+export function zoomFont(c, px, weight = '', family = 'system-ui, sans-serif') {
+  const z = UI_LAYOUT._zoom || 1;
+  c.font = `${weight}${Math.round(px * z)}px ${family}`;
+}
+
 export function UIRoundRect(c, x, y, w, h, r) {
   c.beginPath();
   c.moveTo(x + r, y);
@@ -48,7 +55,7 @@ export function drawToggleButton(c, rect, collapsed, expandDir) {
   c.arc(rect.x + rect.w / 2, rect.y + rect.h / 2, 7, 0, Math.PI * 2);
   c.fill();
   c.fillStyle = 'rgba(255,255,255,0.4)';
-  c.font = 'bold 10px system-ui, sans-serif';
+  zoomFont(c, 10, 'bold ');
   c.textAlign = 'center';
   c.textBaseline = 'middle';
   const arrow = collapsed
@@ -76,7 +83,7 @@ export function hitToggleButton(px, py, rect) {
 
 export function _wrapText(c, text, maxW, fontSize, font) {
   c.save();
-  c.font = fontSize + 'px ' + font;
+  zoomFont(c, fontSize, '', font);
   const words = text.split(' ');
   const lines = [];
   let current = '';
@@ -102,7 +109,7 @@ export function _wrapText(c, text, maxW, fontSize, font) {
 export function _drawShopTooltip(c, r, spec) {
   if (!spec.desc) return;
   c.save();
-  c.font = '11px system-ui, sans-serif';
+  zoomFont(c, 11);
   const rawLines = _wrapText(c, spec.desc, RENDERER.width - r.w - 60, 11, 'system-ui, sans-serif');
   let maxTextW = 0;
   for (let i = 0; i < rawLines.length; i++) {
@@ -132,7 +139,7 @@ export function _drawShopTooltip(c, r, spec) {
   UIRoundRect(c, tipX + 0.5, tipY + 0.5, tipW - 1, tipH - 1, 8);
   c.stroke();
   c.fillStyle = '#c9d1d9';
-  c.font = '11px system-ui, sans-serif';
+  zoomFont(c, 11);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
   for (let j = 0; j < rawLines.length; j++) {

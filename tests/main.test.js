@@ -108,7 +108,6 @@ function makeElectronStub() {
         releaseType: null,
       },
       collapsed: { help: true, monsterInfo: true, settings: true, about: false },
-      game: { startingGold: 200, startingLives: 20, maxWave: 10, speedDefault: 1 },
       audio: {
         masterVolume: 0.5,
         sfxVolume: 0.5,
@@ -158,143 +157,124 @@ function buildDOM() {
     </div>
     <div id="settings-popup" class="bar-popup bar-popup--closed game-panel">
       <strong>Settings</strong>
-      <div class="settings-tabs">
-        <button type="button" class="settings-tab-btn active" data-tab="game">Game</button>
-        <button type="button" class="settings-tab-btn" data-tab="audio">Audio</button>
-        <button type="button" class="settings-tab-btn" data-tab="graphics">Graphics</button>
-        <button type="button" class="settings-tab-btn" data-tab="controls">Controls</button>
-        <button type="button" class="settings-tab-btn" data-tab="accessibility">Accessibility</button>
-        <button type="button" class="settings-tab-btn" data-tab="update">Update</button>
-      </div>
-      <div class="settings-tabs-content">
-        <div class="settings-tab-panel active" data-tab="game">
-          <label>Starting Gold
-            <input type="number" class="settings-input" data-section="game" data-field="startingGold" min="0" max="5000" step="10" />
-          </label>
-          <label>Starting Lives
-            <input type="number" class="settings-input" data-section="game" data-field="startingLives" min="1" max="100" step="1" />
-          </label>
-          <label>Max Wave
-            <input type="number" class="settings-input" data-section="game" data-field="maxWave" min="1" max="20" step="1" />
-          </label>
-          <label>Speed Default
-            <input type="number" class="settings-input" data-section="game" data-field="speedDefault" min="1" max="10" step="1" />
-          </label>
+      <div class="settings-sidebar-layout">
+        <div class="settings-sidebar">
+          <button type="button" class="settings-tab-btn active" data-tab="audio">Audio</button>
+          <button type="button" class="settings-tab-btn" data-tab="graphics">Graphics</button>
+          <button type="button" class="settings-tab-btn" data-tab="controls">Controls</button>
+          <button type="button" class="settings-tab-btn" data-tab="accessibility">Accessibility</button>
+          <button type="button" class="settings-tab-btn" data-tab="update">Update</button>
         </div>
-        <div class="settings-tab-panel" data-tab="audio">
-          <label>Master
-            <input type="range" class="settings-slider" data-section="audio" data-field="masterVolume" min="0" max="1" step="0.01" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute Master
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="masterMute" />
-          </label>
-          <label>SFX
-            <input type="range" class="settings-slider" data-section="audio" data-field="sfxVolume" min="0" max="1" step="0.01" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute SFX
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="sfxMute" />
-          </label>
-          <label>Ambient
-            <input type="range" class="settings-slider" data-section="audio" data-field="ambientVolume" min="0" max="1" step="0.01" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute Ambient
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="ambientMute" />
-          </label>
-          <label>UI
-            <input type="range" class="settings-slider" data-section="audio" data-field="uiVolume" min="0" max="1" step="0.01" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Mute UI
-            <input type="checkbox" class="settings-toggle" data-section="audio" data-field="uiMute" />
-          </label>
-        </div>
-        <div class="settings-tab-panel" data-tab="graphics">
-          <label>Particle Quality
-            <select class="settings-select" data-section="graphics" data-field="particleQuality">
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-              <option value="Ultra">Ultra</option>
-            </select>
-          </label>
-          <label>Resolution Scale
-            <input type="range" class="settings-slider" data-section="graphics" data-field="resolutionScale" min="0.5" max="2" step="0.1" />
-            <span class="settings-value"></span>
-          </label>
-          <label>Screen Shake
-            <input type="range" class="settings-slider" data-section="graphics" data-field="screenShake" min="0" max="1" step="0.1" />
-            <span class="settings-value"></span>
-          </label>
-        </div>
-        <div class="settings-tab-panel" data-tab="controls">
-          <label>Scroll Wheel Zoom
-            <input type="checkbox" class="settings-toggle" data-section="controls" data-field="scrollZoom" />
-          </label>
-          <div class="settings-keybinds">
-            <div class="keybind-row" data-action="pause">
-              <span class="keybind-label">Pause</span>
-              <input type="text" class="keybind-input" readonly />
-            </div>
-            <div class="keybind-row" data-action="startWave">
-              <span class="keybind-label">Start Wave</span>
-              <input type="text" class="keybind-input" readonly />
-            </div>
-            <div class="keybind-row" data-action="restart">
-              <span class="keybind-label">Restart</span>
-              <input type="text" class="keybind-input" readonly />
-            </div>
-            <div class="keybind-row" data-action="sell">
-              <span class="keybind-label">Sell</span>
-              <input type="text" class="keybind-input" readonly />
-            </div>
-            <div class="keybind-row" data-action="speedUp">
-              <span class="keybind-label">Speed Up</span>
-              <input type="text" class="keybind-input" readonly />
+        <div class="settings-tabs-content">
+          <div class="settings-tab-panel active" data-tab="audio">
+            <div class="audio-section">
+              <div class="audio-row">
+                <label class="audio-label">Master</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="masterVolume" min="0" max="1" step="0.01" aria-label="Master volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="masterMute" aria-label="Mute master volume" />
+              </div>
+              <div class="audio-row">
+                <label class="audio-label">SFX</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="sfxVolume" min="0" max="1" step="0.01" aria-label="SFX volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="sfxMute" aria-label="Mute SFX" />
+              </div>
+              <div class="audio-row">
+                <label class="audio-label">Ambient</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="ambientVolume" min="0" max="1" step="0.01" aria-label="Ambient volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="ambientMute" aria-label="Mute ambient" />
+              </div>
+              <div class="audio-row">
+                <label class="audio-label">UI</label>
+                <input type="range" class="settings-slider" data-section="audio" data-field="uiVolume" min="0" max="1" step="0.01" aria-label="UI volume" />
+                <span class="settings-value"></span>
+                <input type="checkbox" class="settings-toggle audio-mute" data-section="audio" data-field="uiMute" aria-label="Mute UI" />
+              </div>
             </div>
           </div>
-        </div>
-        <div class="settings-tab-panel" data-tab="accessibility">
-          <label>Colorblind Mode (High Contrast)
-            <input type="checkbox" class="settings-toggle" data-section="accessibility" data-field="colorblindMode" />
-          </label>
-          <label>Font Size Scale
-            <input type="range" class="settings-slider" data-section="accessibility" data-field="fontSizeScale" min="0.5" max="2" step="0.1" />
-            <span class="settings-value"></span>
-          </label>
+          <div class="settings-tab-panel" data-tab="graphics">
+            <label>Particle Quality
+              <select class="settings-select" data-section="graphics" data-field="particleQuality">
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+                <option value="Ultra">Ultra</option>
+              </select>
+            </label>
+            <label>Resolution Scale
+              <input type="range" class="settings-slider" data-section="graphics" data-field="resolutionScale" min="0.5" max="2" step="0.1" aria-label="Resolution scale" />
+              <span class="settings-value"></span>
+            </label>
+            <label>Screen Shake
+              <input type="range" class="settings-slider" data-section="graphics" data-field="screenShake" min="0" max="1" step="0.1" aria-label="Screen shake intensity" />
+              <span class="settings-value"></span>
+            </label>
+          </div>
+          <div class="settings-tab-panel" data-tab="controls">
+            <label>Keyboard Zoom (Ctrl +/-)
+              <input type="checkbox" class="settings-toggle" data-section="controls" data-field="scrollZoom" aria-label="Enable keyboard zoom with Ctrl + / Ctrl -" />
+            </label>
+            <div class="settings-keybinds">
+              <div class="keybind-row" data-action="pause">
+                <span class="keybind-label">Pause</span>
+                <input type="text" class="keybind-input" readonly aria-label="Pause keybind" />
+              </div>
+              <div class="keybind-row" data-action="startWave">
+                <span class="keybind-label">Start Wave</span>
+                <input type="text" class="keybind-input" readonly aria-label="Start wave keybind" />
+              </div>
+              <div class="keybind-row" data-action="restart">
+                <span class="keybind-label">Restart</span>
+                <input type="text" class="keybind-input" readonly aria-label="Restart keybind" />
+              </div>
+              <div class="keybind-row" data-action="sell">
+                <span class="keybind-label">Sell</span>
+                <input type="text" class="keybind-input" readonly aria-label="Sell keybind" />
+              </div>
+              <div class="keybind-row" data-action="speedUp">
+                <span class="keybind-label">Speed Up</span>
+                <input type="text" class="keybind-input" readonly aria-label="Speed up keybind" />
+              </div>
+            </div>
+          </div>
+          <div class="settings-tab-panel" data-tab="accessibility">
+            <label>Colorblind Mode (High Contrast)
+              <input type="checkbox" class="settings-toggle" data-section="accessibility" data-field="colorblindMode" aria-label="Enable colorblind mode" />
+            </label>
           <label>Reduced Motion
-            <input type="checkbox" class="settings-toggle" data-section="accessibility" data-field="reducedMotion" />
+            <input type="checkbox" class="settings-toggle" data-section="accessibility" data-field="reducedMotion" aria-label="Enable reduced motion" />
           </label>
-        </div>
-        <div class="settings-tab-panel" data-tab="update">
-          <label style="display: block; margin: 4px 0; cursor: pointer">
-            <input type="radio" name="settings-channel" value="release" checked />
-            Release only (stable)
-          </label>
-          <label style="display: block; margin: 4px 0; cursor: pointer">
-            <input type="radio" name="settings-channel" value="pre-release" />
-            Pre-release (beta, alpha, rc)
-          </label>
-          <label style="display: block; margin: 8px 0; cursor: pointer">
-            <input type="checkbox" id="settings-auto-download" checked />
-            Auto-download when confirmed
-          </label>
-          <label style="display: block; margin: 4px 0; cursor: pointer">
-            <input type="checkbox" id="settings-sell-confirmation" checked />
-            Sell confirmation
-          </label>
-          <label style="display: block; margin: 4px 0">
-            Check interval (min):
-            <input type="number" id="settings-interval" value="60" min="15" step="15" />
-          </label>
-          <button id="settings-check-now-btn">Check Now</button>
-        </div>
-        <div style="display: flex; gap: 6px; margin-top: 10px; justify-content: flex-end; align-items: center">
-          <span id="settings-save-status">✓ Saved</span>
-          <button id="settings-cancel-btn">Cancel</button>
-          <button id="settings-save-btn">Save</button>
+          </div>
+          <div class="settings-tab-panel" data-tab="update">
+            <label style="display: block; margin: 4px 0; cursor: pointer">
+              <input type="radio" name="settings-channel" value="release" checked />
+              Release only (stable)
+            </label>
+            <label style="display: block; margin: 4px 0; cursor: pointer">
+              <input type="radio" name="settings-channel" value="pre-release" />
+              Pre-release (beta, alpha, rc)
+            </label>
+            <label style="display: block; margin: 8px 0; cursor: pointer">
+              <input type="checkbox" id="settings-auto-download" checked />
+              Auto-download when confirmed
+            </label>
+            <label style="display: block; margin: 4px 0; cursor: pointer">
+              <input type="checkbox" id="settings-sell-confirmation" checked />
+              Sell confirmation
+            </label>
+            <label style="display: block; margin: 4px 0">
+              Check interval (min):
+              <input type="number" id="settings-interval" value="60" min="15" step="15" />
+            </label>
+            <button id="settings-check-now-btn">Check Now</button>
+          </div>
+          <div class="settings-actions">
+            <span id="settings-save-status">✓ Saved</span>
+            <button id="settings-cancel-btn">Cancel</button>
+            <button id="settings-save-btn">Save</button>
+          </div>
         </div>
       </div>
     </div>
@@ -477,38 +457,32 @@ describe('main.js (L14, >=50% coverage)', () => {
       expect(window.electron.getSettings).toHaveBeenCalled();
     });
 
-    it('renders all 6 tab buttons', () => {
+    it('renders all 5 tab buttons', () => {
       if (handlerCrashed) return;
       const tabs = document.querySelectorAll('.settings-tab-btn');
-      expect(tabs.length).toBe(6);
+      expect(tabs.length).toBe(5);
     });
 
-    it('renders all 6 tab panels', () => {
+    it('renders all 5 tab panels', () => {
       if (handlerCrashed) return;
       const panels = document.querySelectorAll('.settings-tab-panel');
-      expect(panels.length).toBe(6);
+      expect(panels.length).toBe(5);
     });
 
-    it('has Game tab active by default', () => {
+    it('has Audio tab active by default', () => {
       if (handlerCrashed) return;
       const activeTab = document.querySelector('.settings-tab-btn.active');
-      expect(activeTab.getAttribute('data-tab')).toBe('game');
+      expect(activeTab.getAttribute('data-tab')).toBe('audio');
     });
 
     it('switches tabs when clicking tab buttons', () => {
       if (handlerCrashed) return;
-      const audioTab = document.querySelector('.settings-tab-btn[data-tab="audio"]');
-      audioTab.click();
+      const graphicsTab = document.querySelector('.settings-tab-btn[data-tab="graphics"]');
+      graphicsTab.click();
       const activeTab = document.querySelector('.settings-tab-btn.active');
-      expect(activeTab.getAttribute('data-tab')).toBe('audio');
+      expect(activeTab.getAttribute('data-tab')).toBe('graphics');
       const activePanel = document.querySelector('.settings-tab-panel.active');
-      expect(activePanel.getAttribute('data-tab')).toBe('audio');
-    });
-
-    it('populates game settings inputs from draft', () => {
-      if (handlerCrashed) return;
-      const goldInput = document.querySelector('.settings-input[data-section="game"][data-field="startingGold"]');
-      expect(goldInput.value).toBe('200');
+      expect(activePanel.getAttribute('data-tab')).toBe('graphics');
     });
 
     it('populates audio slider values from draft', () => {
@@ -548,14 +522,6 @@ describe('main.js (L14, >=50% coverage)', () => {
       muteToggle.checked = true;
       muteToggle.dispatchEvent(new Event('input'));
       expect(muteToggle.checked).toBe(true);
-    });
-
-    it('updates settingsDraft when number input changes', () => {
-      if (handlerCrashed) return;
-      const goldInput = document.querySelector('.settings-input[data-section="game"][data-field="startingGold"]');
-      goldInput.value = '500';
-      goldInput.dispatchEvent(new Event('input'));
-      expect(goldInput.value).toBe('500');
     });
 
     it('updates settingsDraft when select changes', () => {
@@ -622,16 +588,6 @@ describe('main.js (L14, >=50% coverage)', () => {
       cbToggle.checked = true;
       cbToggle.dispatchEvent(new Event('input'));
       expect(document.body.classList.contains('colorblind-mode')).toBe(true);
-    });
-
-    it('applies font size scale when changed', () => {
-      if (handlerCrashed) return;
-      const fsSlider = document.querySelector(
-        '.settings-slider[data-section="accessibility"][data-field="fontSizeScale"]'
-      );
-      fsSlider.value = '1.5';
-      fsSlider.dispatchEvent(new Event('input'));
-      expect(document.documentElement.style.fontSize).toBe('24px');
     });
 
     it('saves settings to main process on Save click', async () => {

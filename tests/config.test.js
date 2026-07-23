@@ -258,16 +258,7 @@ describe('MONSTER_DEV_ORDER', () => {
 
 describe('LAYOUT', () => {
   it('HUD has all required sub-keys with positive numbers', () => {
-    const required = [
-      'GOLD_AREA',
-      'RESET_BTN',
-      'MUTE_BTN',
-      'SPEED_OFFSET',
-      'SPEED_BTN_W',
-      'SPEED_BTN_H',
-      'CTRL_RIGHT',
-      'CTRL_BTN',
-    ];
+    const required = ['GOLD_AREA', 'RESET_BTN', 'SPEED_OFFSET', 'SPEED_BTN_W', 'SPEED_BTN_H', 'CTRL_RIGHT', 'CTRL_BTN'];
     for (const key of required) {
       expect(LAYOUT.HUD).toHaveProperty(key);
     }

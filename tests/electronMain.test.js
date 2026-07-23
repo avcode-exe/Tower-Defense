@@ -279,17 +279,6 @@ describe('electron-main (L13, >=50% coverage)', () => {
       expect(result).toBe(false);
     });
 
-    it('accepts settings with game section', async () => {
-      mockExistsSync.mockReturnValue(true);
-      mockMkdirSync.mockReturnValue(undefined);
-      const result = await invokeHandle('save-settings', null, {
-        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
-        game: { startingGold: 500, startingLives: 15, maxWave: 20, speedDefault: 2 },
-        collapsed: {},
-      });
-      expect(result).toBe(true);
-    });
-
     it('accepts settings with audio section', async () => {
       mockExistsSync.mockReturnValue(true);
       mockMkdirSync.mockReturnValue(undefined);
@@ -340,22 +329,10 @@ describe('electron-main (L13, >=50% coverage)', () => {
       mockMkdirSync.mockReturnValue(undefined);
       const result = await invokeHandle('save-settings', null, {
         update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
-        accessibility: { colorblindMode: true, fontSizeScale: 1.2, reducedMotion: true },
+        accessibility: { colorblindMode: true, reducedMotion: true },
         collapsed: {},
       });
       expect(result).toBe(true);
-    });
-
-    it('clamps game.startingGold to max 5000', async () => {
-      mockExistsSync.mockReturnValue(true);
-      mockMkdirSync.mockReturnValue(undefined);
-      await invokeHandle('save-settings', null, {
-        update: { channel: 'release', checkIntervalMinutes: 60, showProgressBar: true },
-        game: { startingGold: 99999, startingLives: 20, maxWave: 10, speedDefault: 1 },
-        collapsed: {},
-      });
-      const written = JSON.parse(mockWriteFileSync.mock.calls[mockWriteFileSync.mock.calls.length - 1][1]);
-      expect(written.game.startingGold).toBe(5000);
     });
 
     it('rejects invalid particleQuality value', async () => {
@@ -450,16 +427,6 @@ describe('electron-main (L13, >=50% coverage)', () => {
       expect(result.version).toBe('1.7.0-beta.1');
     });
 
-    it('returns game settings from defaults', async () => {
-      mockExistsSync.mockReturnValue(false);
-      const result = await invokeHandle('get-settings');
-      expect(result.game).toBeDefined();
-      expect(result.game.startingGold).toBe(200);
-      expect(result.game.startingLives).toBe(20);
-      expect(result.game.maxWave).toBe(10);
-      expect(result.game.speedDefault).toBe(1);
-    });
-
     it('returns audio settings from defaults', async () => {
       mockExistsSync.mockReturnValue(false);
       const result = await invokeHandle('get-settings');
@@ -490,21 +457,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
       const result = await invokeHandle('get-settings');
       expect(result.accessibility).toBeDefined();
       expect(result.accessibility.colorblindMode).toBe(false);
-      expect(result.accessibility.fontSizeScale).toBe(1);
       expect(result.accessibility.reducedMotion).toBe(false);
-    });
-
-    it('merges loaded game settings on top of defaults', async () => {
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify({
-          game: { startingGold: 500, maxWave: 20 },
-        })
-      );
-      const result = await invokeHandle('get-settings');
-      expect(result.game.startingGold).toBe(500);
-      expect(result.game.maxWave).toBe(20);
-      expect(result.game.startingLives).toBe(20);
     });
 
     it('merges loaded controls keyBindings on top of defaults', async () => {

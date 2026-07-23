@@ -23,12 +23,6 @@ const DEFAULT_SETTINGS = {
     releaseType: null,
   },
   collapsed: makeCollapsedDefaults(),
-  game: {
-    startingGold: 200,
-    startingLives: 20,
-    maxWave: 10,
-    speedDefault: 1,
-  },
   audio: {
     masterVolume: 0.5,
     sfxVolume: 0.5,
@@ -56,13 +50,11 @@ const DEFAULT_SETTINGS = {
   },
   accessibility: {
     colorblindMode: false,
-    fontSizeScale: 1,
     reducedMotion: false,
   },
 };
 
 export const SETTINGS_SECTIONS = [
-  { id: 'game', label: 'Game', icon: '🎮' },
   { id: 'audio', label: 'Audio', icon: '🔊' },
   { id: 'graphics', label: 'Graphics', icon: '🎨' },
   { id: 'controls', label: 'Controls', icon: '⌨️' },
@@ -78,12 +70,6 @@ export const PARTICLE_QUALITY_TIERS = {
 };
 
 export const SETTINGS_FIELD_TYPES = {
-  game: {
-    startingGold: { type: 'number', label: 'Starting Gold', min: 0, max: 5000, step: 10 },
-    startingLives: { type: 'number', label: 'Starting Lives', min: 1, max: 100, step: 1 },
-    maxWave: { type: 'number', label: 'Max Wave', min: 1, max: 20, step: 1 },
-    speedDefault: { type: 'number', label: 'Speed Default', min: 1, max: 10, step: 1 },
-  },
   audio: {
     masterVolume: { type: 'slider', label: 'Master', min: 0, max: 1, step: 0.01 },
     sfxVolume: { type: 'slider', label: 'SFX', min: 0, max: 1, step: 0.01 },
@@ -100,12 +86,11 @@ export const SETTINGS_FIELD_TYPES = {
     screenShake: { type: 'slider', label: 'Screen Shake', min: 0, max: 1, step: 0.1 },
   },
   controls: {
-    scrollZoom: { type: 'toggle', label: 'Scroll Wheel Zoom' },
+    scrollZoom: { type: 'toggle', label: 'Keyboard Zoom (Ctrl +/-)' },
     keyBindings: { type: 'keybind', label: 'Key Bindings' },
   },
   accessibility: {
     colorblindMode: { type: 'toggle', label: 'Colorblind Mode (High Contrast)' },
-    fontSizeScale: { type: 'slider', label: 'Font Size Scale', min: 0.5, max: 2, step: 0.1 },
     reducedMotion: { type: 'toggle', label: 'Reduced Motion' },
   },
 };

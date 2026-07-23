@@ -31,11 +31,12 @@ describe('export shape contracts', () => {
     expect(Object.keys(mod).sort()).toEqual(['Projectile']);
   });
 
-  it('config.js exports CONFIG, LAYOUT, MONSTER_SPECS, TROOP_SPECS, WAVES, PROJECTILE_STYLES, MONSTER_DEV_ORDER', async () => {
+  it('config.js exports CONFIG, LAYOUT, LAYOUT_ZOOM, MONSTER_SPECS, TROOP_SPECS, WAVES, PROJECTILE_STYLES, MONSTER_DEV_ORDER', async () => {
     const mod = await import('../src/config.js');
     expect(Object.keys(mod).sort()).toEqual([
       'CONFIG',
       'LAYOUT',
+      'LAYOUT_ZOOM',
       'MONSTER_DEV_ORDER',
       'MONSTER_SPECS',
       'PROJECTILE_STYLES',

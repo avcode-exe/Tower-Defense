@@ -99,6 +99,23 @@ describe('RENDERER', () => {
     expect(out.y).toBe(50);
   });
 
+  it('toWorldInto accounts for zoom', () => {
+    RENDERER.offsetX = 100;
+    RENDERER.offsetY = 50;
+    RENDERER.scale = 2;
+    RENDERER.width = 800;
+    RENDERER.height = 600;
+    RENDERER.zoom = 1.5;
+    const out = { x: 0, y: 0 };
+    // With the new layout-relative transform:
+    //   screen = world * scale * zoom + offset
+    //   world (100, 50) -> screen: (100*2*1.5+100, 50*2*1.5+50) = (400, 200)
+    // Verify the inverse: screen (400, 200) -> world (100, 50).
+    RENDERER.toWorldInto(400, 200, out);
+    expect(out.x).toBeCloseTo(100);
+    expect(out.y).toBeCloseTo(50);
+  });
+
   it('toWorldInto handles non-finite values', () => {
     RENDERER.offsetX = 0;
     RENDERER.offsetY = 0;
@@ -108,31 +125,57 @@ describe('RENDERER', () => {
     expect(out.x).toBe(0);
   });
 
-  it('beginFrame fills background', () => {
-    const ctx = { fillStyle: '', fillRect: vi.fn() };
+  it('beginFrame fills background and applies zoom', () => {
+    const ctx = { save: vi.fn(), translate: vi.fn(), scale: vi.fn(), fillStyle: '', fillRect: vi.fn() };
     RENDERER.ctx = ctx;
     RENDERER.width = 800;
     RENDERER.height = 600;
+    RENDERER.zoom = 1;
     RENDERER.beginFrame();
+    expect(ctx.save).toHaveBeenCalled();
     expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 800, 600);
   });
 
-  it('applyMapTransform saves and translates', () => {
+  it('beginFrame does not apply zoom (zoom is now in map transform)', () => {
+    const ctx = { save: vi.fn(), translate: vi.fn(), scale: vi.fn(), fillStyle: '', fillRect: vi.fn() };
+    RENDERER.ctx = ctx;
+    RENDERER.width = 800;
+    RENDERER.height = 600;
+    RENDERER.zoom = 1.5;
+    RENDERER.beginFrame();
+    // beginFrame no longer applies zoom — zoom has been moved to applyMapTransform.
+    expect(ctx.save).toHaveBeenCalled();
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 800, 600);
+    // No translate/scale calls except from save/fillRect.
+    expect(ctx.translate).not.toHaveBeenCalled();
+    expect(ctx.scale).not.toHaveBeenCalled();
+  });
+
+  it('applyMapTransform saves, translates, and scales with zoom', () => {
     const ctx = { save: vi.fn(), translate: vi.fn(), scale: vi.fn() };
     RENDERER.ctx = ctx;
     RENDERER.offsetX = 50;
     RENDERER.offsetY = 30;
     RENDERER.scale = 1.5;
+    RENDERER.zoom = 2;
     RENDERER.applyMapTransform();
     expect(ctx.save).toHaveBeenCalled();
     expect(ctx.translate).toHaveBeenCalledWith(50, 30);
-    expect(ctx.scale).toHaveBeenCalledWith(1.5, 1.5);
+    // scale now includes zoom factor: 1.5 * 2 = 3
+    expect(ctx.scale).toHaveBeenCalledWith(3, 3);
   });
 
   it('restoreTransform calls ctx.restore', () => {
     const ctx = { restore: vi.fn() };
     RENDERER.ctx = ctx;
     RENDERER.restoreTransform();
+    expect(ctx.restore).toHaveBeenCalled();
+  });
+
+  it('endFrame calls ctx.restore', () => {
+    const ctx = { restore: vi.fn() };
+    RENDERER.ctx = ctx;
+    RENDERER.endFrame();
     expect(ctx.restore).toHaveBeenCalled();
   });
 

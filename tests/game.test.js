@@ -55,6 +55,7 @@ vi.mock('../src/rendering/renderer.js', () => ({
     applyMapTransform: vi.fn(),
     drawStaticLayers: vi.fn(),
     restoreTransform: vi.fn(),
+    endFrame: vi.fn(),
     width: 800,
     height: 600,
     offsetX: 0,
@@ -921,13 +922,6 @@ describe('Game', () => {
       const resetBtn = LAYOUT.HUD.RESET_BTN;
       game._handleHUDClicks(resetBtn.x + 1, resetBtn.y + 1);
       expect(game.resetConfirmPending).toBe(true);
-    });
-    it('handles mute button click', async () => {
-      const game = makeGame();
-      const mod = await import('../src/audio.js');
-      const muteBtn = LAYOUT.HUD.MUTE_BTN;
-      game._handleHUDClicks(muteBtn.x + 1, muteBtn.y + 1);
-      expect(mod.AUDIO.toggleMute).toHaveBeenCalled();
     });
   });
 

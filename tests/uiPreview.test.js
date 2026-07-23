@@ -36,6 +36,7 @@ vi.mock('../src/rendering/renderer.js', () => ({
     applyMapTransform: vi.fn(),
     drawStaticLayers: vi.fn(),
     restoreTransform: vi.fn(),
+    endFrame: vi.fn(),
     width: 800,
     height: 600,
     offsetX: 0,
@@ -102,9 +103,10 @@ vi.mock('../src/ui/constants.js', () => ({
     PREVIEW_HEIGHT: 80,
   },
   UI_COLORS: { panelBg: '#1a1a2e', panelBorder: '#2a2a4e', textDim: '#666', textBody: '#ccc', textBright: '#fff' },
+  zp: (px) => px,
 }));
 
-vi.mock('../src/ui/utils.js', () => ({ drawToggleButton: vi.fn() }));
+vi.mock('../src/ui/utils.js', () => ({ drawToggleButton: vi.fn(), zoomFont: vi.fn() }));
 
 describe('drawPreview', () => {
   let drawPreview;

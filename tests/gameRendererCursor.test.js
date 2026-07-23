@@ -11,6 +11,7 @@ vi.mock('../src/rendering/renderer.js', () => ({
     applyMapTransform: vi.fn(),
     drawStaticLayers: vi.fn(),
     restoreTransform: vi.fn(),
+    endFrame: vi.fn(),
     toWorldInto: vi.fn((px, py, out) => {
       out.x = px;
       out.y = py;

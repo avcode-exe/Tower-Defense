@@ -126,8 +126,23 @@ export const CONFIG = {
   },
 };
 
+// Zoom factor shared between LAYOUT proxy and the rest of the app.
+export const LAYOUT_ZOOM = { value: 1 };
+
+function _proxyLayoutNode(target) {
+  return new Proxy(target, {
+    get(t, prop) {
+      if (prop === '_zoom') return LAYOUT_ZOOM.value;
+      const v = t[prop];
+      if (typeof v === 'number') return v * LAYOUT_ZOOM.value;
+      if (v && typeof v === 'object' && !Array.isArray(v)) return _proxyLayoutNode(v);
+      return v;
+    },
+  });
+}
+
 // UI layout constants (shared between game.js and ui.js to avoid hardcoded duplicates)
-export const LAYOUT = {
+const _LAYOUT_RAW = {
   HUD: {
     GOLD_AREA: { x: 14, y: 14, w: 102, h: 28 },
     RESET_BTN: { x: 310, y: 14, w: 50, h: 28 },
@@ -152,6 +167,8 @@ export const LAYOUT = {
     BTN_GAP: 2,
   },
 };
+
+export const LAYOUT = _proxyLayoutNode(_LAYOUT_RAW);
 
 // Monster specs. Index = level (1-5). boss is level 'B' keyed separately.
 export const MONSTER_SPECS = {

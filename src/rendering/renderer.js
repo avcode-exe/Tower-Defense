@@ -10,9 +10,15 @@ export const RENDERER = {
   width: 0,
   height: 0,
   scale: 1,
+  zoom: 1,
   offsetX: 0,
   offsetY: 0,
   mapPixelSize: 0,
+
+  // Auto-collapse sidebar tracking
+  _autoCollapsed: false,
+  _prevCollapseShop: false,
+  _prevCollapseShield: false,
 
   // Cached offscreen canvases for static layers (grid, path)
   _bgCache: null, // ground + grid lines
@@ -46,6 +52,12 @@ export const RENDERER = {
     this.width = rect.width;
     this.height = rect.height;
 
+    // Check auto-collapse BEFORE layout computation so the layout uses
+    // the updated collapse state. The restore condition uses the expanded
+    // map width (what the map would look like with full sidebars) which
+    // naturally prevents flip-flop without needing an allowRestore flag.
+    this._checkAutoCollapse();
+
     const MARGIN = 12;
     const mapSize = CONFIG.GRID_SIZE * CONFIG.TILE_SIZE;
     this.mapPixelSize = mapSize;
@@ -76,6 +88,88 @@ export const RENDERER = {
 
     // Invalidate caches on resize
     this._cacheDirty = true;
+  },
+
+  /**
+   * Check if sidebars should be auto-collapsed because the map is narrower
+   * than either sidebar. Returns true if collapse state changed.
+   * Non-recursive: only updates UI_LAYOUT.collapsed, does NOT call resize().
+   * The caller (resize or renderGame) is responsible for re-layout if needed.
+   *
+   * The restore condition uses the "expanded map width" — what the rendered
+   * map would be with full-size sidebars. This prevents flip-flop because
+   * after auto-collapsing, the expanded map width is computed with full
+   * sidebar sizes (which would be too narrow to allow restore).
+   */
+  _checkAutoCollapse() {
+    const mapSize = CONFIG.GRID_SIZE * CONFIG.TILE_SIZE;
+    const MARGIN = 12;
+    const zoom = UI_LAYOUT._zoom || 1;
+
+    // Sidebar widths at current zoom for the collapse comparison
+    const shopW = UI_LAYOUT.collapsed.shop ? 20 * zoom : UI_LAYOUT.SHOP_WIDTH;
+    const shieldW = UI_LAYOUT.collapsed.shieldShop ? 20 * zoom : UI_LAYOUT.SHIELD_SHOP_WIDTH;
+    const maxSidebarW = Math.max(shopW, shieldW);
+
+    // Current rendered map width (used for collapse check)
+    const availW = this.width - UI_LAYOUT.shopWidth - UI_LAYOUT.shieldShopWidth - MARGIN * 2;
+    const sX = Math.max(0.25, availW / mapSize);
+    const scale = Math.min(1, sX);
+    const ez = scale >= 1 ? this.zoom : 1;
+    const renderedMapW = mapSize * scale * ez;
+
+    // Expanded map width: what the map would look like with full sidebars
+    // (used for restore check to prevent flip-flop).
+    const expandedShopW = UI_LAYOUT.SHOP_WIDTH; // always full width
+    const expandedShieldW = UI_LAYOUT.SHIELD_SHOP_WIDTH; // always full width
+    const expandedMaxW = Math.max(expandedShopW, expandedShieldW);
+    const expandedAvailW = this.width - expandedShopW - expandedShieldW - MARGIN * 2;
+    const expandedScale = Math.min(1, Math.max(0.25, expandedAvailW / mapSize));
+    const expandedEz = expandedScale >= 1 ? this.zoom : 1;
+    const expandedRenderedMapW = mapSize * expandedScale * expandedEz;
+
+    // If the user manually toggled a sidebar while auto-collapsed, respect
+    // their choice by giving up auto-control. The expected auto-collapse
+    // state is always true (collapsed), so we compare against `true` rather
+    // than _prevCollapseShop (which stores the pre-collapse expanded state
+    // and would incorrectly match on every frame after auto-collapse).
+    if (this._autoCollapsed) {
+      if (
+        UI_LAYOUT.collapsed.shop !== true ||
+        UI_LAYOUT.collapsed.shieldShop !== true
+      ) {
+        this._autoCollapsed = false;
+      }
+    }
+
+    let changed = false;
+
+    if (renderedMapW < maxSidebarW && !this._autoCollapsed) {
+      // Map is too narrow — auto-collapse both
+      this._prevCollapseShop = UI_LAYOUT.collapsed.shop;
+      this._prevCollapseShield = UI_LAYOUT.collapsed.shieldShop;
+      UI_LAYOUT.collapsed.shop = true;
+      UI_LAYOUT.collapsed.shieldShop = true;
+      this._autoCollapsed = true;
+      changed = true;
+    } else if (expandedRenderedMapW > expandedMaxW && this._autoCollapsed) {
+      // The map would be wide enough even with full-size sidebars — restore.
+      // Uses expandedMapW (not current renderedMapW) so this check is the
+      // same regardless of whether we're currently collapsed or not, which
+      // naturally eliminates the flip-flop problem on zoom changes.
+      UI_LAYOUT.collapsed.shop = this._prevCollapseShop;
+      UI_LAYOUT.collapsed.shieldShop = this._prevCollapseShield;
+      this._autoCollapsed = false;
+      changed = true;
+    }
+
+    return changed;
+  },
+
+  /** Public wrapper for external callers (like renderGame). Returns true if
+   *  collapse state changed, so callers can trigger a re-layout. */
+  updateAutoCollapse() {
+    return this._checkAutoCollapse();
   },
 
   // (Re)build static background + path caches at device-pixel resolution for
@@ -139,8 +233,9 @@ export const RENDERER = {
 
   // Zero-allocation variant: writes into an existing {x,y} object.
   toWorldInto(px, py, out) {
-    out.x = (px - this.offsetX) / this.scale;
-    out.y = (py - this.offsetY) / this.scale;
+    const ez = this._getEffectiveZoom();
+    out.x = (px - this.offsetX) / (this.scale * ez);
+    out.y = (py - this.offsetY) / (this.scale * ez);
     if (!Number.isFinite(out.x)) out.x = 0;
     if (!Number.isFinite(out.y)) out.y = 0;
     return out;
@@ -148,18 +243,32 @@ export const RENDERER = {
 
   beginFrame() {
     const c = this.ctx;
+    c.save();
     c.fillStyle = CONFIG.COLORS.background;
     c.fillRect(0, 0, this.width, this.height);
+  },
+
+  // Compute the effective zoom for the map: when there's headroom (scale >= 1)
+  // the map can zoom in and overflow into empty canvas space. But when panels
+  // crowd the map (scale < 1), cap at 1 so the map shrinks to fit without
+  // multiplying scale back up and overflowing into panel space.
+  _getEffectiveZoom() {
+    return this.scale >= 1 ? this.zoom : 1;
   },
 
   applyMapTransform() {
     const c = this.ctx;
     c.save();
+    const ez = this._getEffectiveZoom();
     c.translate(this.offsetX, this.offsetY);
-    c.scale(this.scale, this.scale);
+    c.scale(this.scale * ez, this.scale * ez);
   },
 
   restoreTransform() {
+    this.ctx.restore();
+  },
+
+  endFrame() {
     this.ctx.restore();
   },
 

@@ -42,6 +42,12 @@ const UI = {
   _devConfirmYes: null,
   _devConfirmNo: null,
   _shieldBuyBtn: null,
+  _hudTwoLines: false,
+  _resetBtn: null,
+  _speedBtnOffsetY: 0,
+  _speedBtnGap: 28,
+  _speedBtnH: null,
+  _speedRowH: 0,
 
   _wrapText,
   _drawShopTooltip,

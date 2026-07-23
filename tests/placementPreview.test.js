@@ -20,6 +20,7 @@ vi.mock('../src/rendering/renderer.js', () => ({
     applyMapTransform: vi.fn(),
     drawStaticLayers: vi.fn(),
     restoreTransform: vi.fn(),
+    endFrame: vi.fn(),
     ctx: null,
     canvas: null,
   },

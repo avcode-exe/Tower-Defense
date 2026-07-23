@@ -34,7 +34,6 @@ const DEFAULT_SETTINGS = {
   version: app.getVersion(),
   update: { ...RENDERER_DEFAULTS.update },
   collapsed: { ...RENDERER_DEFAULTS.collapsed },
-  game: { ...RENDERER_DEFAULTS.game },
   audio: { ...RENDERER_DEFAULTS.audio },
   graphics: { ...RENDERER_DEFAULTS.graphics },
   controls: {
@@ -58,11 +57,10 @@ function normalizeCheckIntervalMinutes(value) {
 function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null;
 
-  const ALLOWED_TOP_KEYS = ['update', 'collapsed', 'game', 'audio', 'graphics', 'controls', 'accessibility'];
+  const ALLOWED_TOP_KEYS = ['update', 'collapsed', 'audio', 'graphics', 'controls', 'accessibility'];
   const sanitized = {
     update: { ...DEFAULT_SETTINGS.update },
     collapsed: { ...DEFAULT_SETTINGS.collapsed },
-    game: { ...DEFAULT_SETTINGS.game },
     audio: { ...DEFAULT_SETTINGS.audio },
     graphics: { ...DEFAULT_SETTINGS.graphics },
     controls: {
@@ -78,11 +76,6 @@ function sanitizeSettings(settings) {
   }
 
   function validateCollapsed(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return true;
-  }
-
-  function validateGame(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
     return true;
   }
@@ -155,21 +148,6 @@ function sanitizeSettings(settings) {
     }
   }
 
-  if (settings.game && typeof settings.game === 'object' && !Array.isArray(settings.game)) {
-    if (typeof settings.game.startingGold === 'number') {
-      sanitized.game.startingGold = Math.max(0, Math.min(5000, settings.game.startingGold));
-    }
-    if (typeof settings.game.startingLives === 'number') {
-      sanitized.game.startingLives = Math.max(1, Math.min(100, settings.game.startingLives));
-    }
-    if (typeof settings.game.maxWave === 'number') {
-      sanitized.game.maxWave = Math.max(1, Math.min(20, settings.game.maxWave));
-    }
-    if (typeof settings.game.speedDefault === 'number') {
-      sanitized.game.speedDefault = Math.max(1, Math.min(10, settings.game.speedDefault));
-    }
-  }
-
   if (settings.audio && typeof settings.audio === 'object' && !Array.isArray(settings.audio)) {
     const volumeKeys = ['masterVolume', 'sfxVolume', 'ambientVolume', 'uiVolume'];
     for (const vk of volumeKeys) {
@@ -220,9 +198,6 @@ function sanitizeSettings(settings) {
   if (settings.accessibility && typeof settings.accessibility === 'object' && !Array.isArray(settings.accessibility)) {
     if (typeof settings.accessibility.colorblindMode === 'boolean')
       sanitized.accessibility.colorblindMode = settings.accessibility.colorblindMode;
-    if (typeof settings.accessibility.fontSizeScale === 'number') {
-      sanitized.accessibility.fontSizeScale = Math.max(0.5, Math.min(2, settings.accessibility.fontSizeScale));
-    }
     if (typeof settings.accessibility.reducedMotion === 'boolean')
       sanitized.accessibility.reducedMotion = settings.accessibility.reducedMotion;
   }
@@ -242,7 +217,6 @@ function readSettings() {
     version: DEFAULT_SETTINGS.version,
     update: { ...DEFAULT_SETTINGS.update },
     collapsed: { ...DEFAULT_SETTINGS.collapsed },
-    game: { ...DEFAULT_SETTINGS.game },
     audio: { ...DEFAULT_SETTINGS.audio },
     graphics: { ...DEFAULT_SETTINGS.graphics },
     controls: {
@@ -279,9 +253,6 @@ function readSettings() {
     }
     if (loaded.collapsed && typeof loaded.collapsed === 'object') {
       Object.assign(defaults.collapsed, loaded.collapsed);
-    }
-    if (loaded.game && typeof loaded.game === 'object') {
-      Object.assign(defaults.game, loaded.game);
     }
     if (loaded.audio && typeof loaded.audio === 'object') {
       Object.assign(defaults.audio, loaded.audio);

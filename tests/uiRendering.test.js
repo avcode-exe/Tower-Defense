@@ -173,7 +173,8 @@ describe('drawHUD', () => {
     drawHUD.call({}, makeGame());
     expect(ctx.fillText).toHaveBeenCalledWith(expect.stringContaining('1000'), expect.any(Number), 28);
     expect(ctx.fillText).toHaveBeenCalledWith(expect.stringContaining('25'), expect.any(Number), 28);
-    expect(ctx.fillText).toHaveBeenCalledWith('Wave 4', 200, 28);
+    // Wave position is dynamic — compressed when monsters count overlaps with left section
+    expect(ctx.fillText).toHaveBeenCalledWith('Wave 4', expect.any(Number), 28);
   });
 
   it('shows dev mode badge when devMode is true', () => {
@@ -194,7 +195,8 @@ describe('drawHUD', () => {
     game.wave.currentMultiplier = 1.5;
     const ctx = _sharedCtx;
     drawHUD.call({}, game);
-    expect(ctx.fillText).toHaveBeenCalledWith(expect.stringContaining('1.50'), 375, 28);
+    // Wave multiplier follows the compressed reset button position.
+    expect(ctx.fillText).toHaveBeenCalledWith(expect.stringContaining('1.50'), expect.any(Number), 28);
   });
 
   it('shows Start Wave in PRE_WAVE state', () => {

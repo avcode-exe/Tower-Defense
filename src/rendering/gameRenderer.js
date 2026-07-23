@@ -1,5 +1,5 @@
 import { RENDERER } from './renderer.js';
-import { CONFIG, LAYOUT } from '../config.js';
+import { CONFIG, LAYOUT, LAYOUT_ZOOM } from '../config.js';
 import { PARTICLES } from '../particles.js';
 import { AUDIO } from '../audio.js';
 import { pixelToTile, tileCenterInto, clamp, inBounds } from '../utils.js';
@@ -8,6 +8,16 @@ import { UI, UI_LAYOUT } from '../ui/index.js';
 let _troopPath = null;
 
 export function renderGame(game) {
+  const zoom = game.zoom || 1;
+  RENDERER.zoom = zoom;
+  UI_LAYOUT._zoom = zoom;
+  LAYOUT_ZOOM.value = zoom;
+  // Check auto-collapse on zoom changes. If state changed, re-layout.
+  // The restore condition internally uses expanded-map-width to prevent
+  // flip-flop, so no allowRestore flag is needed.
+  if (RENDERER.updateAutoCollapse()) {
+    RENDERER.resize();
+  }
   RENDERER.beginFrame();
   RENDERER.applyMapTransform();
   RENDERER.drawStaticLayers(game.grid);
@@ -266,11 +276,106 @@ export function renderGame(game) {
   UI.drawShieldShop(game);
   UI.drawPreview(game);
   UI.drawSelectedTroopRange(game);
+  RENDERER.endFrame();
   UI.drawPlacementGhost(game);
   UI.drawWaveTransition(game);
   UI.drawOverlay(game);
   UI.drawDevConfirmDialog(game);
+  drawZoomIndicator(game);
   updateCursor(game);
+}
+
+// ── Zoom indicator ───────────────────────────────────────────────────
+// Shows the current zoom percentage in the bottom-right corner with
+// a quick fade-in, brief hold, then fade-out animation.
+const ZOOM_INDICATOR_FADE_IN = 0.2;
+const ZOOM_INDICATOR_HOLD = 1.0;
+const ZOOM_INDICATOR_FADE_OUT = 0.6;
+const ZOOM_INDICATOR_DURATION = ZOOM_INDICATOR_FADE_IN + ZOOM_INDICATOR_HOLD + ZOOM_INDICATOR_FADE_OUT;
+
+function drawZoomIndicator(game) {
+  const t0 = game._zoomIndicatorTime || 0;
+  if (!t0) return;
+  const elapsed = (performance.now() - t0) / 1000;
+  if (elapsed >= ZOOM_INDICATOR_DURATION) return;
+
+  const zoom = game.zoom || 1;
+  const pct = Math.round(zoom * 100);
+
+  // Compute alpha with fade-in, hold, fade-out.
+  let alpha;
+  if (elapsed < ZOOM_INDICATOR_FADE_IN) {
+    alpha = elapsed / ZOOM_INDICATOR_FADE_IN;
+  } else if (elapsed < ZOOM_INDICATOR_FADE_IN + ZOOM_INDICATOR_HOLD) {
+    alpha = 1;
+  } else {
+    const fadeElapsed = elapsed - ZOOM_INDICATOR_FADE_IN - ZOOM_INDICATOR_HOLD;
+    alpha = 1 - fadeElapsed / ZOOM_INDICATOR_FADE_OUT;
+  }
+  alpha = Math.max(0, Math.min(1, alpha));
+
+  const c = RENDERER.ctx;
+  const baseFontSize = 13;
+  const fontSize = Math.round(baseFontSize * zoom);
+  const padX = 10 * zoom;
+  const padY = 6 * zoom;
+  const borderRadius = 6 * zoom;
+
+  c.save();
+  c.globalAlpha = alpha;
+
+  // Measure text.
+  c.font = `bold ${fontSize}px system-ui, sans-serif`;
+  c.textAlign = 'left';
+  c.textBaseline = 'middle';
+  const textW = c.measureText(pct + '%').width;
+
+  // Position: bottom-right, with margin.
+  const margin = 10 * zoom;
+  const pillW = textW + padX * 2;
+  const pillH = fontSize + padY * 2;
+  const pillX = RENDERER.width - pillW - margin;
+  const pillY = RENDERER.height - pillH - margin;
+
+  // Pill background.
+  c.fillStyle = 'rgba(7, 11, 18, 0.75)';
+  c.beginPath();
+  c.moveTo(pillX + borderRadius, pillY);
+  c.lineTo(pillX + pillW - borderRadius, pillY);
+  c.quadraticCurveTo(pillX + pillW, pillY, pillX + pillW, pillY + borderRadius);
+  c.lineTo(pillX + pillW, pillY + pillH - borderRadius);
+  c.quadraticCurveTo(pillX + pillW, pillY + pillH, pillX + pillW - borderRadius, pillY + pillH);
+  c.lineTo(pillX + borderRadius, pillY + pillH);
+  c.quadraticCurveTo(pillX, pillY + pillH, pillX, pillY + pillH - borderRadius);
+  c.lineTo(pillX, pillY + borderRadius);
+  c.quadraticCurveTo(pillX, pillY, pillX + borderRadius, pillY);
+  c.closePath();
+  c.fill();
+
+  // At cap (min=100% or max=200%), switch to red and pulse for extra visibility.
+  const atCap = zoom <= 1 || zoom >= 2;
+
+  // Sine-wave pulse (~0.10 to 1.0, period ~1.05s) for the cap indicator.
+  let capPulse = 1;
+  if (atCap) {
+    capPulse = 0.55 + 0.45 * Math.sin(performance.now() * 0.006);
+  }
+
+  // Border glow — lineWidth scales with zoom for visual consistency.
+  c.strokeStyle = atCap ? `rgba(218, 54, 51, ${(0.45 * capPulse).toFixed(2)})` : 'rgba(88, 166, 255, 0.35)';
+  c.lineWidth = 1.5 * zoom;
+  c.stroke();
+
+  // Text — pulse opacity when at cap.
+  c.globalAlpha = atCap ? alpha * capPulse : alpha;
+  c.fillStyle = atCap ? '#da3633' : '#58a6ff';
+  c.textAlign = 'center';
+  c.fillText(pct + '%', pillX + pillW / 2, pillY + pillH / 2 + 1);
+
+  // Restore alpha after pulsing the text.
+  if (atCap) c.globalAlpha = alpha;
+
+  c.restore();
 }
 
 export function updateCursor(game) {
@@ -318,18 +423,16 @@ export function hitTestCursor(game, px, py) {
     return 'pointer';
   // HUD buttons when expanded.
   if (!UI_LAYOUT.collapsed.hud) {
-    const rstBtn = LAYOUT.HUD.RESET_BTN;
+    const sOff = UI._speedBtnOffsetY || 0;
+    const rstBtn = UI._resetBtn || LAYOUT.HUD.RESET_BTN;
     if (px >= rstBtn.x && px <= rstBtn.x + rstBtn.w && py >= rstBtn.y && py <= rstBtn.y + rstBtn.h) return 'pointer';
-    // Mute button.
-    const muteBtn = LAYOUT.HUD.MUTE_BTN;
-    if (px >= muteBtn.x && px <= muteBtn.x + muteBtn.w && py >= muteBtn.y && py <= muteBtn.y + muteBtn.h)
-      return 'pointer';
     const w = RENDERER.width;
+    const sGap = UI._speedBtnGap || 28;
     for (let i = 0; i < CONFIG.GAME_SPEEDS.length; i++) {
-      const rx = w - LAYOUT.HUD.SPEED_OFFSET + i * 28;
-      const ry = 14;
+      const rx = w - LAYOUT.HUD.SPEED_OFFSET + i * sGap;
+      const ry = sOff + 14;
       const rw = LAYOUT.HUD.SPEED_BTN_W;
-      const rh = LAYOUT.HUD.SPEED_BTN_H;
+      const rh = UI._speedBtnH || LAYOUT.HUD.SPEED_BTN_H;
       if (px >= rx && px <= rx + rw && py >= ry && py <= ry + rh) return 'pointer';
     }
     const bx = w - LAYOUT.HUD.CTRL_RIGHT;

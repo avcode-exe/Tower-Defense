@@ -1,10 +1,9 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG, MONSTER_SPECS } from '../config.js';
-import { UI_LAYOUT, UI_COLORS } from './constants.js';
-import { drawToggleButton } from './utils.js';
+import { UI_LAYOUT, UI_COLORS, zp } from './constants.js';
+import { drawToggleButton, zoomFont } from './utils.js';
 
-const ESTIMATE_FONT = '8px system-ui, sans-serif';
-const ESTIMATE_GAP = 8;
+const ESTIMATE_GAP = zp(8);
 
 function readNumber(source, keys) {
   if (!source) return null;
@@ -62,7 +61,7 @@ function previewHasNecromancer(preview) {
 function drawEstimateLine(c, x, y, rightEdge, parts) {
   if (!parts.length) return;
 
-  c.font = ESTIMATE_FONT;
+  zoomFont(c, 8);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
 
@@ -89,17 +88,17 @@ export function drawPreview(game) {
   this._togglePreview = null;
 
   if (UI_LAYOUT.collapsed.preview) {
-    const y = RENDERER.height - 20;
+    const y = RENDERER.height - zp(20);
     c.fillStyle = UI_COLORS.panelBg;
     c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 20);
     c.fillStyle = UI_COLORS.panelBorder;
     c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 1);
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '8px system-ui, sans-serif';
+    zoomFont(c, 8);
     c.textAlign = 'left';
     c.textBaseline = 'middle';
-    c.fillText('WAVE', UI_LAYOUT.shopWidth + 6, y + 10);
-    const btnRect = { x: w - 22, y: y + 2, w: 16, h: 16 };
+    c.fillText('WAVE', UI_LAYOUT.shopWidth + 6, y + zp(10));
+    const btnRect = { x: w - zp(22), y: y + 2, w: zp(16), h: zp(16) };
     this._togglePreview = btnRect;
     drawToggleButton(c, btnRect, true, 'up');
     c.textBaseline = 'alphabetic';
@@ -112,41 +111,41 @@ export function drawPreview(game) {
   c.fillStyle = UI_COLORS.panelBorder;
   c.fillRect(UI_LAYOUT.shopWidth, y, w - UI_LAYOUT.shopWidth, 1);
 
-  const btnRect = { x: w - 22, y: y + 4, w: 16, h: 16 };
+  const btnRect = { x: w - zp(22), y: y + 4, w: zp(16), h: zp(16) };
   this._togglePreview = btnRect;
   drawToggleButton(c, btnRect, false, 'down');
 
   c.fillStyle = UI_COLORS.textDim;
-  c.font = '10px system-ui, sans-serif';
+  zoomFont(c, 10);
   c.textAlign = 'left';
   c.textBaseline = 'middle';
-  c.fillText('Next Wave', UI_LAYOUT.shopWidth + 12, y + 12);
+  c.fillText('Next Wave', UI_LAYOUT.shopWidth + zp(12), y + zp(12));
 
   const preview = game.wave.getNextWavePreview();
   if (!preview) {
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '12px system-ui, sans-serif';
-    c.fillText('Prepare...', UI_LAYOUT.shopWidth + 90, y + 18);
+    zoomFont(c, 12);
+    c.fillText('Prepare...', UI_LAYOUT.shopWidth + zp(90), y + zp(18));
     return;
   }
-  let cx = UI_LAYOUT.shopWidth + 90;
+  let cx = UI_LAYOUT.shopWidth + zp(90);
   const rightEdge = w - UI_LAYOUT.shieldShopWidth - 8;
   for (const [level, count] of preview) {
-    if (cx + 80 > rightEdge) break;
+    if (cx + zp(80) > rightEdge) break;
     const key = level === 'B' ? 'B' : level;
     const spec = MONSTER_SPECS[key];
     c.fillStyle = spec.color;
     c.beginPath();
-    c.arc(cx + 8, y + 26, 6, 0, Math.PI * 2);
+    c.arc(cx + 8, y + zp(26), 6, 0, Math.PI * 2);
     c.fill();
     c.fillStyle = UI_COLORS.textBody;
-    c.font = '12px system-ui, sans-serif';
+    zoomFont(c, 12);
     c.textAlign = 'left';
     c.textBaseline = 'middle';
-    c.fillText('x' + count, cx + 18, y + 26);
+    c.fillText('x' + count, cx + zp(18), y + zp(26));
     c.fillStyle = UI_COLORS.textDim;
-    c.font = '9px system-ui, sans-serif';
-    c.fillText(spec.name, cx + 18, y + 42);
+    zoomFont(c, 9);
+    c.fillText(spec.name, cx + zp(18), y + zp(42));
     cx += 80;
   }
   const estimate = getWaveEstimate(
@@ -181,13 +180,13 @@ export function drawPreview(game) {
 
     drawEstimateLine(
       c,
-      UI_LAYOUT.shopWidth + 12,
-      y + 62,
+      UI_LAYOUT.shopWidth + zp(12),
+      y + zp(62),
       rightEdge,
       firstLine.length ? firstLine : reviveText ? [reviveText] : []
     );
     if (reviveText && firstLine.length) {
-      drawEstimateLine(c, UI_LAYOUT.shopWidth + 12, y + 66, rightEdge, [reviveText]);
+      drawEstimateLine(c, UI_LAYOUT.shopWidth + zp(12), y + zp(66), rightEdge, [reviveText]);
     }
   }
 
