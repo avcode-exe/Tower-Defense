@@ -9,7 +9,7 @@ describe('AudioManager', () => {
     mockCtx = {
       currentTime: 0,
       state: 'running',
-      resume: vi.fn(),
+      resume: vi.fn(() => Promise.resolve()),
       createOscillator: vi.fn(() => ({
         type: '',
         frequency: { setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
@@ -398,4 +398,57 @@ describe('AudioManager', () => {
     AUDIO._ctx = mockCtx;
     expect(() => AUDIO.defeat()).not.toThrow();
   });
+  describe('edge cases', () => {
+    it('toggleMute restores previous volume when unmuting', () => {
+      const audio = new AudioManager();
+      audio.setVolume(0.8);
+      audio.toggleMute();
+      expect(audio.muted).toBe(true);
+      expect(audio._volumeBeforeMute).toBe(0.8);
+      audio.toggleMute();
+      expect(audio.muted).toBe(false);
+      expect(audio._volume).toBe(0.8);
+    });
+
+    it('toggleMute uses 0.5 fallback when unmuting with no previous volume', () => {
+      const audio = new AudioManager();
+      audio._volumeBeforeMute = 0;
+      audio._volume = 0;
+      audio.toggleMute();
+      expect(audio._volume).toBe(0.5);
+    });
+
+    it('setVolume clamps to valid range', () => {
+      const audio = new AudioManager();
+      audio.setVolume(-0.5);
+      expect(audio._volume).toBe(0);
+      audio.setVolume(1.5);
+      expect(audio._volume).toBe(1);
+    });
+
+    it('_canPlay returns false when disabled', () => {
+      const audio = new AudioManager();
+      audio._enabled = false;
+      expect(audio._canPlay()).toBe(false);
+    });
+
+    it('_canPlay returns false when volume is 0', () => {
+      const audio = new AudioManager();
+      audio._volume = 0;
+      expect(audio._canPlay()).toBe(false);
+    });
+
+    it('waveComplete no-ops when disabled', () => {
+      const audio = new AudioManager();
+      audio._enabled = false;
+      expect(() => audio.waveComplete()).not.toThrow();
+    });
+
+    it('upgrade no-ops when disabled', () => {
+      const audio = new AudioManager();
+      audio._enabled = false;
+      expect(() => audio.upgrade()).not.toThrow();
+    });
+  });
+
 });

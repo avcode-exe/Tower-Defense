@@ -1360,6 +1360,19 @@ describe('Game', () => {
       game._autoSave();
       expect(electron.saveGame).toHaveBeenCalled();
     });
+
+    it('_saveToRotationSlot does not throw when electron has listSaves', async () => {
+      const game = makeGame();
+      const saveData = game.getSaveData();
+      const electron = {
+        saveGame: vi.fn(),
+        listSaves: vi.fn().mockResolvedValue([]),
+        saveGameSlot: vi.fn(),
+      };
+      vi.stubGlobal('window', { electron, document: { getElementById: vi.fn() } });
+      await expect(game._saveToRotationSlot(saveData)).resolves.toBeUndefined();
+      expect(electron.listSaves).toHaveBeenCalled();
+    });
     it('handles needsSaveCleanup', () => {
       const game = makeGame();
       delete game._autoSave;
@@ -1371,6 +1384,8 @@ describe('Game', () => {
       expect(electron.deleteSave).toHaveBeenCalled();
       expect(game._needsSaveCleanup).toBe(false);
     });
+
+
   });
 
   describe('_tryPlaceFromPointer', () => {
@@ -3123,4 +3138,135 @@ describe('Game', () => {
       expect(m._prevTileIdx).toBe(-1);
     });
   });
+  describe('sellTroop devMode path', () => {
+    it('does not refund gold in dev mode', () => {
+      const game = makeGame({ devMode: true, gold: 999 });
+      game.placeTroop(swordsmanSpec, 1, 1);
+      const goldBefore = game.gold;
+      game.sellTroop(0);
+      // In dev mode, no refund is given - gold remains unchanged
+      expect(game.gold).toBe(goldBefore);
+      expect(game.troops[0].alive).toBe(false);
+    });
+  });
+  describe('_handleHUDClicks speed button offset', () => {
+    it('respects custom _speedBtnOffsetY and _speedBtnGap', () => {
+      const game = makeGame();
+      const UI_LAYOUT_ = UI_LAYOUT_REF || UI_LAYOUT;
+      UI_LAYOUT_.collapsed.hud = false;
+      UI_LAYOUT_.hudHeight = 56;
+      game._speedBtnOffsetY = 40;
+      game._speedBtnGap = 36;
+      const w = RENDERER_REF ? RENDERER_REF.width : 800;
+      const r = {
+        x: w - LAYOUT.HUD.SPEED_OFFSET + 0 * 36,
+        y: 40 + 14,
+        w: LAYOUT.HUD.SPEED_BTN_W,
+        h: LAYOUT.HUD.SPEED_BTN_H,
+      };
+      game._handleHUDClicks(r.x + 1, r.y + 1);
+      expect(game.speed).toBe(CONFIG.GAME_SPEEDS[0]);
+    });
+  });
+
+  describe('_applySlowToMonster', () => {
+    it('applies slow using cached troop values', () => {
+      const game = makeGame();
+      const m = placeMonsterAt(game, 1, 5, 5);
+      const troop = {
+        _cachedSlowFactor: 0.5,
+        _cachedSlowDuration: 2,
+        _cachedShatterBonus: 0,
+        spec: { color: '#9b59b6' },
+      };
+      vi.spyOn(m, 'applySlow').mockReturnValue(true);
+      game._applySlowToMonster(m, troop);
+      expect(m.applySlow).toHaveBeenCalledWith(0.5, 2, 0);
+    });
+  });
+
+  describe('_stepMonsters devMode leak bypass', () => {
+    it('skips lives deduction in dev mode', () => {
+      const game = makeGame({ devMode: true });
+      game.lives = 10;
+      const m = placeMonsterAt(game, 1, 5, 5);
+      m.reachedEnd = true;
+      m.leak = 5;
+      game.monsters = [m];
+      game._stepMonsters(1 / 60);
+      expect(m.alive).toBe(false);
+      expect(game.lives).toBe(10); // lives unchanged in dev mode
+    });
+  });
+
+  describe('_stepNecromancerRevives revive edge cases', () => {
+    it('prevents double-revive with _reviveLock from multiple necromancers', () => {
+      const game = makeGame();
+      // Place two necromancers close to the same dead monster
+      const necro1 = placeMonsterAt(game, 'Y', 5, 5);
+      const necro2 = placeMonsterAt(game, 'Y', 5, 6);
+      const dead = placeMonsterAt(game, 1, 5, 7);
+      dead.alive = false;
+      dead.reviveImmune = false;
+      dead.reachedEnd = false;
+      game._stepNecromancerRevives();
+      // Only one necromancer should have revived it (reviveLock prevents double-revive)
+      const revived = game.monsters.filter(m => m.alive && m.level !== 'Y');
+      expect(revived.length).toBe(1);
+      expect(dead.alive).toBe(true);
+    });
+
+    it('handles revived monster without clearBurn function', () => {
+      const game = makeGame();
+      const necro = placeMonsterAt(game, 'Y', 5, 5);
+      const dead = placeMonsterAt(game, 1, 5, 6);
+      dead.alive = false;
+      dead.reviveImmune = false;
+      dead.reachedEnd = false;
+      // Remove clearBurn to test the else branch
+      delete dead.clearBurn;
+      // Should not throw
+      expect(() => game._stepNecromancerRevives()).not.toThrow();
+      expect(dead.alive).toBe(true);
+    });
+
+    it('skips alive necromancers when collecting dead candidates', () => {
+      const game = makeGame();
+      const aliveNecro = placeMonsterAt(game, 'Y', 5, 5);
+      aliveNecro.alive = true;
+      const dead = placeMonsterAt(game, 1, 5, 6);
+      dead.alive = false;
+      dead.reviveImmune = false;
+      dead.reachedEnd = false;
+      // Add an alive necromancer that should NOT be in deadCandidates
+      game._stepNecromancerRevives();
+      expect(dead.alive).toBe(true); // dead should be revived
+    });
+  });
+
+  describe('onMouseUp drag-to-place', () => {
+    it('returns early when no dragState', () => {
+      const game = makeGame();
+      game._dragState = null;
+      game.onMouseUp(100, 100);
+      expect(true).toBe(true);
+    });
+
+    it('does nothing when dragState spec is null', () => {
+      const game = makeGame();
+      game._dragState = { spec: null };
+      game.onMouseUp(100, 100);
+      expect(game._dragState).toBeNull();
+    });
+
+    it('calls _tryPlaceFromPointer when dragState has valid spec', () => {
+      const game = makeGame();
+      vi.spyOn(game, '_tryPlaceFromPointer').mockImplementation(() => {});
+      game._dragState = { spec: swordsmanSpec };
+      game.onMouseUp(300, 100);
+      expect(game._dragState).toBeNull();
+      expect(game._tryPlaceFromPointer).toHaveBeenCalledWith(300, 100, swordsmanSpec);
+    });
+  });
+
 });

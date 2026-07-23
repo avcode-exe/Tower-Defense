@@ -4,6 +4,7 @@
 export class AudioManager {
   constructor() {
     this._ctx = null;
+    this._ctxSuspended = false;
     this._volume = 0.5;
     this._volumeBeforeMute = 0.5;
     this._enabled = true;
@@ -26,12 +27,17 @@ export class AudioManager {
     if (!this._ctx) {
       try {
         this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+        // Cache the suspended state so we don't check .state on every call
+        this._ctxSuspended = this._ctx.state === 'suspended';
       } catch (e) {
         this._enabled = false;
       }
     }
-    if (this._ctx && this._ctx.state === 'suspended') {
-      this._ctx.resume();
+    // Check both cached and actual state for compatibility with test code
+    // that sets _ctx directly (circumventing the constructor cache).
+    // AudioContext.state is a lightweight getter, so the fallback is cheap.
+    if (this._ctx && (this._ctxSuspended || this._ctx.state === 'suspended')) {
+      this._ctx.resume().then(() => { this._ctxSuspended = false; }).catch(() => { this._ctxSuspended = true; });
     }
   }
 

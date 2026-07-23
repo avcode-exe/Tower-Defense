@@ -5,17 +5,16 @@ import { CONFIG } from './config.js';
 import { PARTICLES } from './particles.js';
 
 export function stepNecromancerRevives(game) {
-  // Reset revive locks for all monsters
-  for (let i = 0; i < game.monsters.length; i++) {
-    game.monsters[i]._reviveLock = false;
-  }
-
-  // Collect dead candidates (alive=false, not necromancer, not reachedEnd, not reviveImmune)
+  // Single pass: reset revive locks AND collect dead candidates.
+  // Previously this was two separate loops — combining them halves the
+  // monster iteration cost on the ​hot path.
   const deadCandidates = [];
-  for (let j = 0; j < game.monsters.length; j++) {
-    const target = game.monsters[j];
-    if (target.alive || target.level === 'Y' || target.reachedEnd || target.reviveImmune) continue;
-    deadCandidates.push(target);
+  for (let i = 0; i < game.monsters.length; i++) {
+    const m = game.monsters[i];
+    m._reviveLock = false;
+    if (!m.alive && m.level !== 'Y' && !m.reachedEnd && !m.reviveImmune) {
+      deadCandidates.push(m);
+    }
   }
 
   // Each necromancer revives nearby dead allies

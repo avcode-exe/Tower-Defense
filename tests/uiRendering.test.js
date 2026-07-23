@@ -697,4 +697,82 @@ describe('drawShieldShop', () => {
     drawShieldShop.call({}, makeGame());
     expect(_sharedCtx.fillText).toHaveBeenCalledWith('SHOP', expect.any(Number), expect.any(Number));
   });
+  describe('auto-save indicator badge', () => {
+    let mockCtx;
+    let game;
+    let drawHUD;
+    let RENDERER_REF;
+    let UI_LAYOUT_REF;
+    let savedCtx;
+    let savedCollapsed;
+
+    beforeAll(async () => {
+      const hudMod = await import('../src/ui/hud.js');
+      drawHUD = hudMod.drawHUD;
+      const constantsMod = await import('../src/ui/constants.js');
+      UI_LAYOUT_REF = constantsMod.UI_LAYOUT;
+      const rendererMod = await import('../src/rendering/renderer.js');
+      RENDERER_REF = rendererMod.RENDERER;
+    });
+
+    beforeEach(() => {
+      savedCtx = RENDERER_REF.ctx;
+      savedCollapsed = { ...UI_LAYOUT_REF.collapsed };
+      mockCtx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        font: '',
+        textAlign: '',
+        textBaseline: '',
+        globalAlpha: 1,
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+        measureText: vi.fn(() => ({ width: 50 })),
+        beginPath: vi.fn(),
+        arc: vi.fn(),
+        quadraticCurveTo: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        roundRect: vi.fn(),
+      };
+      game = {
+        gold: 500,
+        lives: 20,
+        wave: { currentWave: 3, currentMultiplier: 1.0, monstersRemainingThisWave: 0 },
+        monsters: [],
+        devMode: false,
+        speed: 1,
+        state: 'PRE_WAVE',
+        selectedTroopIndex: -1,
+        selectedSpec: null,
+        _autoSaveIndicatorTimer: 1.5,
+        zoom: 1,
+      };
+      RENDERER_REF.ctx = mockCtx;
+      RENDERER_REF.width = 800;
+      UI_LAYOUT_REF._zoom = 1;
+      UI_LAYOUT_REF._extraHudHeight = 0;
+      UI_LAYOUT_REF.collapsed = { hud: false };
+    });
+
+    afterEach(() => {
+      RENDERER_REF.ctx = savedCtx;
+      UI_LAYOUT_REF.collapsed = savedCollapsed;
+    });
+
+    it('renders save badge when _autoSaveIndicatorTimer > 0', () => {
+      drawHUD.call({}, game);
+      // Verify badge text was rendered - the badge draws checkmark + "Saved"
+      const textCalls = mockCtx.fillText.mock.calls;
+      const hasBadgeText = textCalls.some(args => args[0] === '✓ Saved');
+      expect(hasBadgeText).toBe(true);
+    });
+  });
+
 });

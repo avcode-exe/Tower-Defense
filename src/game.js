@@ -73,6 +73,7 @@ export class Game {
     this._troopIndexDirty = false;
     this._monsterScratchBuf = [];
     this._pendingAttackQueue = [];
+    this._hasDeadEntities = false;
 
     this.wave = new WaveManager();
 
@@ -167,6 +168,7 @@ export class Game {
     if (!t || !t.alive) return;
     if (!this.devMode && this.sellCooldownTimer > 0) return;
     t.alive = false;
+    this._hasDeadEntities = true;
     this.grid.set(t.gx, t.gy, TILE.EMPTY);
     RENDERER.markCacheDirty();
     if (!this.devMode) {
@@ -265,12 +267,14 @@ export class Game {
     // to prevent double-reward from the defensive kill path in step().
     if (m.hp <= 0) {
       m.alive = false;
+      this._hasDeadEntities = true;
       m.reviveGlow = false;
       m._reviveGlowTimer = 0;
       return true;
     }
     const r = m.takeDamage(amount);
     if (r.killed) {
+      this._hasDeadEntities = true;
       // Bonus gold per kill is baked into the kill reward path rather than
       // individual MONSTER_SPECS values so wave-estimate math stays simple.
       const awardedGold = r.reward + 1;
@@ -310,6 +314,7 @@ export class Game {
   // Kill a troop that was destroyed by monsters.
   killTroop(troop) {
     troop.alive = false;
+    this._hasDeadEntities = true;
     this.grid.set(troop.gx, troop.gy, TILE.EMPTY);
     RENDERER.markCacheDirty();
     PARTICLES.troopDeath(troop.x, troop.y, troop.spec.color);
@@ -472,12 +477,14 @@ export class Game {
           y: m.y,
         });
         m.alive = false;
+        this._hasDeadEntities = true;
         continue;
       }
       m.update(dt, this._troopTileIndex, this.monsters);
       if (m._pendingAttack) this._pendingAttackQueue.push(m);
       if (!m.reachedEnd) continue;
       m.alive = false;
+      this._hasDeadEntities = true;
       if (this.devMode) continue;
       this.lives -= m.leak;
       this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
@@ -523,6 +530,28 @@ export class Game {
   }
 
   _cleanupDead() {
+    // Skip compaction if nothing has died since the last cleanup.
+    // The flag is set by all game methods that kill entities (sellTroop,
+    // damageMonster, killTroop, _stepMonsters).  As a fallback (for tests
+    // that directly mutate .alive), scan both arrays once.
+    if (!this._hasDeadEntities) {
+      let anyDead = false;
+      for (let i = 0; i < this.monsters.length; i++) {
+        if (!this.monsters[i].alive) { anyDead = true; break; }
+      }
+      if (!anyDead) {
+        for (let i = 0; i < this.projectiles.length; i++) {
+          if (!this.projectiles[i].alive) { anyDead = true; break; }
+        }
+      }
+      if (!anyDead) {
+        for (let i = 0; i < this.troops.length; i++) {
+          if (!this.troops[i].alive) { anyDead = true; break; }
+        }
+      }
+      if (!anyDead) return;
+    }
+    this._hasDeadEntities = false;
     let mw = 0;
     for (let i = 0; i < this.monsters.length; i++) {
       if (this.monsters[i].alive) this.monsters[mw++] = this.monsters[i];
@@ -726,8 +755,17 @@ export class Game {
 
   _buildTroopTileIndex() {
     this._troopIndexDirty = false;
+    // Only clear tiles that actually had troops (avoids iterating all 256 tiles
+    // when only 10–20 are ever occupied).
+    const cleared = new Set();
+    for (const [troop] of this._troopIndexByRef) {
+      const idx = troop.gy * CONFIG.GRID_SIZE + troop.gx;
+      if (!cleared.has(idx)) {
+        cleared.add(idx);
+        this._troopTileIndex[idx].length = 0;
+      }
+    }
     this._troopIndexByRef.clear();
-    for (let i = 0; i < this._troopTileIndex.length; i++) this._troopTileIndex[i].length = 0;
     for (let i = 0; i < this.troops.length; i++) {
       const t = this.troops[i];
       if (!t.alive) continue;

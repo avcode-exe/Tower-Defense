@@ -124,9 +124,12 @@ export function renderGame(game) {
   }
 
   // PASS 1: Monster bodies — shadows, shield rings, body arcs, stun overlays.
+  // Batched under ONE ctx.save/restore per monster (instead of per-effect) to
+  // reduce expensive canvas state-stack operations on the hot rendering path.
   for (let i = 0; i < game.monsters.length; i++) {
     const m = game.monsters[i];
     if (!m.alive) continue;
+    ctx.save();
     // Shadow.
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
     const shadowR = m.spec.size * 0.5 + 3;
@@ -137,14 +140,12 @@ export function renderGame(game) {
       const pulse = 0.5 + 0.5 * Math.sin(now * 0.006);
       const glowAlpha = 0.45 + pulse * 0.45;
       const glowRadius = m.spec.size * 0.72 + pulse * 6;
-      ctx.save();
       ctx.globalAlpha = glowAlpha;
       ctx.strokeStyle = CONFIG.COLORS.revive;
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(m.x, m.y, glowRadius, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.restore();
     }
     // Shield ring.
     if (m.shield > 0) {
@@ -155,7 +156,6 @@ export function renderGame(game) {
       ctx.beginPath();
       ctx.arc(m.x, m.y, m.spec.size * 0.5 + 2, 0, Math.PI * 2 * shieldRatio);
       ctx.stroke();
-      ctx.globalAlpha = 1;
     }
     // Body (icy tint when slowed).
     const isSlowed = m._slowColorTint > 0;
@@ -172,14 +172,12 @@ export function renderGame(game) {
     }
     if (m.burnStacks > 0) {
       const pulse = 0.5 + 0.5 * Math.sin(now * 0.012);
-      ctx.save();
       ctx.globalAlpha = 0.35 + pulse * 0.25;
       ctx.strokeStyle = CONFIG.COLORS.burn;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
       ctx.arc(m.x, m.y, m.spec.size * 0.5 + 3, 0, Math.PI * 2);
       ctx.stroke();
-      ctx.restore();
     }
     // Stun overlay.
     if (m.stunTimer > 0) {
@@ -191,15 +189,14 @@ export function renderGame(game) {
     // Healer healing range indicator.
     if (m.level === 'H' && m._healing) {
       const radius = m.healRange || (m.spec.healRange || 1) * CONFIG.TILE_SIZE;
-      ctx.save();
       ctx.filter = 'blur(8px)';
       ctx.fillStyle = m.spec.color;
       ctx.globalAlpha = 0.05;
       ctx.beginPath();
       ctx.arc(m.x, m.y, radius, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
     }
+    ctx.restore();
   }
 
   // PASS 2: HP bars + Shield bars (merged into 1 loop — was 2 separate loops).

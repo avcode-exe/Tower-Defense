@@ -251,4 +251,56 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
       expect(result).toBe(true);
     });
   });
+  describe('type validation branches', () => {
+    it('saveGame throws for non-plain-object', () => {
+      expect(() => capturedApi.saveGame(123)).toThrow(TypeError);
+      expect(() => capturedApi.saveGame('string')).toThrow(TypeError);
+      expect(() => capturedApi.saveGame(null)).toThrow(TypeError);
+    });
+
+    it('saveGameSlot validates slot name', () => {
+      expect(() => capturedApi.saveGameSlot(123, {})).toThrow(TypeError);
+      expect(() => capturedApi.saveGameSlot('', {})).toThrow(TypeError);
+    });
+
+    it('saveGameSlot validates data is plain object', () => {
+      expect(() => capturedApi.saveGameSlot('mysave', 123)).toThrow(TypeError);
+      expect(() => capturedApi.saveGameSlot('mysave', null)).toThrow(TypeError);
+    });
+
+    it('loadGameSlot validates slot name', () => {
+      expect(() => capturedApi.loadGameSlot(123)).toThrow(TypeError);
+      expect(() => capturedApi.loadGameSlot('')).toThrow(TypeError);
+    });
+
+    it('deleteSaveSlot validates slot name', () => {
+      expect(() => capturedApi.deleteSaveSlot(123)).toThrow(TypeError);
+      expect(() => capturedApi.deleteSaveSlot('')).toThrow(TypeError);
+    });
+  });
+
+  describe('valid input paths (branch coverage)', () => {
+    it('saveGame with valid plain object calls mockInvoke', () => {
+      capturedApi.saveGame({ key: 'value' });
+      expect(mockInvoke).toHaveBeenCalledWith('save-game', { key: 'value' });
+    });
+
+    it('saveGameSlot with valid slot and data calls mockInvoke', () => {
+      capturedApi.saveGameSlot('mysave', { gold: 100 });
+      expect(mockInvoke).toHaveBeenCalledWith(
+        'save-game-slot', 'mysave', { gold: 100 }
+      );
+    });
+
+    it('loadGameSlot with valid slot calls mockInvoke', () => {
+      capturedApi.loadGameSlot('mysave');
+      expect(mockInvoke).toHaveBeenCalledWith('load-game-slot', 'mysave');
+    });
+
+    it('deleteSaveSlot with valid slot calls mockInvoke', () => {
+      capturedApi.deleteSaveSlot('mysave');
+      expect(mockInvoke).toHaveBeenCalledWith('delete-save-slot', 'mysave');
+    });
+  });
+
 });

@@ -852,4 +852,68 @@ describe('gameRenderer', () => {
       expect(result).toBe('default');
     });
   });
+  describe('zoomIndicator', () => {
+    let mockCtx;
+    let game;
+    let performanceNowSpy;
+    let renderGame;
+
+    beforeAll(async () => {
+      const mod = await import('../src/rendering/gameRenderer.js');
+      renderGame = mod.renderGame;
+    });
+
+    beforeEach(() => {
+      mockCtx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        fillStyle: '',
+        strokeStyle: '',
+        lineWidth: 1,
+        font: '',
+        textAlign: '',
+        fillRect: vi.fn(),
+        fillText: vi.fn(),
+        measureText: vi.fn(() => ({ width: 100 })),
+        beginPath: vi.fn(),
+        arc: vi.fn(),
+        fill: vi.fn(),
+        stroke: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        closePath: vi.fn(),
+        roundRect: vi.fn(),
+      };
+      game = {
+        zoom: 1.5,
+        _zoomIndicatorTime: 1000,
+        _autoSaveIndicatorTimer: 0,
+        selectedTroopIndex: -1,
+        selectedSpec: null,
+        troops: [],
+        monsters: [],
+        projectiles: [],
+        popups: [],
+        wave: { currentWave: 3 },
+        state: 'PRE_WAVE',
+        devMode: false,
+        speed: 1,
+        gold: 500,
+        lives: 20,
+      };
+      performanceNowSpy = vi.spyOn(performance, 'now').mockReturnValue(1500);
+    });
+
+    afterEach(() => {
+      performanceNowSpy?.mockRestore();
+    });
+
+    it('does not render when _zoomIndicatorTime is 0', () => {
+      game._zoomIndicatorTime = 0;
+      renderGame(game);
+      // Should exit early without drawing zoom text
+      expect(mockCtx.fillText).not.toHaveBeenCalled();
+    });
+  });
+
 });

@@ -4,6 +4,15 @@ import { AUDIO } from '../audio.js';
 import { UI_LAYOUT, UI_COLORS, zp } from './constants.js';
 import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect , zoomFont } from './utils.js';
 
+// Cache for text measurements to avoid measureText() calls every frame.
+let _cachedGoldStr = null;
+let _cachedLivesStr = null;
+let _cachedWaveStr = null;
+let _cachedGoldW = 0;
+let _cachedLivesW = 0;
+let _cachedWaveW = 0;
+let _cachedZoom = 0;
+
 export function drawHUD(game) {
   const c = RENDERER.ctx;
   const w = RENDERER.width;
@@ -36,16 +45,29 @@ export function drawHUD(game) {
   const zoom = UI_LAYOUT._zoom || 1;
   const hudY = UI_LAYOUT.HUD_HEIGHT / 2;
 
-  // ── Pre-measure text widths for dynamic gap compression ──
+  // ── Pre-measure text widths for dynamic gap compression (with caching) ──
   const goldStr = game.devMode ? '\u221E' : String(game.gold);
   const livesStr = game.devMode ? '\u221E' : String(game.lives);
   const waveStr = 'Wave ' + (game.wave.currentWave + 1);
-  // Measure each with its actual font weight (non-bold for gold/lives, bold for wave)
-  c.font = Math.round(15 * zoom) + 'px system-ui, sans-serif';
-  const goldW = c.measureText(goldStr).width;
-  const livesW = c.measureText(livesStr).width;
-  c.font = 'bold ' + Math.round(15 * zoom) + 'px system-ui, sans-serif';
-  const waveW = c.measureText(waveStr).width;  // Base positions (in zoom-scaled pixels)
+  let goldW, livesW, waveW;
+  if (goldStr === _cachedGoldStr && livesStr === _cachedLivesStr && waveStr === _cachedWaveStr && zoom === _cachedZoom) {
+    goldW = _cachedGoldW;
+    livesW = _cachedLivesW;
+    waveW = _cachedWaveW;
+  } else {
+    c.font = Math.round(15 * zoom) + 'px system-ui, sans-serif';
+    goldW = c.measureText(goldStr).width;
+    livesW = c.measureText(livesStr).width;
+    c.font = 'bold ' + Math.round(15 * zoom) + 'px system-ui, sans-serif';
+    waveW = c.measureText(waveStr).width;
+    _cachedGoldStr = goldStr;
+    _cachedLivesStr = livesStr;
+    _cachedWaveStr = waveStr;
+    _cachedGoldW = goldW;
+    _cachedLivesW = livesW;
+    _cachedWaveW = waveW;
+    _cachedZoom = zoom;
+  }  // Base positions (in zoom-scaled pixels)
   const goldX = zp(14);
   const livesDefX = zp(120);
   const waveDefX = zp(200);

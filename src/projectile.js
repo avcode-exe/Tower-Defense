@@ -26,10 +26,11 @@ export class Projectile {
 
   update(dt, monsters, onImpact) {
     this.age += dt;
-    // Kill stale projectiles that have been flying without a target for too long.
+    // Kill stale projectiles that have been flying without a target.
+    // Use a shorter timeout (0.5s) when target is dead so they don't linger.
     if (!this.target || !this.target.alive) {
       this.target = null;
-      if (this.age > CONFIG.PROJECTILE_TIMEOUT) {
+      if (this.age > 0.5) {
         this.alive = false;
         return;
       }
