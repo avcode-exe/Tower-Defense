@@ -656,6 +656,8 @@ export class Game {
         this.accumulator -= fixed;
       }
       renderGame(this);
+      // Frame-budget check for particle auto-throttle.
+      PARTICLES._checkFrameBudget(performance.now() - now);
       updateCursor(this);
     } catch (err) {
       console.error('[Game] Sim tick crashed:', err);

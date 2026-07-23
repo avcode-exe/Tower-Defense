@@ -191,12 +191,24 @@ const EFFECT_DEFS = {
 export const PARTICLES = {
   _pool: [],
   _activeCount: 0,
-  // Dynamic particle cap based on hardware: more CPU cores → more particles.
-  _maxPool: (() => {
-    const base = CONFIG.PARTICLE_POOL_SIZE;
-    const cores = typeof navigator !== 'undefined' && navigator.hardwareConcurrency ? navigator.hardwareConcurrency : 4;
-    return Math.min(base, Math.max(100, cores * 50));
-  })(),
+  // Initial pool size: hardware-aware cap clamped by quality tier.
+  // Overridden by setQuality() when settings or auto-throttle change.
+  _maxPool: (() => Math.min(CONFIG.PARTICLE_POOL_SIZE, Math.max(100, (typeof navigator !== 'undefined' && navigator.hardwareConcurrency || 4) * 50)))(),
+  // Quality-tier multipliers — applied in spawn()/spawnTrail().
+  _spawnMultiplier: 1.0,
+  _lifetimeMultiplier: 1.0,
+  // User-chosen tier (set via settings).  Auto-throttle overrides are tracked
+  // separately in _autoTier so the upgrade logic can compare against the user's
+  // original preference.
+  _userTier: 'Medium',
+  // Currently active tier (may differ from _userTier during auto-throttle).
+  _activeTier: 'Medium',
+  // Auto-throttle state: when set, overrides the user's chosen tier.
+  _autoTier: null,
+  // Frame-budget tracking for auto-throttle.
+  _slowFrames: 0,
+  _fastFrames: 0,
+
   _buckets: [],
   _bucketKeys: [],
   _colorToIndex: {},
@@ -215,15 +227,16 @@ export const PARTICLES = {
 
   // Spawn particles at a world position with a config.
   // config: { count, color, minSize, maxSize, minSpeed, maxSpeed, minLife, maxLife, gravity }
+  // Applies quality-tier multipliers to count and lifetime.
   spawn(x, y, config) {
-    const count = config.count || 5;
+    const count = Math.max(1, Math.round((config.count || 5) * this._spawnMultiplier));
     const color = config.color || '#fff';
     const minSize = config.minSize || 1;
     const maxSize = config.maxSize || 3;
     const minSpeed = config.minSpeed || 30;
     const maxSpeed = config.maxSpeed || 100;
-    const minLife = config.minLife || 0.2;
-    const maxLife = config.maxLife || 0.5;
+    const minLife = (config.minLife || 0.2) * this._lifetimeMultiplier;
+    const maxLife = (config.maxLife || 0.5) * this._lifetimeMultiplier;
     const useGravity = config.gravity !== false;
 
     for (let i = 0; i < count; i++) {
@@ -251,7 +264,7 @@ export const PARTICLES = {
   spawnTrail(x, y, color) {
     const p = this._getParticle();
     if (!p) return;
-    p.reset(x, y, 0, 0, 0.1 + Math.random() * 0.15, color, 1 + Math.random() * 1.5, false);
+    p.reset(x, y, 0, 0, (0.1 + Math.random() * 0.15) * this._lifetimeMultiplier, color, 1 + Math.random() * 1.5, false);
   },
 
   update(dt) {
@@ -318,6 +331,93 @@ export const PARTICLES = {
       this._colorByIndex[ci] = color;
     }
     return ci;
+  },
+
+  /**
+   * Set particle quality tier from user settings.
+   * Stores the user's choice in _userTier and applies it immediately.
+   * Auto-throttle calls _applyTier() directly without touching _userTier.
+   *
+   * @param {string} tier — 'Low', 'Medium', 'High', or 'Ultra'
+   */
+  setQuality(tier) {
+    this._userTier = tier;
+    this._applyTier(tier);
+  },
+
+  /** Internal: apply a tier's pool/multiplier values without changing _userTier.
+   *  Used by both setQuality() and auto-throttle. */
+  _applyTier(tier) {
+    const tiers = {
+      Low: { pool: 100, spawn: 0.3, lifetime: 0.5 },
+      Medium: { pool: 300, spawn: 0.6, lifetime: 0.75 },
+      High: { pool: 1000, spawn: 1.0, lifetime: 1.0 },
+      Ultra: { pool: 2000, spawn: 1.5, lifetime: 1.5 },
+    };
+    const t = tiers[tier];
+    if (!t) return;
+    this._activeTier = tier;
+    this._maxPool = t.pool;
+    this._spawnMultiplier = t.spawn;
+    this._lifetimeMultiplier = t.lifetime;
+    // Trim pool if shrinking — cap _activeCount to avoid stale entries.
+    if (this._pool.length > this._maxPool) {
+      this._activeCount = Math.min(this._activeCount, this._maxPool);
+      this._pool.length = this._maxPool;
+    }
+  },
+
+  /**
+   * Check frame budget for auto-throttle.
+   * Called every frame from game._runSimTick().
+   * 3 consecutive frames >33ms  → downgrade one tier
+   * 60 consecutive frames <16ms → upgrade one tier
+   *
+   * Auto-throttle uses _applyTier() directly without modifying _userTier,
+   * so the upgrade logic can always compare _autoTier against the original
+   * user-chosen tier.
+   */
+  _checkFrameBudget(frameTimeMs) {
+    const TIERS = ['Low', 'Medium', 'High', 'Ultra'];
+
+    if (frameTimeMs > 33) {
+      this._slowFrames++;
+      this._fastFrames = 0;
+      if (this._slowFrames >= 3) {
+        this._slowFrames = 0;
+        const effective = this._autoTier || this._activeTier;
+        const idx = TIERS.indexOf(effective);
+        if (idx > 0) {
+          const downgrade = TIERS[idx - 1];
+          this._autoTier = downgrade;
+          this._applyTier(downgrade);
+        }
+      }
+    } else if (frameTimeMs < 16) {
+      this._fastFrames++;
+      this._slowFrames = 0;
+      if (this._fastFrames >= 60) {
+        this._fastFrames = 0;
+        if (this._autoTier) {
+          const autoIdx = TIERS.indexOf(this._autoTier);
+          const userIdx = TIERS.indexOf(this._userTier);
+          if (autoIdx < userIdx) {
+            // Room to upgrade: move one tier up toward user's choice
+            const upgrade = TIERS[autoIdx + 1];
+            this._autoTier = upgrade;
+            this._applyTier(upgrade);
+          } else {
+            // Reached user's chosen tier; stop auto-throttling
+            this._autoTier = null;
+            this._applyTier(this._userTier);
+          }
+        }
+      }
+    } else {
+      // Between 16 and 33 ms — normal. Reset counters.
+      this._slowFrames = 0;
+      this._fastFrames = 0;
+    }
   },
 
   // Reuse a single config object (_tmpCfg) to avoid per-call allocation.
