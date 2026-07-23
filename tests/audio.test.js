@@ -146,6 +146,19 @@ describe('AudioManager', () => {
     const result = AUDIO._toneRamp(200, 600, 0.5, 'sine', 0.3);
     expect(result).toHaveProperty('osc');
     expect(result).toHaveProperty('gain');
+    // Different freqs → exponentialRampToValueAtTime should be called (via returned osc)
+    expect(result.osc.frequency.exponentialRampToValueAtTime).toHaveBeenCalled();
+  });
+
+  it('_toneRamp skips ramp when freqEnd equals freqStart', () => {
+    AUDIO._ctx = mockCtx;
+    AUDIO._enabled = true;
+    AUDIO._volume = 0.5;
+    const result = AUDIO._toneRamp(440, 440, 0.5, 'sine', 0.3);
+    expect(result).toHaveProperty('osc');
+    expect(result).toHaveProperty('gain');
+    // Same freqs → exponentialRampToValueAtTime should NOT be called on frequency
+    expect(result.osc.frequency.exponentialRampToValueAtTime).not.toHaveBeenCalled();
   });
 
   it('_noise creates buffer source and filter chain', () => {

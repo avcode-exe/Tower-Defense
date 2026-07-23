@@ -87,6 +87,8 @@ export function makeGame({ devMode = false, gold = 100000 } = {}) {
   game._autoSave = vi.fn();
   game.devMonsterCounts = {};
   game._needsSaveCleanup = false;
+  game._pendingAttackQueue = [];
+  game._monsterScratchBuf = [];
   game._dragState = null;
   game.appVersion = '1.7.0-beta.1';
   return game;

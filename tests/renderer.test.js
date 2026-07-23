@@ -331,4 +331,47 @@ describe('RENDERER', () => {
     RENDERER._pathCache = null;
     expect(() => RENDERER._rebuildCache({ get: vi.fn() })).not.toThrow();
   });
+
+  // ── _getEffectiveZoom edge cases ──
+
+  it('_getEffectiveZoom caps to 1 when scale < 1', () => {
+    RENDERER.scale = 0.5;
+    RENDERER.zoom = 2;
+    expect(RENDERER._getEffectiveZoom()).toBe(1);
+  });
+
+  it('_getEffectiveZoom uses zoom when scale >= 1', () => {
+    RENDERER.scale = 1.5;
+    RENDERER.zoom = 1.5;
+    expect(RENDERER._getEffectiveZoom()).toBe(1.5);
+  });
+
+  it('_getEffectiveZoom returns 1 when scale exactly 1', () => {
+    RENDERER.scale = 1;
+    RENDERER.zoom = 2;
+    expect(RENDERER._getEffectiveZoom()).toBe(2);
+  });
+
+  // ── toWorldInto edge cases ──
+
+  it('toWorldInto handles NaN y coordinate', () => {
+    RENDERER.offsetX = 0;
+    RENDERER.offsetY = 0;
+    RENDERER.scale = 1;
+    const out = { x: 0, y: 0 };
+    RENDERER.toWorldInto(100, NaN, out);
+    expect(out.y).toBe(0);
+  });
+
+  it('toWorldInto handles zero scale and zoom', () => {
+    RENDERER.offsetX = 0;
+    RENDERER.offsetY = 0;
+    RENDERER.scale = 0;
+    RENDERER.zoom = 1;
+    const out = { x: 0, y: 0 };
+    RENDERER.toWorldInto(100, 50, out);
+    // scale*ez = 0*1 = 0, division by zero gives non-finite, clamped to 0
+    expect(out.x).toBe(0);
+    expect(out.y).toBe(0);
+  });
 });

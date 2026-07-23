@@ -416,4 +416,49 @@ describe('GameRuntimeController', () => {
     capturedLoop(performance.now());
     expect(game._runSimTick).toHaveBeenCalled();
   });
+
+  it('resize handler rAF callback calls RENDERER.resize', async () => {
+    vi.useFakeTimers();
+    const rendererMod = await import('../src/rendering/renderer.js');
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    const canvas = {};
+    let capturedHandler;
+    global.window.addEventListener = vi.fn((evt, handler) => {
+      capturedHandler = handler;
+    });
+    global.cancelAnimationFrame = vi.fn();
+    rc.installResize(canvas);
+    // Set a previous RAF id to test the cancel path inside the handler
+    rc._resizeRAF = 42;
+    // Trigger the resize handler
+    capturedHandler();
+    // Advance fake timers to fire the requestAnimationFrame callback
+    vi.advanceTimersByTime(20);
+    // The rAF callback should have called RENDERER.resize
+    expect(rendererMod.RENDERER.resize).toHaveBeenCalled();
+    expect(rc._resizeRAF).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it('installResize does not crash when resize callback fires immediately', async () => {
+    vi.useFakeTimers();
+    const rendererMod = await import('../src/rendering/renderer.js');
+    const game = makeGame();
+    const rc = new GameRuntimeController(game);
+    const canvas = {};
+    let capturedHandler;
+    global.window.addEventListener = vi.fn((evt, handler) => {
+      capturedHandler = handler;
+    });
+    global.cancelAnimationFrame = vi.fn();
+    rc.installResize(canvas);
+    // No previous RAF
+    // Trigger resize handler
+    capturedHandler();
+    // Advance timers to fire rAF callback
+    vi.advanceTimersByTime(20);
+    expect(rendererMod.RENDERER.resize).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
 });

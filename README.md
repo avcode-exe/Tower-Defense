@@ -166,7 +166,8 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit + integration test suite (**1,420 tests**, 41 files, **91%+ branch coverage**)
+- **Vitest** — unit + integration test suite (**1,710 tests**, 47 files, **92.12% branch coverage**)
+- **Performance benchmarks** — **50 hot-path benchmarks** across 15 engine areas (tile index, monster index, combat, AoE, projectiles, waves, particles, Healer, economy, state helpers) in `tests/benchmarkHotPaths.test.js`
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
 
@@ -183,6 +184,13 @@ The codebase follows consistent patterns for maintainability:
 - **Expanded test coverage** — dedicated coverage for UI helpers, UI constants, input mapping, audio effects, renderer transforms/cache behavior, toast notifications, cursor hit-testing, and release-feed parsing
 - **Fixed-timestep simulation** — deterministic game logic decoupled from frame rate via accumulator
 - **Zero-allocation coordinate helpers** — `_into` variants (`tileCenterInto`, `pixelToTile`, `shopCardRectInto`) write into pre-allocated output objects
+- **6 performance optimizations applied:**
+  - **Troop index dirty flag** — `_buildTroopTileIndex()` deferred until troops actually change (~36× faster cleanup, 97% reduction)
+  - **Monster tile index swap-remove** — O(n) `indexOf`+`splice` replaced with O(1) tracked-position swap-remove
+  - **`monstersInRange` scratch buffer** — per-call array allocation eliminated via game-owned reusable buffer
+  - **`_tmpCfg` reuse** — particle config object allocation eliminated per effect spawn
+  - **Healer scratch buffer** — Healer `_tryHealAllies` per-frame array allocation eliminated
+  - **Pending-attack queue** — `_stepMonsterAttacks` no longer scans all monsters; drains a collected queue instead
 
 ## Project Structure
 
@@ -288,9 +296,10 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (1,420 tests)
+npm test             # Run test suite (1,710 tests)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with code coverage report
+npm run test:bench    # Run performance hot-path benchmarks (50 tests)
 ```
 
 ## License

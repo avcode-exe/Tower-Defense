@@ -62,7 +62,7 @@ export function stepNecromancerRevives(game) {
   }
 }
 
-export function resetRevivedMonster(m) {
+function resetRevivedMonster(m) {
   m.stunTimer = 0;
   m.slowTimer = 0;
   m.speed = CONFIG.MOVEMENT_SPEEDS[m.spec.movementSpeed] || m.spec.speed;

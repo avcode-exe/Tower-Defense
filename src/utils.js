@@ -55,8 +55,10 @@ export function inBounds(gx, gy) {
 
 // Collect all monsters from the spatial tile index within range of (gx, gy).
 // Returns an array of monster references alive or dead (caller must filter).
-export function monstersInRange(gx, gy, range, monsterTileIndex, gridSize) {
-  const results = [];
+// Pass an optional `out` buffer to avoid per-call array allocation.
+export function monstersInRange(gx, gy, range, monsterTileIndex, gridSize, out) {
+  const results = out || [];
+  results.length = 0;
   const r = Math.ceil(range);
   for (let dx = -r; dx <= r; dx++) {
     for (let dy = -r; dy <= r; dy++) {

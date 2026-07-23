@@ -320,19 +320,20 @@ export const PARTICLES = {
     return ci;
   },
 
-  // Reuse a single config object to avoid per-call allocation from spread.
+  // Reuse a single config object (_tmpCfg) to avoid per-call allocation.
   _applyCfg(src, color) {
-    return {
-      count: src.count,
-      color: color,
-      minSize: src.minSize,
-      maxSize: src.maxSize,
-      minSpeed: src.minSpeed,
-      maxSpeed: src.maxSpeed,
-      minLife: src.minLife,
-      maxLife: src.maxLife,
-      gravity: src.gravity,
-    };
+    if (!this._tmpCfg) this._tmpCfg = {};
+    const c = this._tmpCfg;
+    c.count = src.count;
+    c.color = color;
+    c.minSize = src.minSize;
+    c.maxSize = src.maxSize;
+    c.minSpeed = src.minSpeed;
+    c.maxSpeed = src.maxSpeed;
+    c.minLife = src.minLife;
+    c.maxLife = src.maxLife;
+    c.gravity = src.gravity;
+    return c;
   },
 
   _spawnEffect(name, x, y, overrides) {

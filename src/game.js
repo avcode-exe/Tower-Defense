@@ -70,6 +70,9 @@ export class Game {
     this._tileIndexPool = [];
     this._projectilePool = [];
     this._troopIndexByRef = new Map();
+    this._troopIndexDirty = false;
+    this._monsterScratchBuf = [];
+    this._pendingAttackQueue = [];
 
     this.wave = new WaveManager();
 
@@ -172,8 +175,7 @@ export class Game {
     this.sellCooldownTimer = CONFIG.SELL_COOLDOWN;
     if (this.selectedTroopIndex === index) this.selectedTroopIndex = -1;
     this.selectedSpec = null;
-    // Note: _buildTroopTileIndex() is deferred to _cleanupDead() which runs
-    // in the same step() call, avoiding a redundant full rebuild.
+    this._troopIndexDirty = true;
     AUDIO.sell();
   }
 
@@ -309,8 +311,7 @@ export class Game {
     RENDERER.markCacheDirty();
     PARTICLES.troopDeath(troop.x, troop.y, troop.spec.color);
     this._getPopup('\u2620 Destroyed', troop.x, troop.y - 12, 1.0, '#ff4444');
-    // Note: _buildTroopTileIndex() is deferred to _cleanupDead() which runs
-    // in the same step() call, avoiding a redundant full rebuild.
+    this._troopIndexDirty = true;
     if (this.selectedTroopIndex >= 0) {
       const sel = this.troops[this.selectedTroopIndex];
       if (!sel || !sel.alive) this.selectedTroopIndex = -1;
@@ -467,6 +468,7 @@ export class Game {
         continue;
       }
       m.update(dt, this._troopTileIndex, this.monsters);
+      if (m._pendingAttack) this._pendingAttackQueue.push(m);
       if (!m.reachedEnd) continue;
       m.alive = false;
       if (this.devMode) continue;
@@ -481,16 +483,30 @@ export class Game {
   }
 
   _stepMonsterAttacks() {
-    const attackCount = this.monsters.length;
-    for (let i = 0; i < attackCount; i++) {
-      const m = this.monsters[i];
-      if (!m.alive || !m._pendingAttack) continue;
-      const target = m._pendingAttack;
-      m._pendingAttack = null;
-      // Re-check target validity: monster may have moved out of range or died
-      // after setting _pendingAttack in _updateStopMode.
-      if (target.alive && m.tileDistanceTo(target.gx, target.gy) <= m.spec.attackRange) {
-        this.damageTroop(m, target);
+    const queue = this._pendingAttackQueue;
+    if (queue.length > 0) {
+      // Fast path: process the queue collected by _stepMonsters().
+      for (let i = 0; i < queue.length; i++) {
+        const m = queue[i];
+        if (!m.alive) continue;
+        const target = m._pendingAttack;
+        m._pendingAttack = null;
+        if (!target) continue;
+        if (target.alive && m.tileDistanceTo(target.gx, target.gy) <= m.spec.attackRange) {
+          this.damageTroop(m, target);
+        }
+      }
+      queue.length = 0;
+    } else {
+      // Fallback: scan all monsters (for direct calls by tests/gamePersistence restoration).
+      for (let i = 0; i < this.monsters.length; i++) {
+        const m = this.monsters[i];
+        if (!m.alive || !m._pendingAttack) continue;
+        const target = m._pendingAttack;
+        m._pendingAttack = null;
+        if (target.alive && m.tileDistanceTo(target.gx, target.gy) <= m.spec.attackRange) {
+          this.damageTroop(m, target);
+        }
       }
     }
   }
@@ -526,7 +542,7 @@ export class Game {
     }
     this.troops.length = tw;
     this.selectedTroopIndex = selRef && selRef.alive ? newSelIdx : -1;
-    this._buildTroopTileIndex();
+    if (this._troopIndexDirty) this._buildTroopTileIndex();
   }
 
   _stepWaveCompletion() {
@@ -643,12 +659,17 @@ export class Game {
       const prevIdx = m._prevTileIdx;
 
       if (!m.alive) {
-        // Remove dead monster from its previous tile.
+        // Remove dead monster from its previous tile (swap-remove).
         if (prevIdx >= 0 && tiIdx[prevIdx]) {
           const arr = tiIdx[prevIdx];
-          const pos = arr.indexOf(m);
-          if (pos >= 0) {
-            arr.splice(pos, 1);
+          const pos = m._tileArrayPos;
+          if (pos >= 0 && pos < arr.length && arr[pos] === m) {
+            const last = arr.length - 1;
+            if (pos !== last) {
+              arr[pos] = arr[last];
+              arr[pos]._tileArrayPos = pos;
+            }
+            arr.pop();
             if (arr.length === 0) {
               tiPool.push(arr);
               tiIdx[prevIdx] = null;
@@ -656,6 +677,7 @@ export class Game {
           }
         }
         m._prevTileIdx = -1;
+        m._tileArrayPos = -1;
         continue;
       }
 
@@ -665,12 +687,17 @@ export class Game {
 
       if (idx === prevIdx) continue; // no tile change, already indexed
 
-      // Remove from old tile.
+      // Remove from old tile (swap-remove).
       if (prevIdx >= 0 && tiIdx[prevIdx]) {
         const arr = tiIdx[prevIdx];
-        const pos = arr.indexOf(m);
-        if (pos >= 0) {
-          arr.splice(pos, 1);
+        const pos = m._tileArrayPos;
+        if (pos >= 0 && pos < arr.length && arr[pos] === m) {
+          const last = arr.length - 1;
+          if (pos !== last) {
+            arr[pos] = arr[last];
+            arr[pos]._tileArrayPos = pos;
+          }
+          arr.pop();
           if (arr.length === 0) {
             tiPool.push(arr);
             tiIdx[prevIdx] = null;
@@ -686,10 +713,12 @@ export class Game {
       }
       arr.push(m);
       m._prevTileIdx = idx;
+      m._tileArrayPos = arr.length - 1;
     }
   }
 
   _buildTroopTileIndex() {
+    this._troopIndexDirty = false;
     this._troopIndexByRef.clear();
     for (let i = 0; i < this._troopTileIndex.length; i++) this._troopTileIndex[i].length = 0;
     for (let i = 0; i < this.troops.length; i++) {

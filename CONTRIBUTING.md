@@ -83,7 +83,8 @@ Before submitting, run these commands and confirm they all pass:
 ```bash
 npm run lint          # Must pass with 0 errors (checks src/, tests/, electron-main.js, preload.js)
 npm run format:check  # Must pass — all files use Prettier style (checks src/**/*.js, tests/**/*.js, css/**/*.css)
-npm test              # Must pass — all tests green (1,540 tests across 45 files)
+npm test              # Must pass — all tests green (1,710 tests across 47 files)
+npm run test:bench    # Optional — run performance hot-path benchmarks (50 tests covering tile index, combat, projectiles, waves, particles, state helpers)
 npm run test:coverage # Must pass — ≥80% per-file on all 4 metrics (excluding src/main.js, src/necromancer.js, src/ui/popupManager.js)
 ```
 
@@ -268,7 +269,35 @@ Run coverage with:
 npm run test:coverage
 ```
 
-Current project-wide coverage: **92.15% branches, 98.47% statements, 98.22% functions, 99.64% lines** across 45 test files (1,540 tests).
+Current project-wide coverage: **92.12% branches, 98.23% statements, 98.43% functions, 99.60% lines** across 47 test files (1,710 tests).
+
+### Performance Benchmarks
+
+In addition to the unit/integration test suite, the project includes a dedicated **performance hot-path benchmark suite** (`tests/benchmarkHotPaths.test.js`) with 50 tests across 15 engine areas:
+
+| Area | Tests | What's Measured |
+| :--- | :--- | :--- |
+| Tile index | 3 | `_buildTroopTileIndex` (0/1/12 troops) |
+| Monster index | 3 | `_updateMonsterTileIndex` (0/10/50 monsters) |
+| MonstersInRange | 2 | `pickTarget` melee/ranged (50 monsters) |
+| Frame time | 3 | `step()` empty/light/heavy load |
+| Cleanup | 1 | `_cleanupDead` (50 dead monsters + 12 dead troops) |
+| Healer | 2 | `_tryHealAllies` (0/10 damaged monsters) |
+| Particles | 5 | `hitSpark`, `deathBurst`, `healBurst`, `chainSpark`, mixed |
+| Damage | 4 | `damageMonster` direct/shield/split, `takeDamage` shatter |
+| Troop damage | 4 | `takeDamage` shield/no-shield, `damageTroop` melee/revive |
+| AoE | 3 | `splashAt`, `chainHitAt`, `findClosestMonsterNear` |
+| Monster update | 3 | `_updateBurn`, `_updateRegen`, `findTarget` |
+| Projectile | 4 | `acquireProjectile` pooled, `update` flying/impact/timeout |
+| Wave | 4 | `popDueMonster`, `shuffleSpecialMonsters`, `buildQueue` |
+| Economy | 5 | `getUpgradeCost` cached/uncached, `getTotalInvested`, `canPlace` |
+| State helpers | 4 | `_getPopup` pool/new, `_stepPopups`, `_stepWaveCompletion` |
+
+Run with:
+
+```bash
+npx vitest run tests/benchmarkHotPaths.test.js --reporter=verbose
+```
 
 ### Threshold Configuration
 
@@ -579,7 +608,8 @@ src/                  # Source code (ES modules)
   ui/                 # UI panels and HUD
 tests/                # Test suite (Vitest)
   helpers.js          # Shared test utilities
-  *.test.js           # 45 test files, 1,540 tests
+  *.test.js           # 47 test files, 1,710 tests
+  benchmarkHotPaths.test.js  # 50 performance hot-path benchmarks
 ```
 
 See the [README.md](README.md) for a full breakdown of source files and their responsibilities.

@@ -131,12 +131,63 @@ describe('UI utilities', () => {
   });
 
   describe('clipToGameplayArea', () => {
-    it('draws correct clip rect', () => {
+    beforeEach(async () => {
+      // Ensure default expanded state before each test
+      const constantsMod = await import('../src/ui/constants.js');
+      constantsMod.UI_LAYOUT.collapsed.shop = false;
+      constantsMod.UI_LAYOUT.collapsed.shieldShop = false;
+    });
+
+    it('draws correct clip rect with default expanded sidebars', () => {
       const c = makeCtx();
       clipToGameplayArea(c);
       expect(c.beginPath).toHaveBeenCalled();
       expect(c.rect).toHaveBeenCalled();
       expect(c.clip).toHaveBeenCalled();
+    });
+
+    it('sets shopW to 0 when shop is collapsed', async () => {
+      const mod = await import('../src/ui/constants.js');
+      mod.UI_LAYOUT.collapsed.shop = true;
+      const c = makeCtx();
+      clipToGameplayArea(c);
+      // With shop collapsed, rect x should be 0 (no shop width offset)
+      expect(c.rect).toHaveBeenCalledWith(
+        0,
+        expect.any(Number),
+        expect.any(Number),
+        expect.any(Number)
+      );
+    });
+
+    it('sets shieldW to 0 when shieldShop is collapsed', async () => {
+      const mod = await import('../src/ui/constants.js');
+      mod.UI_LAYOUT.collapsed.shieldShop = true;
+      const c = makeCtx();
+      clipToGameplayArea(c);
+      // With shieldShop collapsed, width should be RENDERER.width - shopWidth (no shieldShop offset)
+      // shopWidth ≈ 250, so rect width = 800 - 250 = 550
+      expect(c.rect).toHaveBeenCalledWith(
+        expect.any(Number),
+        expect.any(Number),
+        550,
+        expect.any(Number)
+      );
+    });
+
+    it('sets both shopW and shieldW to 0 when both sidebars are collapsed', async () => {
+      const mod = await import('../src/ui/constants.js');
+      mod.UI_LAYOUT.collapsed.shop = true;
+      mod.UI_LAYOUT.collapsed.shieldShop = true;
+      const c = makeCtx();
+      clipToGameplayArea(c);
+      // Both collapsed: x=0, width=RENDERER.width=800
+      expect(c.rect).toHaveBeenCalledWith(
+        0,
+        expect.any(Number),
+        800,
+        expect.any(Number)
+      );
     });
   });
 

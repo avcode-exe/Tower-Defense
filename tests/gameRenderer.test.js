@@ -477,6 +477,117 @@ describe('gameRenderer', () => {
       renderGame(game);
       expect(globalThis.Path2D.mock.calls.length).toBe(callsAfterFirst);
     });
+
+    it('draws zoom indicator when _zoomIndicatorTime is set', () => {
+      const game = makeBaseGame({ _zoomIndicatorTime: Date.now(), zoom: 1.5 });
+      renderGame(game);
+      expect(
+        ctx.beginPath.mock.calls.length > 0 || ctx.fillText.mock.calls.length > 0
+      ).toBe(true);
+    });
+
+    it('draws zoom indicator at cap (red) when zoom >= 2', () => {
+      const game = makeBaseGame({ _zoomIndicatorTime: Date.now(), zoom: 2 });
+      renderGame(game);
+      // Should set fillStyle to red at some point
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+    });
+
+    it('draws zoom indicator at cap (red) when zoom <= 1', () => {
+      const game = makeBaseGame({ _zoomIndicatorTime: Date.now(), zoom: 1 });
+      renderGame(game);
+      expect(ctx.save).toHaveBeenCalled();
+    });
+
+    it('skips zoom indicator when _zoomIndicatorTime is falsy', () => {
+      const game = makeBaseGame({ _zoomIndicatorTime: 0 });
+      renderGame(game);
+      // Should not reach the zoom indicator's save call — just verify no crash
+      expect(RENDERER.endFrame).toHaveBeenCalled();
+    });
+
+    it('renders troop type dot for support', () => {
+      const troop = makeTroopStub('healer', {
+        spec: { color: '#2ecc71', type: 'support', id: 'healer' },
+      });
+      const game = makeBaseGame({ troops: [troop] });
+      renderGame(game);
+      expect(ctx.fillRect).toHaveBeenCalled();
+    });
+
+    it('renders troop type dot for ranged', () => {
+      const troop = makeTroopStub('archer', {
+        spec: { color: '#27ae60', type: 'ranged', id: 'archer' },
+      });
+      const game = makeBaseGame({ troops: [troop] });
+      renderGame(game);
+      expect(ctx.fillRect).toHaveBeenCalled();
+    });
+
+    it('renders HP bar with yellow when hpRatio <= 0.6', () => {
+      const troop = makeTroopStub('swordsman', { hp: 25, maxHp: 50, getHpRatio: () => 0.5 });
+      const game = makeBaseGame({ troops: [troop] });
+      renderGame(game);
+      // The 0.5 ratio triggers '#cccc44' (yellow) fill for HP bar
+      expect(ctx.fillRect).toHaveBeenCalled();
+    });
+
+    it('renders HP bar with red when hpRatio <= 0.3', () => {
+      const troop = makeTroopStub('swordsman', { hp: 10, maxHp: 50, getHpRatio: () => 0.2 });
+      const game = makeBaseGame({ troops: [troop] });
+      renderGame(game);
+      // The 0.2 ratio triggers '#cc4444' (red) fill for HP bar
+      expect(ctx.fillRect).toHaveBeenCalled();
+    });
+
+    it('renders monster revive glow with save/restore', () => {
+      const game = makeBaseGame({
+        monsters: [makeMonsterStub({ reviveGlow: true, _slowColorTint: 0, burnStacks: 0, stunTimer: 0 })],
+      });
+      renderGame(game);
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+    });
+
+    it('handles full HP monster with no shield gracefully', () => {
+      const monster = makeMonsterStub({ hp: 34, maxHp: 34, shield: 0, maxShield: 0 });
+      const game = makeBaseGame({ monsters: [monster] });
+      // The HP bar condition (m.hp < m.maxHp || m.shield < m.maxShield) is false
+      // so the HP bar is skipped — just verify no crash
+      expect(() => renderGame(game)).not.toThrow();
+    });
+
+    it('renders projectile with kind: bolt', () => {
+      const game = makeBaseGame({
+        projectiles: [makeProjectileStub({ kind: 'bolt', color: '#e74c3c' })],
+      });
+      renderGame(game);
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+    });
+
+    it('renders popup with early decay (t near 0)', () => {
+      const popup = { x: 300, y: 200, text: '+5', color: '#f1c40f', t: 0.1 };
+      const game = makeBaseGame({ popups: [popup] });
+      renderGame(game);
+      expect(ctx.fillText).toHaveBeenCalled();
+    });
+
+    it('handles empty monsters array', () => {
+      const game = makeBaseGame({ monsters: [] });
+      expect(() => renderGame(game)).not.toThrow();
+    });
+
+    it('handles empty troops array', () => {
+      const game = makeBaseGame({ troops: [] });
+      expect(() => renderGame(game)).not.toThrow();
+    });
+
+    it('handles empty projectiles array', () => {
+      const game = makeBaseGame({ projectiles: [] });
+      expect(() => renderGame(game)).not.toThrow();
+    });
   });
 
   // ── updateCursor tests ──

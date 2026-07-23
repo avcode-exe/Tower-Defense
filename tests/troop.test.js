@@ -1502,4 +1502,113 @@ describe('Troop', () => {
       expect(damageMonster).not.toHaveBeenCalled();
     });
   });
+
+  describe('damageMonstersInHealRange tileIndex path dead monster', () => {
+    it('skips dead monster in tileIndex path', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const deadMonster = { alive: false, x: t.x, y: t.y };
+      const damageMonster = vi.fn();
+      const tileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      tileIndex[5 * CONFIG.GRID_SIZE + 5] = [deadMonster];
+      t.damageMonstersInHealRange({
+        monsters: [deadMonster],
+        _monsterTileIndex: tileIndex,
+        damageMonster,
+      });
+      expect(damageMonster).not.toHaveBeenCalled();
+    });
+
+    it('damages alive monster in tileIndex path and skips dead one', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      const deadMonster = { alive: false, x: t.x, y: t.y };
+      const aliveMonster = { alive: true, x: t.x, y: t.y };
+      const damageMonster = vi.fn();
+      const tileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      tileIndex[5 * CONFIG.GRID_SIZE + 5] = [deadMonster, aliveMonster];
+      t.damageMonstersInHealRange({
+        monsters: [deadMonster, aliveMonster],
+        _monsterTileIndex: tileIndex,
+        damageMonster,
+      });
+      expect(damageMonster).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('pickTarget melee with tileIndex dead monster skip', () => {
+    it('skips dead monsters in tileIndex path for melee', () => {
+      const t = new Troop(swordsmanSpec, 5, 5);
+      const deadMonster = { alive: false, tileDistanceTo: vi.fn(() => 0.5) };
+      const aliveMonster = { alive: true, tileDistanceTo: vi.fn(() => 0.3), x: t.x, y: t.y, progress: 0.5 };
+      const monsters = [deadMonster, aliveMonster];
+      const tileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      tileIndex[5 * CONFIG.GRID_SIZE + 5] = [deadMonster, aliveMonster];
+      const result = t.pickTarget(monsters, tileIndex);
+      expect(result).toBe(aliveMonster);
+    });
+  });
+
+  describe('pickTarget ranged with tileIndex dead monster skip', () => {
+    it('skips dead monsters in tileIndex path for ranged', () => {
+      const t = new Troop(archerSpec, 5, 5);
+      const deadMonster = { alive: false, x: t.x, y: t.y, progress: 0.9 };
+      const aliveMonster = { alive: true, x: t.x, y: t.y, progress: 0.5 };
+      const tileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+      tileIndex[5 * CONFIG.GRID_SIZE + 5] = [deadMonster, aliveMonster];
+      const result = t.pickTarget([deadMonster, aliveMonster], tileIndex);
+      expect(result).toBe(aliveMonster);
+    });
+  });
+
+  describe('update healing loop skips full-HP target (bypass pickHealTarget)', () => {
+    it('removes full-HP target from healTargets during update healing loop', () => {
+      const t = new Troop(healerSpec, 5, 5);
+      t.cooldown = 0;
+      t.targetRefresh = 1; // skip pickHealTarget
+      const fullHpAlly = {
+        alive: true,
+        x: t.x,
+        y: t.y,
+        hp: 100,
+        maxHp: 100,
+        spec: { type: 'melee' },
+        getHpRatio: () => 1,
+      };
+      t.healTargets = [fullHpAlly];
+      t.update(1 / 60, [], [], {
+        troops: [],
+        monsters: [],
+        _monsterTileIndex: null,
+        _troopIndexByRef: new Map(),
+        damageMonster: vi.fn(),
+        _getPopup: vi.fn(),
+      });
+      expect(t.healTargets.length).toBe(0);
+    });
+  });
+
+  describe('canUpgrade slow for troop with slowFactor (non-support)', () => {
+    it('returns true for icewiz (non-support with slowFactor)', () => {
+      const t = new Troop(icewizSpec, 0, 0);
+      expect(t.spec.type).not.toBe('support');
+      expect(t.spec.slowFactor).toBeTruthy();
+      expect(t.canUpgrade('slow')).toBe(true);
+    });
+  });
+
+  describe('upgradeStat returns false for inapplicable stat', () => {
+    it('returns false when canUpgrade returns false (range for melee)', () => {
+      const t = new Troop(swordsmanSpec, 0, 0);
+      expect(t.upgradeStat('range')).toBe(false);
+    });
+  });
+
+  describe('isMaxed returns false for stat without levelProp', () => {
+    it('returns false when levelProp is undefined for a stat that passes canUpgrade', () => {
+      const t = new Troop(swordsmanSpec, 0, 0);
+      // 'unknown_stat' passes canUpgrade (returns true by default)
+      // STAT_LEVEL_PROPS['unknown_stat'] is undefined
+      // So isMaxed should return false
+      expect(t.isMaxed('unknown_stat')).toBe(false);
+    });
+  });
 });

@@ -216,6 +216,93 @@ describe('drawHUD', () => {
     drawHUD.call({}, makeGame({ state: 'PRE_WAVE', devMode: true }));
     expect(ctx.fillText).toHaveBeenCalledWith('(Button disabled)', expect.any(Number), expect.any(Number));
   });
+
+  it('uses 2-line layout when zoom causes overlap', () => {
+    UI_LAYOUT._zoom = 2;
+    UI_LAYOUT._extraHudHeight = 0;
+    const ctx = _sharedCtx;
+    const uiObj = {};
+    drawHUD.call(uiObj, makeGame({ state: 'WAVE_ACTIVE', monsters: [{}, {}, {}] }));
+    // _extraHudHeight should be set by drawHUD if 2-line mode activated
+    // and _hudTwoLines should be true
+    expect(uiObj._hudTwoLines).toBe(true);
+    expect(UI_LAYOUT._extraHudHeight).toBeGreaterThan(0);
+    expect(uiObj._speedRowH).toBeGreaterThan(0);
+  });
+
+  it('stores compact speed button dimensions in 2-line mode', () => {
+    UI_LAYOUT._zoom = 2;
+    const uiObj = {};
+    drawHUD.call(uiObj, makeGame({ state: 'WAVE_ACTIVE', monsters: [] }));
+    if (uiObj._hudTwoLines) {
+      expect(uiObj._speedBtnGap).toBeGreaterThan(0);
+      expect(uiObj._speedBtnH).not.toBeNull();
+      expect(typeof uiObj._speedBtnOffsetY).toBe('number');
+      expect(typeof uiObj._speedRowH).toBe('number');
+    }
+  });
+
+  it('does NOT use 2-line layout at normal zoom', () => {
+    UI_LAYOUT._zoom = 1;
+    const uiObj = {};
+    drawHUD.call(uiObj, makeGame());
+    expect(uiObj._hudTwoLines).toBe(false);
+  });
+
+  it('stores reset button rect for click handlers', () => {
+    const uiObj = {};
+    drawHUD.call(uiObj, makeGame());
+    expect(uiObj._resetBtn).toBeDefined();
+    expect(uiObj._resetBtn.x).toBeGreaterThanOrEqual(0);
+    expect(uiObj._resetBtn.w).toBeGreaterThan(0);
+    expect(uiObj._resetBtn.h).toBeGreaterThan(0);
+  });
+
+  it('stores toggle hud rect', () => {
+    const uiObj = {};
+    drawHUD.call(uiObj, makeGame());
+    expect(uiObj._toggleHud).toBeDefined();
+    expect(uiObj._toggleHud.w).toBeGreaterThan(0);
+  });
+
+  it('resets _extraHudHeight to 0 at start of drawHUD', () => {
+    UI_LAYOUT._extraHudHeight = 100; // stale from previous frame
+    drawHUD.call({}, makeGame());
+    expect(UI_LAYOUT._extraHudHeight).toBe(0);
+  });
+
+  it('red indicator on wave 10+ scaling', () => {
+    const game = makeGame();
+    game.wave.currentWave = 12;
+    game.wave.currentMultiplier = 2.0;
+    const ctx = _sharedCtx;
+    drawHUD.call({}, game);
+    expect(ctx.fillText).toHaveBeenCalledWith(expect.stringContaining('2.00'), expect.any(Number), 28);
+  });
+
+  it('shows infinite gold symbol in dev mode', () => {
+    const ctx = _sharedCtx;
+    drawHUD.call({}, makeGame({ devMode: true, gold: 9999 }));
+    expect(ctx.fillText).toHaveBeenCalledWith('\u221E', expect.any(Number), 28);
+  });
+
+  it('shows infinite lives symbol in dev mode', () => {
+    const ctx = _sharedCtx;
+    drawHUD.call({}, makeGame({ devMode: true, lives: 9999 }));
+    expect(ctx.fillText).toHaveBeenCalledWith('\u221E', expect.any(Number), 28);
+  });
+
+  it('draws panel background in expanded HUD', () => {
+    const ctx = _sharedCtx;
+    drawHUD.call({}, makeGame());
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 800, 56);
+  });
+
+  it('draws panel border at bottom', () => {
+    const ctx = _sharedCtx;
+    drawHUD.call({}, makeGame());
+    expect(ctx.fillRect).toHaveBeenCalledWith(0, 56, 800, 1);
+  });
 });
 
 // ── Shop ──

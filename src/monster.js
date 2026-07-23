@@ -79,6 +79,7 @@ export class Monster {
     this._tileGx = 0;
     this._tileGy = 0;
     this._prevTileIdx = -1; // for incremental monster tile index updates
+    this._tileArrayPos = -1; // position within _prevTileIdx tile array (swap-remove)
 
     // Pass-mode: track last tile hit to prevent per-frame multi-hit.
     this._lastPassTile = -1;
@@ -86,6 +87,7 @@ export class Monster {
     this._hitTroops = null; // lazily allocated for pass-mode monsters only
     this._hitTroopsCap = CONFIG.HIT_TROOPS_CAP; // hard cap to prevent unbounded memory growth
     this._cleanupTick = 0; // counter for periodic cleanup
+    this._healScratchBuf = []; // reusable array for _tryHealAllies
 
     this._updatePosition();
   }
@@ -306,7 +308,8 @@ export class Monster {
     if (!this.alive || this.level !== 'H') return;
 
     const rangeSq = this._healRangeSq;
-    const damaged = [];
+    const damaged = this._healScratchBuf;
+    damaged.length = 0;
     if (monsters && Array.isArray(monsters)) {
       for (let j = 0; j < monsters.length; j++) {
         const target = monsters[j];

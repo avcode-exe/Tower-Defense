@@ -183,7 +183,6 @@ export const GameSnapshotRestorer = {
     for (const [gx, gy] of game.waypoints) {
       game.grid.set(gx, gy, TILE.PATH);
     }
-    RENDERER.markCacheDirty();
     RENDERER._rebuildCache(game.grid);
 
     // Reset entity collections and transient buffers.
@@ -238,7 +237,6 @@ export const GameSnapshotRestorer = {
     for (const [gx, gy] of game.waypoints) {
       game.grid.set(gx, gy, TILE.PATH);
     }
-    RENDERER.markCacheDirty();
     RENDERER._rebuildCache(game.grid);
 
     // Reset all entity collections.

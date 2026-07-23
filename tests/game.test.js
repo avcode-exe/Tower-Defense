@@ -840,6 +840,101 @@ describe('Game', () => {
       expect(game.wave.buildCustomFromCounts).toHaveBeenCalledWith({ 1: 5 });
       expect(game.runtime.startWave).toHaveBeenCalled();
     });
+
+    // ===== Zoom shortcut tests =====
+    it('Ctrl++ zooms in', () => {
+      const game = makeGame();
+      game.zoom = 1;
+      vi.spyOn(game, '_applyZoom').mockImplementation(() => {});
+      const e = { key: '+', ctrlKey: true, preventDefault: vi.fn() };
+      game.onKeyDown(e);
+      expect(e.preventDefault).toHaveBeenCalled();
+      expect(game.zoom).toBe(1.1);
+      expect(game._applyZoom).toHaveBeenCalled();
+    });
+
+    it('Ctrl+= also zooms in', () => {
+      const game = makeGame();
+      game.zoom = 1;
+      vi.spyOn(game, '_applyZoom').mockImplementation(() => {});
+      const e = { key: '=', ctrlKey: true, preventDefault: vi.fn() };
+      game.onKeyDown(e);
+      expect(game.zoom).toBe(1.1);
+    });
+
+    it('Ctrl+- zooms out', () => {
+      const game = makeGame();
+      game.zoom = 1.5;
+      vi.spyOn(game, '_applyZoom').mockImplementation(() => {});
+      const e = { key: '-', ctrlKey: true, preventDefault: vi.fn() };
+      game.onKeyDown(e);
+      expect(e.preventDefault).toHaveBeenCalled();
+      expect(game.zoom).toBe(1.4);
+      expect(game._applyZoom).toHaveBeenCalled();
+    });
+
+    it('Ctrl+0 resets zoom to 1', () => {
+      const game = makeGame();
+      game.zoom = 1.8;
+      vi.spyOn(game, '_applyZoom').mockImplementation(() => {});
+      const e = { key: '0', ctrlKey: true, preventDefault: vi.fn() };
+      game.onKeyDown(e);
+      expect(e.preventDefault).toHaveBeenCalled();
+      expect(game.zoom).toBe(1);
+      expect(game._applyZoom).toHaveBeenCalled();
+    });
+
+    it('Ctrl++ caps zoom at 2', () => {
+      const game = makeGame();
+      game.zoom = 2;
+      vi.spyOn(game, '_applyZoom').mockImplementation(() => {});
+      const e = { key: '+', ctrlKey: true, preventDefault: vi.fn() };
+      game.onKeyDown(e);
+      expect(game.zoom).toBe(2); // not 2.1
+    });
+
+    it('Ctrl+- caps zoom at 1', () => {
+      const game = makeGame();
+      game.zoom = 1;
+      vi.spyOn(game, '_applyZoom').mockImplementation(() => {});
+      const e = { key: '-', ctrlKey: true, preventDefault: vi.fn() };
+      game.onKeyDown(e);
+      expect(game.zoom).toBe(1); // not 0.9
+    });
+
+    it('zoom shortcuts disabled when scrollZoom is false', () => {
+      const game = makeGame();
+      game.scrollZoom = false;
+      game.zoom = 1;
+      vi.spyOn(game, '_applyZoom').mockImplementation(() => {});
+      const e = { key: '+', ctrlKey: true, preventDefault: vi.fn() };
+      game.onKeyDown(e);
+      expect(e.preventDefault).not.toHaveBeenCalled();
+      expect(game.zoom).toBe(1);
+      expect(game._applyZoom).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('_applyZoom', () => {
+    it('sets UI_LAYOUT._zoom and LAYOUT_ZOOM.value and resizes', async () => {
+      const game = makeGame();
+      game.zoom = 1.5;
+      const configMod = await import('../src/config.js');
+      game._applyZoom();
+      // game.js imports UI_LAYOUT from mocked ui/index.js — use the test's mocked reference
+      expect(UI_LAYOUT._zoom).toBe(1.5);
+      expect(configMod.LAYOUT_ZOOM.value).toBe(1.5);
+      expect(game._zoomIndicatorTime).toBeGreaterThan(0);
+    });
+
+    it('falls back to zoom=1 when zoom is falsy', async () => {
+      const game = makeGame();
+      game.zoom = 0;
+      const configMod = await import('../src/config.js');
+      game._applyZoom();
+      expect(UI_LAYOUT._zoom).toBe(1);
+      expect(configMod.LAYOUT_ZOOM.value).toBe(1);
+    });
   });
 
   describe('onMouseDown', () => {
@@ -1107,6 +1202,125 @@ describe('Game', () => {
       const py = 3 * CONFIG.TILE_SIZE + Math.floor(CONFIG.TILE_SIZE / 2);
       game._handleMapClick(px, py);
       expect(game.popups.length).toBe(1);
+    });
+  });
+
+  describe('_handlePopupShortcut coverage', () => {
+    const mockPopupEl = () => ({
+      classList: { add: vi.fn(), remove: vi.fn() },
+      style: {},
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.stubGlobal('document', {
+        getElementById: vi.fn(() => mockPopupEl()),
+      });
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+      vi.useRealTimers();
+    });
+
+    it('handles Alt+U to open settings popup', () => {
+      const game = makeGame();
+      game._handlePopupShortcut({ key: 'u', altKey: true, preventDefault: vi.fn() });
+      expect(game).toBeDefined();
+    });
+
+    it('handles Alt+C for help popup', () => {
+      const game = makeGame();
+      game._handlePopupShortcut({ key: 'c', altKey: true, preventDefault: vi.fn() });
+      expect(game).toBeDefined();
+    });
+
+    it('handles Alt+M for monster info popup', () => {
+      const game = makeGame();
+      game._handlePopupShortcut({ key: 'm', altKey: true, preventDefault: vi.fn() });
+      expect(game).toBeDefined();
+    });
+
+    it('handles Alt+D for dev popup', () => {
+      const game = makeGame();
+      game._handlePopupShortcut({ key: 'd', altKey: true, preventDefault: vi.fn() });
+      expect(game).toBeDefined();
+    });
+
+    it('handles unknown Alt key silently', () => {
+      const game = makeGame();
+      const e = { key: 'z', altKey: true, preventDefault: vi.fn() };
+      expect(() => game._handlePopupShortcut(e)).not.toThrow();
+    });
+
+    it('closes popup when already open', () => {
+      const game = makeGame();
+      const UI_LAYOUT_ = UI_LAYOUT_REF || UI_LAYOUT;
+      UI_LAYOUT_.collapsed.settings = false;
+      const el = { classList: { add: vi.fn(), remove: vi.fn() }, style: {} };
+      vi.stubGlobal('document', { getElementById: vi.fn(() => el) });
+      game._handlePopupShortcut({ key: 'u', altKey: true, preventDefault: vi.fn() });
+      expect(el.classList.add).toHaveBeenCalledWith('bar-popup--closed');
+    });
+
+    it('switches between open popups with transitionend listener', () => {
+      const game = makeGame();
+      const UI_LAYOUT_ = UI_LAYOUT_REF || UI_LAYOUT;
+      UI_LAYOUT_.collapsed.settings = true;
+      UI_LAYOUT_.collapsed.dev = false;
+      const addEventListenerMock = vi.fn();
+      const removeEventListenerMock = vi.fn();
+      const el = {
+        classList: { add: vi.fn(), remove: vi.fn() },
+        style: {},
+        addEventListener: addEventListenerMock,
+        removeEventListener: removeEventListenerMock,
+      };
+      vi.stubGlobal('document', { getElementById: vi.fn(() => el) });
+      game._handlePopupShortcut({ key: 'u', altKey: true, preventDefault: vi.fn() });
+      expect(addEventListenerMock).toHaveBeenCalledWith('transitionend', expect.any(Function));
+      // Advance timers to trigger the setTimeout fallback, covering openFn closure
+      vi.advanceTimersByTime(400);
+      expect(UI_LAYOUT_.collapsed.settings).toBe(false);
+      // openFn also calls togglePopupEl which does classList.add('active')
+      expect(el.classList.add).toHaveBeenCalledWith('active');
+    });
+
+    it('switches popup without waiting when el is null', () => {
+      const game = makeGame();
+      const UI_LAYOUT_ = UI_LAYOUT_REF || UI_LAYOUT;
+      UI_LAYOUT_.collapsed.settings = true;
+      UI_LAYOUT_.collapsed.dev = false;
+      vi.stubGlobal('document', { getElementById: vi.fn(() => null) });
+      game._handlePopupShortcut({ key: 'u', altKey: true, preventDefault: vi.fn() });
+      expect(UI_LAYOUT_.collapsed.settings).toBe(false);
+    });
+
+    it('handles popup switch transitionend fires correctly', () => {
+      const game = makeGame();
+      const UI_LAYOUT_ = UI_LAYOUT_REF || UI_LAYOUT;
+      UI_LAYOUT_.collapsed.settings = true;
+      UI_LAYOUT_.collapsed.dev = false;
+      let registeredCallback = null;
+      const removeEventListenerMock = vi.fn();
+      const el = {
+        classList: { add: vi.fn(), remove: vi.fn() },
+        style: {},
+        addEventListener: vi.fn((evt, cb) => { registeredCallback = cb; }),
+        removeEventListener: removeEventListenerMock,
+      };
+      vi.stubGlobal('document', { getElementById: vi.fn(() => el) });
+      game._handlePopupShortcut({ key: 'u', altKey: true, preventDefault: vi.fn() });
+      expect(registeredCallback).toBeDefined();
+      // Fire the transitionend callback (covers onDone: removeEventListener, clearTimeout, openFn)
+      registeredCallback();
+      expect(removeEventListenerMock).toHaveBeenCalledWith('transitionend', registeredCallback);
+      expect(UI_LAYOUT_.collapsed.settings).toBe(false);
+      // Advance timers to let the fallback setTimeout fire (should be guarded by opened=true)
+      vi.advanceTimersByTime(400);
+      // Settings should remain false (openFn only ran once via onDone)
+      expect(UI_LAYOUT_.collapsed.settings).toBe(false);
     });
   });
 

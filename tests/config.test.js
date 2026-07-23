@@ -287,6 +287,38 @@ describe('LAYOUT', () => {
     }
   });
 
+  // ── LAYOUT proxy tests ──
+  it('LAYOUT proxy scales numbers with LAYOUT_ZOOM.value', async () => {
+    const { LAYOUT_ZOOM } = await import('../src/config.js');
+    LAYOUT_ZOOM.value = 1.5;
+    expect(LAYOUT.HUD.GOLD_AREA.x).toBeCloseTo(14 * 1.5);
+    expect(LAYOUT.HUD.SPEED_OFFSET).toBeCloseTo(370 * 1.5);
+    LAYOUT_ZOOM.value = 1;
+    expect(LAYOUT.HUD.GOLD_AREA.x).toBe(14);
+  });
+
+  it('LAYOUT proxy _zoom property returns LAYOUT_ZOOM.value directly', async () => {
+    const { LAYOUT_ZOOM } = await import('../src/config.js');
+    LAYOUT_ZOOM.value = 2;
+    expect(LAYOUT.HUD._zoom).toBe(2);
+    LAYOUT_ZOOM.value = 0.5;
+    expect(LAYOUT.HUD._zoom).toBe(0.5);
+    LAYOUT_ZOOM.value = 1;
+  });
+
+  it('LAYOUT proxy returns non-object values as-is', () => {
+    // Accessing a non-existent property through the proxy should return undefined
+    expect(LAYOUT.HUD.NONEXISTENT).toBeUndefined();
+  });
+
+  it('LAYOUT proxy nested object access returns proxied node', () => {
+    // GOLD_AREA.x should obey zoom scaling when LAYOUT_ZOOM changes
+    const originalX = LAYOUT.HUD.GOLD_AREA.x;
+    expect(LAYOUT.HUD.GOLD_AREA).toBeDefined();
+    expect(typeof LAYOUT.HUD.GOLD_AREA).toBe('object');
+    expect(LAYOUT.HUD.GOLD_AREA.w).toBeGreaterThan(0);
+  });
+
   it('CONFIG numbers are all finite', () => {
     const numericKeys = [
       'GRID_SIZE',
