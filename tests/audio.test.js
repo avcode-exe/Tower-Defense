@@ -450,5 +450,4 @@ describe('AudioManager', () => {
       expect(() => audio.upgrade()).not.toThrow();
     });
   });
-
 });

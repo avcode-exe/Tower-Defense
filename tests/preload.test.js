@@ -107,10 +107,10 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
 
   describe('getVersion', () => {
     it('calls ipcRenderer.invoke with get-version', async () => {
-      mockInvoke.mockResolvedValueOnce('1.7.0-beta.1');
+      mockInvoke.mockResolvedValueOnce('1.7.0');
       const result = await capturedApi.getVersion();
       expect(mockInvoke).toHaveBeenCalledWith('get-version');
-      expect(result).toBe('1.7.0-beta.1');
+      expect(result).toBe('1.7.0');
     });
   });
 
@@ -287,9 +287,7 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
 
     it('saveGameSlot with valid slot and data calls mockInvoke', () => {
       capturedApi.saveGameSlot('mysave', { gold: 100 });
-      expect(mockInvoke).toHaveBeenCalledWith(
-        'save-game-slot', 'mysave', { gold: 100 }
-      );
+      expect(mockInvoke).toHaveBeenCalledWith('save-game-slot', 'mysave', { gold: 100 });
     });
 
     it('loadGameSlot with valid slot calls mockInvoke', () => {
@@ -302,5 +300,4 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
       expect(mockInvoke).toHaveBeenCalledWith('delete-save-slot', 'mysave');
     });
   });
-
 });

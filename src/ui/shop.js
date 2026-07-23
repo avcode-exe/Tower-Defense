@@ -356,7 +356,12 @@ export function drawShop(game) {
       const panelY = upgradeBtnY - panelH - zp(4);
 
       fillStrokeRoundedRect(
-        c, zp(8), panelY, UI_LAYOUT.SHOP_WIDTH - zp(16), panelH, zp(8),
+        c,
+        zp(8),
+        panelY,
+        UI_LAYOUT.SHOP_WIDTH - zp(16),
+        panelH,
+        zp(8),
         UI_COLORS.cardBg,
         UI_COLORS.panelBorder
       );
@@ -435,7 +440,16 @@ export function drawShop(game) {
         visibleBtnIdx++;
 
         if (t.isMaxed(stat)) {
-          fillStrokeRoundedRect(c, btn.x, btn.y, btn.w, btn.h, zp(6), 'rgba(255,255,255,0.08)', 'rgba(255,255,255,0.1)');
+          fillStrokeRoundedRect(
+            c,
+            btn.x,
+            btn.y,
+            btn.w,
+            btn.h,
+            zp(6),
+            'rgba(255,255,255,0.08)',
+            'rgba(255,255,255,0.1)'
+          );
           c.fillStyle = UI_COLORS.textDim;
           zoomFont(c, 8, 'bold ');
           c.textAlign = 'center';
@@ -470,7 +484,12 @@ export function drawShop(game) {
       if (isMaxHp) {
         // Max HP — greyed out
         fillStrokeRoundedRect(
-          c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, zp(6),
+          c,
+          LAYOUT.SHOP.BTN_PAD,
+          healBtnY,
+          healBtnW,
+          LAYOUT.SHOP.HEAL_BTN_H,
+          zp(6),
           'rgba(255,255,255,0.04)',
           'rgba(255,255,255,0.06)'
         );
@@ -484,7 +503,12 @@ export function drawShop(game) {
         const healBg = healAffordable ? '#2ea043' : 'rgba(255,255,255,0.04)';
         const healBorder = healAffordable ? null : 'rgba(255,255,255,0.06)';
         fillStrokeRoundedRect(
-          c, LAYOUT.SHOP.BTN_PAD, healBtnY, healBtnW, LAYOUT.SHOP.HEAL_BTN_H, zp(6),
+          c,
+          LAYOUT.SHOP.BTN_PAD,
+          healBtnY,
+          healBtnW,
+          LAYOUT.SHOP.HEAL_BTN_H,
+          zp(6),
           healBg,
           healBorder
         );
@@ -519,19 +543,34 @@ export function drawShop(game) {
 
       if (isDevDelete) {
         fillStrokeRoundedRect(
-          c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, zp(6),
+          c,
+          sellBtn.x,
+          sellBtn.y,
+          sellBtn.w,
+          sellBtn.h,
+          zp(6),
           'rgba(218,54,51,0.15)',
           'rgba(218,54,51,0.25)'
         );
       } else if (onCooldown) {
         fillStrokeRoundedRect(
-          c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, zp(6),
+          c,
+          sellBtn.x,
+          sellBtn.y,
+          sellBtn.w,
+          sellBtn.h,
+          zp(6),
           'rgba(128,128,128,0.12)',
           'rgba(128,128,128,0.2)'
         );
       } else {
         fillStrokeRoundedRect(
-          c, sellBtn.x, sellBtn.y, sellBtn.w, sellBtn.h, zp(6),
+          c,
+          sellBtn.x,
+          sellBtn.y,
+          sellBtn.w,
+          sellBtn.h,
+          zp(6),
           'rgba(212,118,30,0.12)',
           'rgba(212,118,30,0.2)'
         );

@@ -152,12 +152,7 @@ describe('UI utilities', () => {
       const c = makeCtx();
       clipToGameplayArea(c);
       // With shop collapsed, rect x should be 0 (no shop width offset)
-      expect(c.rect).toHaveBeenCalledWith(
-        0,
-        expect.any(Number),
-        expect.any(Number),
-        expect.any(Number)
-      );
+      expect(c.rect).toHaveBeenCalledWith(0, expect.any(Number), expect.any(Number), expect.any(Number));
     });
 
     it('sets shieldW to 0 when shieldShop is collapsed', async () => {
@@ -167,12 +162,7 @@ describe('UI utilities', () => {
       clipToGameplayArea(c);
       // With shieldShop collapsed, width should be RENDERER.width - shopWidth (no shieldShop offset)
       // shopWidth ≈ 250, so rect width = 800 - 250 = 550
-      expect(c.rect).toHaveBeenCalledWith(
-        expect.any(Number),
-        expect.any(Number),
-        550,
-        expect.any(Number)
-      );
+      expect(c.rect).toHaveBeenCalledWith(expect.any(Number), expect.any(Number), 550, expect.any(Number));
     });
 
     it('sets both shopW and shieldW to 0 when both sidebars are collapsed', async () => {
@@ -182,12 +172,7 @@ describe('UI utilities', () => {
       const c = makeCtx();
       clipToGameplayArea(c);
       // Both collapsed: x=0, width=RENDERER.width=800
-      expect(c.rect).toHaveBeenCalledWith(
-        0,
-        expect.any(Number),
-        800,
-        expect.any(Number)
-      );
+      expect(c.rect).toHaveBeenCalledWith(0, expect.any(Number), 800, expect.any(Number));
     });
   });
 

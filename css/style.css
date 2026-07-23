@@ -542,7 +542,9 @@ body {
   font-size: 8px;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 .save-action-btn:hover {
   background: rgba(255, 255, 255, 0.12);

@@ -770,9 +770,8 @@ describe('drawShieldShop', () => {
       drawHUD.call({}, game);
       // Verify badge text was rendered - the badge draws checkmark + "Saved"
       const textCalls = mockCtx.fillText.mock.calls;
-      const hasBadgeText = textCalls.some(args => args[0] === '✓ Saved');
+      const hasBadgeText = textCalls.some((args) => args[0] === '✓ Saved');
       expect(hasBadgeText).toBe(true);
     });
   });
-
 });

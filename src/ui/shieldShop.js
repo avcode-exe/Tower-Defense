@@ -1,7 +1,7 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG } from '../config.js';
 import { UI_LAYOUT, UI_COLORS, zp } from './constants.js';
-import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect , zoomFont } from './utils.js';
+import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect, zoomFont } from './utils.js';
 
 export function drawShieldShop(game) {
   const c = RENDERER.ctx;
@@ -126,7 +126,12 @@ export function drawShieldShop(game) {
   if (!hasSelection) {
     // a) No troop selected or not alive — greyed out.
     fillStrokeRoundedRect(
-      c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, zp(5),
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      zp(5),
       'rgba(255,255,255,0.04)',
       'rgba(255,255,255,0.06)'
     );
@@ -138,7 +143,12 @@ export function drawShieldShop(game) {
   } else if (t.shield > 0) {
     // b) Shield already active — cyan-tinted.
     fillStrokeRoundedRect(
-      c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, zp(5),
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      zp(5),
       'rgba(93,173,226,0.18)',
       'rgba(93,173,226,0.45)'
     );
@@ -150,7 +160,12 @@ export function drawShieldShop(game) {
   } else if (!canAfford) {
     // c) Can't afford — greyed out with cost.
     fillStrokeRoundedRect(
-      c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, zp(5),
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      zp(5),
       'rgba(255,255,255,0.04)',
       'rgba(255,255,255,0.06)'
     );
@@ -162,7 +177,12 @@ export function drawShieldShop(game) {
   } else {
     // d) Can buy — bright cyan button.
     fillStrokeRoundedRect(
-      c, buyBtnRect.x, buyBtnRect.y, buyBtnRect.w, buyBtnRect.h, zp(5),
+      c,
+      buyBtnRect.x,
+      buyBtnRect.y,
+      buyBtnRect.w,
+      buyBtnRect.h,
+      zp(5),
       'rgba(93,173,226,0.28)',
       'rgba(93,173,226,0.6)'
     );

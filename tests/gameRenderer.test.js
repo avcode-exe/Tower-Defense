@@ -481,9 +481,7 @@ describe('gameRenderer', () => {
     it('draws zoom indicator when _zoomIndicatorTime is set', () => {
       const game = makeBaseGame({ _zoomIndicatorTime: Date.now(), zoom: 1.5 });
       renderGame(game);
-      expect(
-        ctx.beginPath.mock.calls.length > 0 || ctx.fillText.mock.calls.length > 0
-      ).toBe(true);
+      expect(ctx.beginPath.mock.calls.length > 0 || ctx.fillText.mock.calls.length > 0).toBe(true);
     });
 
     it('draws zoom indicator at cap (red) when zoom >= 2', () => {
@@ -915,5 +913,4 @@ describe('gameRenderer', () => {
       expect(mockCtx.fillText).not.toHaveBeenCalled();
     });
   });
-
 });

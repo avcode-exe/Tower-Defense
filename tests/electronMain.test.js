@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 const mockIpcHandle = vi.fn();
 const mockIpcOn = vi.fn();
 const mockAppGetPath = vi.fn(() => '/tmp/test-userData');
-const mockAppGetVersion = vi.fn(() => '1.7.0-beta.1');
+const mockAppGetVersion = vi.fn(() => '1.7.0');
 const mockAppWhenReady = vi.fn(() => Promise.resolve());
 const mockAppOn = vi.fn();
 const mockAppQuit = vi.fn();
@@ -108,11 +108,11 @@ vi.mock('os', () => ({
 vi.mock('../src/githubReleaseFeed.js', () => ({
   selectNewestNewerPrereleaseTag: vi.fn(),
   selectNewestNewerRelease: vi.fn(),
-  resolveDownloadTag: vi.fn(async () => ({ tag: 'v1.7.0-beta.1' })),
+  resolveDownloadTag: vi.fn(async () => ({ tag: 'v1.7.0' })),
 }));
 
 vi.mock('../src/updateYamlParser.js', () => ({
-  parseUpdateInfo: vi.fn(() => ({ version: '1.7.0-beta.1', files: [{ url: 'Tower-Defense-Setup-1.7.0-beta.1.exe' }] })),
+  parseUpdateInfo: vi.fn(() => ({ version: '1.7.0', files: [{ url: 'Tower-Defense-Setup-1.7.0.exe' }] })),
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -185,7 +185,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
   describe('get-version handler', () => {
     it('returns app.getVersion()', async () => {
       const result = await invokeHandle('get-version');
-      expect(result).toBe('1.7.0-beta.1');
+      expect(result).toBe('1.7.0');
       expect(mockAppGetVersion).toHaveBeenCalled();
     });
   });
@@ -424,7 +424,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
         throw new Error('read error');
       });
       const result = await invokeHandle('get-settings');
-      expect(result.version).toBe('1.7.0-beta.1');
+      expect(result.version).toBe('1.7.0');
     });
 
     it('returns audio settings from defaults', async () => {

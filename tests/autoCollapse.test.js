@@ -19,10 +19,18 @@ const mockLayout = {
   _extraHudHeight: 0,
   collapsed: { shop: false, shieldShop: false, hud: false, preview: false },
 
-  get HUD_HEIGHT() { return this._HUD_HEIGHT * (this._zoom || 1); },
-  get SHOP_WIDTH() { return this._SHOP_WIDTH * (this._zoom || 1); },
-  get PREVIEW_HEIGHT() { return this._PREVIEW_HEIGHT * (this._zoom || 1); },
-  get SHIELD_SHOP_WIDTH() { return this._SHIELD_SHOP_WIDTH * (this._zoom || 1); },
+  get HUD_HEIGHT() {
+    return this._HUD_HEIGHT * (this._zoom || 1);
+  },
+  get SHOP_WIDTH() {
+    return this._SHOP_WIDTH * (this._zoom || 1);
+  },
+  get PREVIEW_HEIGHT() {
+    return this._PREVIEW_HEIGHT * (this._zoom || 1);
+  },
+  get SHIELD_SHOP_WIDTH() {
+    return this._SHIELD_SHOP_WIDTH * (this._zoom || 1);
+  },
 
   get hudHeight() {
     const base = this.collapsed.hud ? 20 * (this._zoom || 1) : this.HUD_HEIGHT;
@@ -76,9 +84,16 @@ describe('RENDERER auto-collapse', () => {
         width: 0,
         height: 0,
         getContext: vi.fn(() => ({
-          setTransform: vi.fn(), fillStyle: '', fillRect: vi.fn(),
-          strokeStyle: '', lineWidth: 1, beginPath: vi.fn(),
-          moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), drawImage: vi.fn(),
+          setTransform: vi.fn(),
+          fillStyle: '',
+          fillRect: vi.fn(),
+          strokeStyle: '',
+          lineWidth: 1,
+          beginPath: vi.fn(),
+          moveTo: vi.fn(),
+          lineTo: vi.fn(),
+          stroke: vi.fn(),
+          drawImage: vi.fn(),
           getContext: vi.fn().mockReturnThis(),
         })),
       })),

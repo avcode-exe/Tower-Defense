@@ -537,16 +537,25 @@ export class Game {
     if (!this._hasDeadEntities) {
       let anyDead = false;
       for (let i = 0; i < this.monsters.length; i++) {
-        if (!this.monsters[i].alive) { anyDead = true; break; }
+        if (!this.monsters[i].alive) {
+          anyDead = true;
+          break;
+        }
       }
       if (!anyDead) {
         for (let i = 0; i < this.projectiles.length; i++) {
-          if (!this.projectiles[i].alive) { anyDead = true; break; }
+          if (!this.projectiles[i].alive) {
+            anyDead = true;
+            break;
+          }
         }
       }
       if (!anyDead) {
         for (let i = 0; i < this.troops.length; i++) {
-          if (!this.troops[i].alive) { anyDead = true; break; }
+          if (!this.troops[i].alive) {
+            anyDead = true;
+            break;
+          }
         }
       }
       if (!anyDead) return;

@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.7.0] — 2026-07-23
+
+### 🎉 Features
+
+- **Dynamic Particle System** — 4 quality tiers (Low/Medium/High/Ultra) with configurable pool size, spawn multiplier, and lifetime multiplier via `setQuality()`. Adjustable from the Settings panel.
+- **Auto-throttle** — `_checkFrameBudget()` monitors frame budget: 3 slow frames (>33ms) downgrades one tier, 60 fast frames (<16ms) upgrades toward user preference. Operates independently of user setting; clears on recovery.
+- **Multi-slot save rotation** — SaveRotationManager with 3 auto-save slots (autosave.0–autosave.2) using LRU eviction, plus manual named slots. Save/Load popup with preview thumbnails, overwrite confirmation dialog.
+- **Settings Panel Rework** — Tab-based layout (Audio/Graphics/Controls/Accessibility/Update) with draft-based editing (Save/Cancel). Keybind capture, accessibility toggles, particle quality selector, update channel selection.
+
 ## [Unreleased]
 
 ### 🐛 Bug Fixes

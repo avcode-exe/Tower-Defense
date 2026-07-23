@@ -110,16 +110,15 @@ export class Troop {
     const roundTo = (v, mult) => Math.round(v * mult) / mult;
     this._cachedDamage = Math.round(this.spec.damage * Math.pow(CONFIG.DAMAGE_SCALE_PER_LEVEL, this.dmgLevel - 1));
     this._cachedRange = this.spec.type === 'melee' ? this.spec.range : this.spec.range + (this.rangeLevel - 1);
-    this._cachedAttackSpeed =
-      roundTo(this.spec.attackSpeed * Math.pow(CONFIG.SPEED_SCALE_PER_LEVEL, this.speedLevel - 1), 100);
+    this._cachedAttackSpeed = roundTo(
+      this.spec.attackSpeed * Math.pow(CONFIG.SPEED_SCALE_PER_LEVEL, this.speedLevel - 1),
+      100
+    );
     this._cachedChain = (this.spec.chain || 0) + (this.chainLevel - 1);
     this._cachedMaxHp = Math.round(this.spec.hp * Math.pow(CONFIG.HP_SCALE_PER_LEVEL, this.hpLevel - 1));
     this._cachedSlowFactor =
       this.spec.slowFactor != null
-        ? roundTo(
-            this.spec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, this.slowLevel - 1),
-            1000
-          )
+        ? roundTo(this.spec.slowFactor * Math.pow(CONFIG.SLOW_FACTOR_SCALE_PER_LEVEL, this.slowLevel - 1), 1000)
         : 1;
     this._cachedSlowDuration =
       this.spec.slowDuration != null
@@ -127,10 +126,7 @@ export class Troop {
         : 0;
     this._cachedShatterBonus =
       this.spec.shatterBonus != null
-        ? roundTo(
-            this.spec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, this.slowLevel - 1),
-            1000
-          )
+        ? roundTo(this.spec.shatterBonus * Math.pow(CONFIG.SHATTER_BONUS_SCALE_PER_LEVEL, this.slowLevel - 1), 1000)
         : 0;
     // Cache DPS/HPS to avoid recomputing on every render call.
     this._cachedDps = this._cachedDamage / this._cachedAttackSpeed;
@@ -346,7 +342,14 @@ export class Troop {
     const tileIndex = game._monsterTileIndex;
     if (Array.isArray(tileIndex)) {
       const tileRange = this._cachedRange + CONFIG.TILE_BUFFER;
-      const candidates = monstersInRange(this.gx, this.gy, tileRange, tileIndex, CONFIG.GRID_SIZE, game._monsterScratchBuf);
+      const candidates = monstersInRange(
+        this.gx,
+        this.gy,
+        tileRange,
+        tileIndex,
+        CONFIG.GRID_SIZE,
+        game._monsterScratchBuf
+      );
       for (let i = 0; i < candidates.length; i++) {
         const m = candidates[i];
         if (!m.alive) continue;
@@ -522,7 +525,11 @@ export class Troop {
 
     // Non-support: original targeting and combat logic below.
     if (this.targetRefresh <= 0) {
-      this.target = this.pickTarget(monsters, game ? game._monsterTileIndex : null, game ? game._monsterScratchBuf : null);
+      this.target = this.pickTarget(
+        monsters,
+        game ? game._monsterTileIndex : null,
+        game ? game._monsterScratchBuf : null
+      );
       this.targetRefresh = CONFIG.TARGET_REFRESH_INTERVAL;
     }
     if (!this.target || !this.target.alive) return;

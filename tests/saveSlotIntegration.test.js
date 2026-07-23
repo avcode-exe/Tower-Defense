@@ -2,17 +2,85 @@ import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { CONFIG } from '../src/config.js';
 
 vi.mock('../src/audio.js', () => ({
-  AUDIO: { troopPlace: vi.fn(), sell: vi.fn(), goldEarned: vi.fn(), upgrade: vi.fn(), heal: vi.fn(), shieldBuy: vi.fn(), waveStart: vi.fn(), defeat: vi.fn(), toggleMute: vi.fn(), monsterLeak: vi.fn(), monsterDeath: vi.fn(), rangedAttack: vi.fn(), meleeAttack: vi.fn(), waveComplete: vi.fn(), troopDeath: vi.fn() },
+  AUDIO: {
+    troopPlace: vi.fn(),
+    sell: vi.fn(),
+    goldEarned: vi.fn(),
+    upgrade: vi.fn(),
+    heal: vi.fn(),
+    shieldBuy: vi.fn(),
+    waveStart: vi.fn(),
+    defeat: vi.fn(),
+    toggleMute: vi.fn(),
+    monsterLeak: vi.fn(),
+    monsterDeath: vi.fn(),
+    rangedAttack: vi.fn(),
+    meleeAttack: vi.fn(),
+    waveComplete: vi.fn(),
+    troopDeath: vi.fn(),
+  },
 }));
 vi.mock('../src/particles.js', () => ({
-  PARTICLES: { update: vi.fn(), clear: vi.fn(), deathBurst: vi.fn(), hitSpark: vi.fn(), chainSpark: vi.fn(), slowApply: vi.fn(), healBurst: vi.fn(), troopDeath: vi.fn(), troopShieldActivate: vi.fn(), reviveBurst: vi.fn(), splashImpact: vi.fn(), spawnTrail: vi.fn(), spawn: vi.fn(), burnApply: vi.fn(), burnTick: vi.fn() },
+  PARTICLES: {
+    update: vi.fn(),
+    clear: vi.fn(),
+    deathBurst: vi.fn(),
+    hitSpark: vi.fn(),
+    chainSpark: vi.fn(),
+    slowApply: vi.fn(),
+    healBurst: vi.fn(),
+    troopDeath: vi.fn(),
+    troopShieldActivate: vi.fn(),
+    reviveBurst: vi.fn(),
+    splashImpact: vi.fn(),
+    spawnTrail: vi.fn(),
+    spawn: vi.fn(),
+    burnApply: vi.fn(),
+    burnTick: vi.fn(),
+  },
 }));
 vi.mock('../src/rendering/renderer.js', () => ({
-  RENDERER: { init: vi.fn(), resize: vi.fn(), markCacheDirty: vi.fn(), _rebuildCache: vi.fn(), toWorldInto: vi.fn((px, py, out) => { out.x = px; out.y = py; return out; }), beginFrame: vi.fn(), applyMapTransform: vi.fn(), drawStaticLayers: vi.fn(), restoreTransform: vi.fn(), endFrame: vi.fn(), width: 800, height: 600, offsetX: 0, offsetY: 0, scale: 1, hoverPx: null, hoverPy: null, canvas: null, ctx: null },
+  RENDERER: {
+    init: vi.fn(),
+    resize: vi.fn(),
+    markCacheDirty: vi.fn(),
+    _rebuildCache: vi.fn(),
+    toWorldInto: vi.fn((px, py, out) => {
+      out.x = px;
+      out.y = py;
+      return out;
+    }),
+    beginFrame: vi.fn(),
+    applyMapTransform: vi.fn(),
+    drawStaticLayers: vi.fn(),
+    restoreTransform: vi.fn(),
+    endFrame: vi.fn(),
+    width: 800,
+    height: 600,
+    offsetX: 0,
+    offsetY: 0,
+    scale: 1,
+    hoverPx: null,
+    hoverPy: null,
+    canvas: null,
+    ctx: null,
+  },
 }));
 vi.mock('../src/rendering/gameRenderer.js', () => ({ renderGame: vi.fn(), updateCursor: vi.fn() }));
 vi.mock('../src/gameRuntime.js', () => ({
-  GameRuntimeController: vi.fn().mockImplementation(() => ({ installResize: vi.fn(), startLoop: vi.fn(), stopLoop: vi.fn(), applyDefeat: vi.fn(), startWave: vi.fn(), togglePause: vi.fn(), pauseGame: vi.fn(), resumeGame: vi.fn(), startPauseRender: vi.fn(), stopPauseRender: vi.fn(), removeResize: vi.fn() })),
+  GameRuntimeController: vi.fn().mockImplementation(() => ({
+    installResize: vi.fn(),
+    startLoop: vi.fn(),
+    stopLoop: vi.fn(),
+    applyDefeat: vi.fn(),
+    startWave: vi.fn(),
+    togglePause: vi.fn(),
+    pauseGame: vi.fn(),
+    resumeGame: vi.fn(),
+    startPauseRender: vi.fn(),
+    stopPauseRender: vi.fn(),
+    removeResize: vi.fn(),
+  })),
 }));
 
 describe('save slot integration', () => {
@@ -130,15 +198,18 @@ describe('save slot integration', () => {
       game.wave.currentWave = 3;
       const result = await game.saveToSlot('mysave');
       expect(result).toBe(true);
-      expect(electron.saveGameSlot).toHaveBeenCalledWith('mysave', expect.objectContaining({
-        gold: 500,
-        lives: 20,
-        _meta: expect.objectContaining({
-          wave: 3,
+      expect(electron.saveGameSlot).toHaveBeenCalledWith(
+        'mysave',
+        expect.objectContaining({
           gold: 500,
           lives: 20,
-        }),
-      }));
+          _meta: expect.objectContaining({
+            wave: 3,
+            gold: 500,
+            lives: 20,
+          }),
+        })
+      );
     });
 
     it('returns false when electron.saveGameSlot fails', async () => {
@@ -176,12 +247,15 @@ describe('save slot integration', () => {
 
     it('includes _meta metadata in save data', async () => {
       await game.saveToSlot('meta_test');
-      expect(electron.saveGameSlot).toHaveBeenCalledWith('meta_test', expect.objectContaining({
-        _meta: expect.objectContaining({
-          timestamp: expect.any(Number),
-          version: expect.any(String),
-        }),
-      }));
+      expect(electron.saveGameSlot).toHaveBeenCalledWith(
+        'meta_test',
+        expect.objectContaining({
+          _meta: expect.objectContaining({
+            timestamp: expect.any(Number),
+            version: expect.any(String),
+          }),
+        })
+      );
     });
 
     it('includes preview thumbnail data URL in save data', async () => {

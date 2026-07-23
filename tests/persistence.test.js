@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { CONFIG, TROOP_SPECS } from '../src/config.js';
 import { Grid } from '../src/grid.js';
 
@@ -1164,7 +1164,14 @@ describe('SaveRotationManager', () => {
 
     it('preserves preview from _meta', () => {
       const data = {
-        _meta: { timestamp: 100, wave: 1, gold: 100, lives: 10, version: '1.7.0', preview: 'data:image/jpeg;base64,abc123' },
+        _meta: {
+          timestamp: 100,
+          wave: 1,
+          gold: 100,
+          lives: 10,
+          version: '1.7.0',
+          preview: 'data:image/jpeg;base64,abc123',
+        },
       };
       const meta = SaveRotationManager.extractMeta(data);
       expect(meta.preview).toBe('data:image/jpeg;base64,abc123');
@@ -1358,9 +1365,9 @@ describe('SaveMigrator', () => {
   });
 
   it('rejects non-finite wave.currentWave', () => {
-    expect(
-      SaveSerializer.isValid({ seed: 42, gold: 100, lives: 10, wave: { currentWave: NaN }, troops: [] })
-    ).toBe(false);
+    expect(SaveSerializer.isValid({ seed: 42, gold: 100, lives: 10, wave: { currentWave: NaN }, troops: [] })).toBe(
+      false
+    );
   });
   describe('captureSavePreview edge cases', () => {
     let captureSavePreview;
@@ -1498,7 +1505,6 @@ describe('SaveMigrator', () => {
   });
 
   describe('captureSavePreview with mocked canvas', () => {
-
     beforeEach(() => {
       // Mock RENDERER to have a canvas
       const mockCanvas = {
@@ -1531,5 +1537,4 @@ describe('SaveMigrator', () => {
       expect(result).toBeNull();
     });
   });
-
 });

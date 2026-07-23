@@ -193,7 +193,11 @@ export const PARTICLES = {
   _activeCount: 0,
   // Initial pool size: hardware-aware cap clamped by quality tier.
   // Overridden by setQuality() when settings or auto-throttle change.
-  _maxPool: (() => Math.min(CONFIG.PARTICLE_POOL_SIZE, Math.max(100, (typeof navigator !== 'undefined' && navigator.hardwareConcurrency || 4) * 50)))(),
+  _maxPool: (() =>
+    Math.min(
+      CONFIG.PARTICLE_POOL_SIZE,
+      Math.max(100, ((typeof navigator !== 'undefined' && navigator.hardwareConcurrency) || 4) * 50)
+    ))(),
   // Quality-tier multipliers — applied in spawn()/spawnTrail().
   _spawnMultiplier: 1.0,
   _lifetimeMultiplier: 1.0,

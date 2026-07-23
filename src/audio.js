@@ -37,7 +37,14 @@ export class AudioManager {
     // that sets _ctx directly (circumventing the constructor cache).
     // AudioContext.state is a lightweight getter, so the fallback is cheap.
     if (this._ctx && (this._ctxSuspended || this._ctx.state === 'suspended')) {
-      this._ctx.resume().then(() => { this._ctxSuspended = false; }).catch(() => { this._ctxSuspended = true; });
+      this._ctx
+        .resume()
+        .then(() => {
+          this._ctxSuspended = false;
+        })
+        .catch(() => {
+          this._ctxSuspended = true;
+        });
     }
   }
 

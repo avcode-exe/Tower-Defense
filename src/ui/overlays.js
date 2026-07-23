@@ -1,7 +1,7 @@
 import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG } from '../config.js';
 import { UI_COLORS, zp } from './constants.js';
-import { UIRoundRect, fillStrokeRoundedRect , zoomFont } from './utils.js';
+import { UIRoundRect, fillStrokeRoundedRect, zoomFont } from './utils.js';
 
 export function drawWaveTransition(game) {
   if (!game.waveCompleteAnim || !game.waveCompleteAnim.active) return;

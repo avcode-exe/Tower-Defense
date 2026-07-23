@@ -110,8 +110,7 @@ export const SaveRotationManager = {
  */
 export function captureSavePreview() {
   if (typeof document === 'undefined') return null;
-  const canvas =
-    RENDERER.canvas || (typeof document !== 'undefined' ? document.querySelector('canvas') : null);
+  const canvas = RENDERER.canvas || (typeof document !== 'undefined' ? document.querySelector('canvas') : null);
   if (!canvas) return null;
   try {
     // Try to read from the actual canvas first
@@ -131,8 +130,14 @@ export function captureSavePreview() {
     // Draw the game canvas scaled down into the offscreen canvas
     ctx.drawImage(
       canvas,
-      0, 0, canvas.width, canvas.height,
-      0, 0, SaveRotationManager.PREVIEW_WIDTH, SaveRotationManager.PREVIEW_HEIGHT
+      0,
+      0,
+      canvas.width,
+      canvas.height,
+      0,
+      0,
+      SaveRotationManager.PREVIEW_WIDTH,
+      SaveRotationManager.PREVIEW_HEIGHT
     );
     return offscreen.toDataURL('image/jpeg', 0.5);
   } catch (_) {

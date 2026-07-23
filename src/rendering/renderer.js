@@ -145,10 +145,7 @@ export const RENDERER = {
     // than _prevCollapseShop (which stores the pre-collapse expanded state
     // and would incorrectly match on every frame after auto-collapse).
     if (this._autoCollapsed) {
-      if (
-        UI_LAYOUT.collapsed.shop !== true ||
-        UI_LAYOUT.collapsed.shieldShop !== true
-      ) {
+      if (UI_LAYOUT.collapsed.shop !== true || UI_LAYOUT.collapsed.shieldShop !== true) {
         this._autoCollapsed = false;
       }
     }

@@ -2,7 +2,7 @@ import { RENDERER } from '../rendering/renderer.js';
 import { CONFIG, LAYOUT } from '../config.js';
 import { AUDIO } from '../audio.js';
 import { UI_LAYOUT, UI_COLORS, zp } from './constants.js';
-import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect , zoomFont } from './utils.js';
+import { UIRoundRect, drawToggleButton, fillStrokeRoundedRect, zoomFont } from './utils.js';
 
 // Cache for text measurements to avoid measureText() calls every frame.
 let _cachedGoldStr = null;
@@ -50,7 +50,12 @@ export function drawHUD(game) {
   const livesStr = game.devMode ? '\u221E' : String(game.lives);
   const waveStr = 'Wave ' + (game.wave.currentWave + 1);
   let goldW, livesW, waveW;
-  if (goldStr === _cachedGoldStr && livesStr === _cachedLivesStr && waveStr === _cachedWaveStr && zoom === _cachedZoom) {
+  if (
+    goldStr === _cachedGoldStr &&
+    livesStr === _cachedLivesStr &&
+    waveStr === _cachedWaveStr &&
+    zoom === _cachedZoom
+  ) {
     goldW = _cachedGoldW;
     livesW = _cachedLivesW;
     waveW = _cachedWaveW;
@@ -67,7 +72,7 @@ export function drawHUD(game) {
     _cachedLivesW = livesW;
     _cachedWaveW = waveW;
     _cachedZoom = zoom;
-  }  // Base positions (in zoom-scaled pixels)
+  } // Base positions (in zoom-scaled pixels)
   const goldX = zp(14);
   const livesDefX = zp(120);
   const waveDefX = zp(200);
@@ -78,9 +83,9 @@ export function drawHUD(game) {
   const sx = w - LAYOUT.HUD.SPEED_OFFSET;
 
   // Gaps in display pixels between left-anchored sections (before text)
-  const gap1 = livesDefX - (goldX + zp(20) + goldW);  // gold end → lives heart
+  const gap1 = livesDefX - (goldX + zp(20) + goldW); // gold end → lives heart
   const gap2 = waveDefX - (livesDefX + zp(18) + livesW); // lives end → wave text
-  const gap3 = rstDefX - (waveDefX + waveW);           // wave end → reset btn
+  const gap3 = rstDefX - (waveDefX + waveW); // wave end → reset btn
 
   // Left-anchored section right edge
   const leftEnd = rstDefX + rstW;
@@ -89,7 +94,7 @@ export function drawHUD(game) {
 
   const MIN_HUD_GAP = zp(6);
   let gapScale = 1;
-  const overlap = (rightStart - MIN_HUD_GAP) - leftEnd;
+  const overlap = rightStart - MIN_HUD_GAP - leftEnd;
   if (overlap < 0) {
     const totalGap = gap1 + gap2 + gap3;
     const shortfall = -overlap;

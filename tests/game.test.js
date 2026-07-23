@@ -1307,7 +1307,9 @@ describe('Game', () => {
       const el = {
         classList: { add: vi.fn(), remove: vi.fn() },
         style: {},
-        addEventListener: vi.fn((evt, cb) => { registeredCallback = cb; }),
+        addEventListener: vi.fn((evt, cb) => {
+          registeredCallback = cb;
+        }),
         removeEventListener: removeEventListenerMock,
       };
       vi.stubGlobal('document', { getElementById: vi.fn(() => el) });
@@ -1384,8 +1386,6 @@ describe('Game', () => {
       expect(electron.deleteSave).toHaveBeenCalled();
       expect(game._needsSaveCleanup).toBe(false);
     });
-
-
   });
 
   describe('_tryPlaceFromPointer', () => {
@@ -3211,7 +3211,7 @@ describe('Game', () => {
       dead.reachedEnd = false;
       game._stepNecromancerRevives();
       // Only one necromancer should have revived it (reviveLock prevents double-revive)
-      const revived = game.monsters.filter(m => m.alive && m.level !== 'Y');
+      const revived = game.monsters.filter((m) => m.alive && m.level !== 'Y');
       expect(revived.length).toBe(1);
       expect(dead.alive).toBe(true);
     });
@@ -3268,5 +3268,4 @@ describe('Game', () => {
       expect(game._tryPlaceFromPointer).toHaveBeenCalledWith(300, 100, swordsmanSpec);
     });
   });
-
 });

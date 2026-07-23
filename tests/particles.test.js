@@ -493,4 +493,244 @@ describe('PARTICLES', () => {
       expect(ctx.globalAlpha).toBe(1);
     });
   });
+
+  describe('quality tier system (setQuality / _applyTier)', () => {
+    beforeEach(() => {
+      PARTICLES.clear();
+      PARTICLES.setQuality('Medium');
+    });
+
+    it('setQuality sets _userTier and calls _applyTier', () => {
+      PARTICLES.setQuality('Low');
+      expect(PARTICLES._userTier).toBe('Low');
+      expect(PARTICLES._activeTier).toBe('Low');
+    });
+
+    it('Low tier caps pool at 100', () => {
+      PARTICLES.setQuality('Low');
+      expect(PARTICLES._maxPool).toBe(100);
+      expect(PARTICLES._spawnMultiplier).toBe(0.3);
+      expect(PARTICLES._lifetimeMultiplier).toBe(0.5);
+    });
+
+    it('Medium tier caps pool at 300', () => {
+      PARTICLES.setQuality('Medium');
+      expect(PARTICLES._maxPool).toBe(300);
+      expect(PARTICLES._spawnMultiplier).toBe(0.6);
+      expect(PARTICLES._lifetimeMultiplier).toBe(0.75);
+    });
+
+    it('High tier caps pool at 1000', () => {
+      PARTICLES.setQuality('High');
+      expect(PARTICLES._maxPool).toBe(1000);
+      expect(PARTICLES._spawnMultiplier).toBe(1.0);
+      expect(PARTICLES._lifetimeMultiplier).toBe(1.0);
+    });
+
+    it('Ultra tier caps pool at 2000 with 1.5x spawn/lifetime', () => {
+      PARTICLES.setQuality('Ultra');
+      expect(PARTICLES._maxPool).toBe(2000);
+      expect(PARTICLES._spawnMultiplier).toBe(1.5);
+      expect(PARTICLES._lifetimeMultiplier).toBe(1.5);
+    });
+
+    it('invalid tier string does nothing', () => {
+      const prev = PARTICLES._activeTier;
+      PARTICLES._applyTier('Invalid');
+      expect(PARTICLES._activeTier).toBe(prev);
+    });
+
+    it('_applyTier trims pool when shrinking', () => {
+      PARTICLES.setQuality('Ultra');
+      PARTICLES.spawn(0, 0, { count: 500 });
+      // Ultra has spawn multiplier 1.5: Math.round(500 * 1.5) = 750
+      expect(PARTICLES._activeCount).toBe(750);
+      PARTICLES.setQuality('Low');
+      expect(PARTICLES._maxPool).toBe(100);
+      expect(PARTICLES._pool.length).toBe(100);
+      expect(PARTICLES._activeCount).toBeLessThanOrEqual(100);
+    });
+
+    it('spawn respects quality tier multiplier (Low: 0.3x)', () => {
+      PARTICLES.setQuality('Low');
+      PARTICLES.spawn(0, 0, { count: 10 });
+      // Low spawn multiplier 0.3: Math.max(1, Math.round(10 * 0.3)) = 3
+      expect(PARTICLES._activeCount).toBe(3);
+    });
+
+    it('spawn respects quality tier multiplier (Ultra: 1.5x)', () => {
+      PARTICLES.setQuality('Ultra');
+      PARTICLES.spawn(0, 0, { count: 10 });
+      // Ultra spawn multiplier 1.5: Math.max(1, Math.round(10 * 1.5)) = 15
+      expect(PARTICLES._activeCount).toBe(15);
+    });
+
+    it('spawnTrail applies lifetimeMultiplier', () => {
+      PARTICLES.setQuality('Low');
+      PARTICLES.spawnTrail(0, 0, '#fff');
+      const maxLowLife = 0.25 * PARTICLES._lifetimeMultiplier; // 0.25 * 0.5 = 0.125
+      expect(PARTICLES._pool[0].life).toBeLessThanOrEqual(maxLowLife + 0.01);
+    });
+
+    it('setQuality does not affect existing auto-throttle _autoTier', () => {
+      PARTICLES._autoTier = 'Low';
+      PARTICLES.setQuality('Ultra');
+      expect(PARTICLES._userTier).toBe('Ultra');
+      expect(PARTICLES._autoTier).toBe('Low');
+      // setQuality calls _applyTier which sets _activeTier to the applied tier
+      expect(PARTICLES._activeTier).toBe('Ultra');
+    });
+  });
+
+  describe('auto-throttle (_checkFrameBudget)', () => {
+    beforeEach(() => {
+      PARTICLES.clear();
+      PARTICLES.setQuality('Ultra');
+      PARTICLES._autoTier = null;
+      PARTICLES._slowFrames = 0;
+      PARTICLES._fastFrames = 0;
+    });
+
+    it('3 slow frames (>33ms) downgrades one tier', () => {
+      PARTICLES._checkFrameBudget(34);
+      PARTICLES._checkFrameBudget(34);
+      PARTICLES._checkFrameBudget(34);
+      expect(PARTICLES._autoTier).toBe('High');
+      expect(PARTICLES._activeTier).toBe('High');
+    });
+
+    it('does not downgrade below Low', () => {
+      PARTICLES.setQuality('Low');
+      PARTICLES._checkFrameBudget(34);
+      PARTICLES._checkFrameBudget(34);
+      PARTICLES._checkFrameBudget(34);
+      expect(PARTICLES._autoTier).toBeNull();
+      expect(PARTICLES._activeTier).toBe('Low');
+    });
+
+    it('60 fast frames (<16ms) upgrades one tier toward _userTier', () => {
+      PARTICLES._autoTier = 'High';
+      PARTICLES._applyTier('High');
+      for (let i = 0; i < 60; i++) PARTICLES._checkFrameBudget(15);
+      expect(PARTICLES._autoTier).toBe('Ultra');
+      expect(PARTICLES._activeTier).toBe('Ultra');
+    });
+
+    it('upgrade stops and clears _autoTier when reaching _userTier', () => {
+      PARTICLES._autoTier = 'High';
+      PARTICLES._applyTier('High');
+      PARTICLES.setQuality('High');
+      for (let i = 0; i < 60; i++) PARTICLES._checkFrameBudget(15);
+      expect(PARTICLES._autoTier).toBeNull();
+      expect(PARTICLES._activeTier).toBe('High');
+    });
+
+    it('only upgrades when _autoTier is set', () => {
+      PARTICLES._autoTier = null;
+      for (let i = 0; i < 60; i++) PARTICLES._checkFrameBudget(15);
+      expect(PARTICLES._autoTier).toBeNull();
+      // _fastFrames is reset to 0 inside the >=60 block before _autoTier check
+      expect(PARTICLES._fastFrames).toBe(0);
+    });
+
+    it('reset counters on 16-33ms frames (normal range)', () => {
+      PARTICLES._slowFrames = 2;
+      PARTICLES._fastFrames = 59;
+      PARTICLES._checkFrameBudget(20);
+      expect(PARTICLES._slowFrames).toBe(0);
+      expect(PARTICLES._fastFrames).toBe(0);
+    });
+
+    it('counter resets on switching between slow and fast', () => {
+      PARTICLES._slowFrames = 2;
+      PARTICLES._checkFrameBudget(15);
+      expect(PARTICLES._slowFrames).toBe(0);
+      expect(PARTICLES._fastFrames).toBe(1);
+    });
+
+    it('counter resets on switching between fast and slow', () => {
+      PARTICLES._fastFrames = 59;
+      PARTICLES._checkFrameBudget(34);
+      expect(PARTICLES._fastFrames).toBe(0);
+      expect(PARTICLES._slowFrames).toBe(1);
+    });
+  });
+
+  describe('_applyCfg', () => {
+    beforeEach(() => {
+      PARTICLES.clear();
+    });
+
+    it('returns a config object with overridden color', () => {
+      const src = {
+        count: 5,
+        color: '#fff',
+        minSize: 1,
+        maxSize: 3,
+        minSpeed: 30,
+        maxSpeed: 100,
+        minLife: 0.2,
+        maxLife: 0.5,
+        gravity: false,
+      };
+      const cfg = PARTICLES._applyCfg(src, '#ff0000');
+      expect(cfg.color).toBe('#ff0000');
+      expect(cfg.count).toBe(5);
+      expect(cfg.gravity).toBe(false);
+    });
+
+    it('reuses the same _tmpCfg object across calls', () => {
+      const src1 = {
+        count: 3,
+        color: '#fff',
+        minSize: 1,
+        maxSize: 2,
+        minSpeed: 10,
+        maxSpeed: 20,
+        minLife: 0.1,
+        maxLife: 0.2,
+        gravity: true,
+      };
+      const src2 = {
+        count: 7,
+        color: '#000',
+        minSize: 2,
+        maxSize: 4,
+        minSpeed: 40,
+        maxSpeed: 80,
+        minLife: 0.3,
+        maxLife: 0.6,
+        gravity: false,
+      };
+      const cfg1 = PARTICLES._applyCfg(src1, '#f00');
+      const cfg2 = PARTICLES._applyCfg(src2, '#0f0');
+      expect(cfg2).toBe(cfg1);
+      expect(cfg2.color).toBe('#0f0');
+      expect(cfg2.count).toBe(7);
+      expect(cfg2.gravity).toBe(false);
+    });
+  });
+
+  describe('_spawnEffect', () => {
+    beforeEach(() => {
+      PARTICLES.clear();
+      PARTICLES.setQuality('High');
+    });
+
+    it('spawns chainSpark with correct count', () => {
+      PARTICLES._spawnEffect('chainSpark', 10, 10);
+      expect(PARTICLES._activeCount).toBe(3);
+    });
+
+    it('spawns with overridden color', () => {
+      PARTICLES._spawnEffect('hitSpark', 10, 10, { color: '#ff0000' });
+      expect(PARTICLES._activeCount).toBe(4);
+      expect(PARTICLES._pool[0].color).toBe('#ff0000');
+    });
+
+    it('spawns with default color when no overrides', () => {
+      PARTICLES._spawnEffect('hitSpark', 10, 10);
+      expect(PARTICLES._pool[0].color).toBe('#fff');
+    });
+  });
 });

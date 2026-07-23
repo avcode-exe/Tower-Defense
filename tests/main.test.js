@@ -49,7 +49,7 @@ const mockUpdateMgr = {
   download: vi.fn(),
   skip: vi.fn(),
   restart: vi.fn(),
-  getAnnouncedVersion: vi.fn(() => '1.7.0-beta.1'),
+  getAnnouncedVersion: vi.fn(() => '1.7.0'),
 };
 
 vi.mock('../src/updateManager.js', () => ({
@@ -132,7 +132,7 @@ function makeElectronStub() {
       accessibility: { colorblindMode: false, fontSizeScale: 1, reducedMotion: false },
     })),
     saveSettings: vi.fn(async () => true),
-    getVersion: vi.fn(async () => '1.7.0-beta.1'),
+    getVersion: vi.fn(async () => '1.7.0'),
     loadGame: vi.fn(async () => null),
     saveGame: vi.fn(async () => true),
     deleteSave: vi.fn(async () => true),
@@ -454,7 +454,7 @@ describe('main.js (L14, >=50% coverage)', () => {
     it('displays about version string', () => {
       if (handlerCrashed) return;
       const el = document.getElementById('about-version');
-      expect(el.textContent).toContain('1.7.0-beta.1');
+      expect(el.textContent).toContain('1.7.0');
     });
 
     it('initializes UpdateManager', () => {
@@ -464,7 +464,7 @@ describe('main.js (L14, >=50% coverage)', () => {
 
     it('sets game.appVersion from electron.getVersion', () => {
       if (handlerCrashed) return;
-      expect(mockGameInstance.appVersion).toBe('1.7.0-beta.1');
+      expect(mockGameInstance.appVersion).toBe('1.7.0');
     });
 
     it('populates monster info content', () => {
