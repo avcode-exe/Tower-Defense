@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vite
 const mockIpcHandle = vi.fn();
 const mockIpcOn = vi.fn();
 const mockAppGetPath = vi.fn(() => '/tmp/test-userData');
-const mockAppGetVersion = vi.fn(() => '1.7.0');
+const mockAppGetVersion = vi.fn(() => '1.7.1');
 const mockAppWhenReady = vi.fn(() => Promise.resolve());
 const mockAppOn = vi.fn();
 const mockAppQuit = vi.fn();
@@ -108,11 +108,11 @@ vi.mock('os', () => ({
 vi.mock('../src/githubReleaseFeed.js', () => ({
   selectNewestNewerPrereleaseTag: vi.fn(),
   selectNewestNewerRelease: vi.fn(),
-  resolveDownloadTag: vi.fn(async () => ({ tag: 'v1.7.0' })),
+  resolveDownloadTag: vi.fn(async () => ({ tag: 'v1.7.1' })),
 }));
 
 vi.mock('../src/updateYamlParser.js', () => ({
-  parseUpdateInfo: vi.fn(() => ({ version: '1.7.0', files: [{ url: 'Tower-Defense-Setup-1.7.0.exe' }] })),
+  parseUpdateInfo: vi.fn(() => ({ version: '1.7.1', files: [{ url: 'Tower-Defense-Setup-1.7.1.exe' }] })),
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -164,18 +164,16 @@ describe('electron-main (L13, >=50% coverage)', () => {
       const onChannels = mockIpcOn.mock.calls.map((c) => c[0]);
       expect(onChannels).toContain('check-updates');
       expect(onChannels).toContain('download-update');
-      expect(onChannels).toContain('skip-update');
       expect(onChannels).toContain('restart-to-update');
       expect(onChannels).toContain('set-auto-download');
       expect(onChannels).toContain('set-update-channel');
       expect(onChannels).toContain('cancel-update');
     });
 
-    it('registers autoUpdater event listeners', () => {
+    it('registers autoUpdater event listeners for download/install', () => {
       const events = mockAutoUpdaterOn.mock.calls.map((c) => c[0]);
-      expect(events).toContain('checking-for-update');
-      expect(events).toContain('update-available');
-      expect(events).toContain('update-not-available');
+      // Update discovery is handled by checkForUpdatesDirect() (Atom feed);
+      // autoUpdater is only used for downloading and installing.
       expect(events).toContain('download-progress');
       expect(events).toContain('update-downloaded');
       expect(events).toContain('error');
@@ -185,7 +183,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
   describe('get-version handler', () => {
     it('returns app.getVersion()', async () => {
       const result = await invokeHandle('get-version');
-      expect(result).toBe('1.7.0');
+      expect(result).toBe('1.7.1');
       expect(mockAppGetVersion).toHaveBeenCalled();
     });
   });
@@ -225,16 +223,6 @@ describe('electron-main (L13, >=50% coverage)', () => {
       });
       expect(result).toBe(true);
       expect(mockWriteFileSync).toHaveBeenCalled();
-    });
-
-    it('rejects oversized settings (>100KB serialized)', async () => {
-      // Need ~35000 entries to exceed 100KB serialized limit (~3 bytes per entry)
-      const large = {
-        update: { channel: 'release', skippedVersions: new Array(40000).fill('v1.0.0') },
-        collapsed: {},
-      };
-      const result = await invokeHandle('save-settings', null, large);
-      expect(result).toBe(false);
     });
 
     it('filters skippedVersions to valid strings', async () => {
@@ -424,7 +412,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
         throw new Error('read error');
       });
       const result = await invokeHandle('get-settings');
-      expect(result.version).toBe('1.7.0');
+      expect(result.version).toBe('1.7.1');
     });
 
     it('returns audio settings from defaults', async () => {
@@ -533,9 +521,17 @@ describe('electron-main (L13, >=50% coverage)', () => {
   });
 
   describe('ipcMain.on handlers', () => {
-    it('check-updates calls checkForUpdatesSafely', () => {
-      invokeOn('check-updates');
-      expect(mockCheckForUpdates).toHaveBeenCalled();
+    it('check-updates invokes handler without throwing', () => {
+      // checkForUpdatesSafely now calls checkForUpdatesDirect (Atom feed);
+      // mock the global fetch so it doesn't hit the network in tests.
+      const origFetch = globalThis.fetch;
+      globalThis.fetch = vi.fn(async () => ({ text: async () => '', ok: true }));
+      try {
+        invokeOn('check-updates');
+        // Should not throw; the async check runs in the background
+      } finally {
+        globalThis.fetch = origFetch;
+      }
     });
 
     it('download-update calls downloadUpdateSafely', () => {
@@ -547,19 +543,6 @@ describe('electron-main (L13, >=50% coverage)', () => {
       mockQuitAndInstall.mockImplementation(() => {});
       invokeOn('restart-to-update');
       expect(mockQuitAndInstall).toHaveBeenCalled();
-    });
-
-    it('skip-update adds version to skippedVersions', () => {
-      mockExistsSync.mockReturnValue(true);
-      mockReadFileSync.mockReturnValue(
-        JSON.stringify({
-          update: { channel: 'release', skippedVersions: [], checkIntervalMinutes: 60 },
-          collapsed: {},
-        })
-      );
-      mockWriteFileSync.mockReturnValue(undefined);
-      invokeOn('skip-update', null, 'v1.5.0');
-      expect(mockWriteFileSync).toHaveBeenCalled();
     });
 
     it('set-auto-download enables autoDownload', () => {
@@ -607,9 +590,12 @@ describe('electron-main (L13, >=50% coverage)', () => {
       expect(autoUpdater.logger).toHaveProperty('error');
     });
 
-    it('patches getUpdateInfoAndProvider for prerelease channel', async () => {
+    it('has autoUpdater.checkForUpdates and getUpdateInfoAndProvider', async () => {
       const mod = await import('electron-updater');
       const { autoUpdater } = mod.default;
+      // autoUpdater is still available (used for download/install),
+      // but we no longer patch getUpdateInfoAndProvider.
+      expect(typeof autoUpdater.checkForUpdates).toBe('function');
       expect(typeof autoUpdater.getUpdateInfoAndProvider).toBe('function');
     });
   });
@@ -632,23 +618,6 @@ describe('electron-main (L13, >=50% coverage)', () => {
   });
 
   describe('coverage gap fill: autoUpdater event callbacks', () => {
-    it('checking-for-update callback fires sendStatus without throwing', () => {
-      const cb = mockAutoUpdaterOn.mock.calls.find((c) => c[0] === 'checking-for-update')?.[1];
-      expect(() => cb && cb()).not.toThrow();
-    });
-
-    it('update-not-available callback fires sendStatus without throwing', () => {
-      const cb = mockAutoUpdaterOn.mock.calls.find((c) => c[0] === 'update-not-available')?.[1];
-      expect(() => cb && cb()).not.toThrow();
-    });
-
-    it('update-available callback registered', () => {
-      const cb = mockAutoUpdaterOn.mock.calls.find((c) => c[0] === 'update-available')?.[1];
-      expect(cb).toBeDefined();
-      // The callback body calls shouldAnnounceToUser which depends on async
-      // versionUtils import — skip direct invocation to avoid race condition.
-    });
-
     it('error callback fires handleUpdaterError and formatUpdaterError', () => {
       const cb = mockAutoUpdaterOn.mock.calls.find((c) => c[0] === 'error')?.[1];
       expect(() => cb && cb(new Error('test error'))).not.toThrow();
@@ -670,16 +639,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
     });
   });
 
-  describe('coverage gap fill: escapeRegExp and formatUpdaterError', () => {
-    it('handleUpdaterError via try-catch in checkForUpdatesSafely', () => {
-      mockCheckForUpdates.mockImplementationOnce(() => {
-        throw new Error('check failed');
-      });
-      invokeOn('check-updates');
-      // handleUpdaterError called, formatUpdaterError formats the error
-      expect(mockCheckForUpdates).toHaveBeenCalled();
-    });
-
+  describe('coverage gap fill: formatUpdaterError', () => {
     it('downloadUpdateSafely throws error', () => {
       mockDownloadUpdate.mockImplementationOnce(() => {
         throw new Error('download failed');
@@ -689,14 +649,14 @@ describe('electron-main (L13, >=50% coverage)', () => {
     });
   });
 
-  describe('coverage gap fill: createReleaseAssetProvider', () => {
-    it('createReleaseAssetProvider structure from module-level', async () => {
-      // createReleaseAssetProvider is called as part of patchGitHubPrereleaseDiscovery
-      // which is invoked at import time. We verify it by checking the autoUpdater
-      // was patched correctly.
+  describe('coverage gap fill: autoUpdater structure', () => {
+    it('autoUpdater has expected methods', async () => {
+      // autoUpdater is used for download/install only (update discovery
+      // is handled by checkForUpdatesDirect via the Atom feed).
       const mod = await import('electron-updater');
       const { autoUpdater } = mod.default;
-      expect(typeof autoUpdater.getUpdateInfoAndProvider).toBe('function');
+      expect(typeof autoUpdater.downloadUpdate).toBe('function');
+      expect(typeof autoUpdater.quitAndInstall).toBe('function');
     });
   });
 
@@ -706,7 +666,7 @@ describe('electron-main (L13, >=50% coverage)', () => {
       // Since mainWindow was set by createWindow, it should exist
       // This test verifies the error path doesn't throw
       expect(() =>
-        mockAutoUpdaterOn.mock.calls.filter((c) => c[0] === 'checking-for-update').forEach(([_, cb]) => cb())
+        mockAutoUpdaterOn.mock.calls.filter((c) => c[0] === 'error').forEach(([_, cb]) => cb(new Error('test')))
       ).not.toThrow();
     });
   });

@@ -90,7 +90,7 @@ export function makeGame({ devMode = false, gold = 100000 } = {}) {
   game._pendingAttackQueue = [];
   game._monsterScratchBuf = [];
   game._dragState = null;
-  game.appVersion = '1.7.0';
+  game.appVersion = '1.7.1';
   return game;
 }
 
@@ -216,7 +216,7 @@ export function makeElectronStub(overrides = {}) {
       )
     ),
     saveSettings: vi.fn(async () => true),
-    getVersion: vi.fn(async () => '1.7.0'),
+    getVersion: vi.fn(async () => '1.7.1'),
     sendManualCheck: vi.fn(),
     downloadUpdate: vi.fn(),
     requestRestartToUpdate: vi.fn(),

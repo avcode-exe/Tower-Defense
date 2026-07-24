@@ -69,6 +69,15 @@ describe('showToast', () => {
     expect(container.children.length).toBe(0);
   });
 
+  it('no-type fallback covers TYPE_ICONS || and icon ternary branches', () => {
+    showToast('notype');
+    const toasts = container.querySelectorAll('.toast');
+    expect(toasts.length).toBe(1);
+    // type arg undefined => type || 'info' => 'info', but TYPE_ICONS[undefined] = undefined
+    // so TYPE_ICONS[type] || '' falls through to '' and icon ternary takes falsy branch
+    expect(toasts[0].textContent).toBe('notype');
+  });
+
   it('multiple toasts stack', () => {
     showToast('one', 'info');
     showToast('two', 'error');

@@ -60,11 +60,6 @@ describe('UpdateManager', () => {
     expect(um.settings.update.checkIntervalMinutes).toBe(60);
   });
 
-  it('constructor ensures skippedVersions is array', () => {
-    const um = new UpdateManager({ update: { skippedVersions: null } });
-    expect(Array.isArray(um.settings.update.skippedVersions)).toBe(true);
-  });
-
   it('init registers onUpdateStatus', () => {
     const onUpdate = vi.fn(() => () => {});
     vi.stubGlobal('window', { electron: { onUpdateStatus: onUpdate } });
@@ -101,12 +96,6 @@ describe('UpdateManager', () => {
     expect(um._isPrerelease('1.0.0')).toBe(false);
   });
 
-  it('shouldSkip returns true when version in list', () => {
-    const um = new UpdateManager(makeSettings({ update: { skippedVersions: ['1.0.0'] } }));
-    expect(um.shouldSkip('1.0.0')).toBe(true);
-    expect(um.shouldSkip('1.0.1')).toBe(false);
-  });
-
   it('download calls electron method', () => {
     const dl = vi.fn();
     vi.stubGlobal('window', { electron: { downloadUpdate: dl } });
@@ -114,22 +103,6 @@ describe('UpdateManager', () => {
     um.download();
     expect(dl).toHaveBeenCalled();
     vi.unstubAllGlobals();
-  });
-
-  it('skip adds version to list and persists', () => {
-    const save = vi.fn(async () => true);
-    vi.stubGlobal('window', { electron: { saveSettings: save } });
-    const um = new UpdateManager(makeSettings());
-    um.skip('1.0.0');
-    expect(um.settings.update.skippedVersions).toContain('1.0.0');
-    expect(save).toHaveBeenCalled();
-    vi.unstubAllGlobals();
-  });
-
-  it('skip does not add duplicates', () => {
-    const um = new UpdateManager(makeSettings({ update: { skippedVersions: ['1.0.0'] } }));
-    um.skip('1.0.0');
-    expect(um.settings.update.skippedVersions.filter((v) => v === '1.0.0').length).toBe(1);
   });
 
   it('setChannel updates and persists', () => {
@@ -519,14 +492,5 @@ describe('UpdateManager', () => {
     };
     um._showProgress = vi.fn();
     expect(() => um._handleDownloaded({ version: '2.0.0' })).not.toThrow();
-  });
-
-  it('skip initializes skippedVersions when undefined (line 85)', () => {
-    const um = new UpdateManager(makeSettings());
-    // Constructor initializes skippedVersions as [], so set it to falsy to test the || [] fallback
-    um.settings.update.skippedVersions = null;
-    um.skip('1.0.0');
-    expect(Array.isArray(um.settings.update.skippedVersions)).toBe(true);
-    expect(um.settings.update.skippedVersions).toContain('1.0.0');
   });
 });

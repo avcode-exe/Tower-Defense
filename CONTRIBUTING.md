@@ -81,9 +81,9 @@ npm test           # Run the test suite
 Before submitting, run these commands and confirm they all pass:
 
 ```bash
-npm run lint          # Must pass with 0 errors (checks src/, tests/, electron-main.js, preload.js)
+npm run lint          # Must pass with 0 errors (checks src/, tests/, electron-main.js, preload.cjs)
 npm run format:check  # Must pass — all files use Prettier style (checks src/**/*.js, tests/**/*.js, css/**/*.css)
-npm test              # Must pass — all tests green (1,710 tests across 47 files)
+npm test              # Must pass — all tests green (1,885 tests across 49 files)
 npm run test:bench    # Optional — run performance hot-path benchmarks (50 tests covering tile index, combat, projectiles, waves, particles, state helpers)
 npm run test:coverage # Must pass — ≥80% per-file on all 4 metrics (excluding src/main.js, src/necromancer.js, src/ui/popupManager.js)
 ```
@@ -138,7 +138,7 @@ test(persistence): add SaveMigrator migration tests
 
 - **ES Modules** — use `import`/`export`, not `require`
 - **Vanilla JS** — no TypeScript, no frameworks
-- **No Node.js built-in modules in `src/`** — `fs`, `path`, `http` are used only in `electron-main.js`, `preload.js`, and test files
+- **No Node.js built-in modules in `src/`** — `fs`, `path`, `http` are used only in `electron-main.js`, `preload.cjs`, and test files
 - **`const` over `let`** — prefer `const` unless the variable is reassigned
 - **Descriptive names** — `getHealTargetCount()` not `getHTC()`
 - **JSDoc** — optional but encouraged for exported functions
@@ -269,7 +269,7 @@ Run coverage with:
 npm run test:coverage
 ```
 
-Current project-wide coverage: **92.12% branches, 98.23% statements, 98.43% functions, 99.60% lines** across 47 test files (1,710 tests).
+Current project-wide coverage: **92.93% branches, 98.38% statements, 98.30% functions, 99.30% lines** across 49 test files (1,885 tests).
 
 ### Performance Benchmarks
 
@@ -608,7 +608,7 @@ src/                  # Source code (ES modules)
   ui/                 # UI panels and HUD
 tests/                # Test suite (Vitest)
   helpers.js          # Shared test utilities
-  *.test.js           # 47 test files, 1,710 tests
+  *.test.js           # 49 test files, 1,885 tests
   benchmarkHotPaths.test.js  # 50 performance hot-path benchmarks
 ```
 

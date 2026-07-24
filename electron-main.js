@@ -2,26 +2,16 @@ import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import os from 'os';
-import http from 'http';
-import https from 'https';
-import { URL, fileURLToPath } from 'url';
+import { fileURLToPath } from 'url';
 import electronUpdater from 'electron-updater';
-import {
-  selectNewestNewerPrereleaseTag,
-  selectNewestNewerRelease,
-  resolveDownloadTag,
-} from './src/githubReleaseFeed.js';
+import { DEFAULT_SETTINGS as RENDERER_DEFAULTS, isPrerelease, isNewerThan } from './src/config/settingsDefaults.js';
+import { selectNewestNewerRelease } from './src/githubReleaseFeed.js';
 import { parseUpdateInfo } from './src/updateYamlParser.js';
-import { DEFAULT_SETTINGS as RENDERER_DEFAULTS } from './src/config/settingsDefaults.js';
 
 const { autoUpdater } = electronUpdater;
 const __dirname = path.dirname(fileURLToPath(import.meta?.url || ''));
 
 Menu.setApplicationMenu(null);
-
-const GITHUB_OWNER = 'avcode-exe';
-const GITHUB_REPO = 'Tower-Defense';
-const GITHUB_RELEASES_ATOM_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases.atom`;
 
 // Persistent settings path survives uninstall/reinstall (stored in user home dir)
 const PERSISTENT_DIR = path.join(os.homedir(), '.tower-defense');
@@ -45,8 +35,6 @@ const DEFAULT_SETTINGS = {
 };
 
 const MIN_CHECK_INTERVAL_MINUTES = 15;
-const FETCH_TIMEOUT_MS = 30000;
-const MAX_FETCH_REDIRECTS = 5;
 
 function normalizeCheckIntervalMinutes(value) {
   const parsed = Number(value);
@@ -58,7 +46,6 @@ function normalizeCheckIntervalMinutes(value) {
 function sanitizeSettings(settings) {
   if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return null;
 
-  const ALLOWED_TOP_KEYS = ['update', 'collapsed', 'audio', 'graphics', 'controls', 'accessibility'];
   const sanitized = {
     update: { ...DEFAULT_SETTINGS.update },
     collapsed: { ...DEFAULT_SETTINGS.collapsed },
@@ -71,43 +58,6 @@ function sanitizeSettings(settings) {
     accessibility: { ...DEFAULT_SETTINGS.accessibility },
   };
 
-  function validateUpdate(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return true;
-  }
-
-  function validateCollapsed(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return true;
-  }
-
-  function validateAudio(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return true;
-  }
-
-  function validateGraphics(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return true;
-  }
-
-  function validateControls(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return true;
-  }
-
-  function validateAccessibility(value) {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-    return true;
-  }
-
-  for (const key of Object.keys(settings)) {
-    if (!ALLOWED_TOP_KEYS.includes(key)) continue;
-    // Sections are initialized with defaults above; individual field
-    // validation below overwrites only valid fields, preserving defaults
-    // for missing/invalid entries.
-  }
-
   if (settings.update && typeof settings.update === 'object' && !Array.isArray(settings.update)) {
     if (typeof settings.update.channel === 'string' && ['release', 'pre-release'].includes(settings.update.channel)) {
       sanitized.update.channel = settings.update.channel;
@@ -119,11 +69,7 @@ function sanitizeSettings(settings) {
     if (typeof settings.update.checkIntervalMinutes === 'number') {
       sanitized.update.checkIntervalMinutes = normalizeCheckIntervalMinutes(settings.update.checkIntervalMinutes);
     }
-    if (Array.isArray(settings.update.skippedVersions)) {
-      sanitized.update.skippedVersions = settings.update.skippedVersions.filter(
-        (v) => typeof v === 'string' && v.length <= 50 && /^[a-zA-Z0-9._-]+$/.test(v)
-      );
-    }
+
     if (typeof settings.update.showProgressBar === 'boolean') {
       sanitized.update.showProgressBar = settings.update.showProgressBar;
     }
@@ -295,20 +241,95 @@ function writeSettings(settings) {
   return true;
 }
 
-// Use same pre-release detection as renderer
-let isPrerelease;
-let parseVersion;
-let isNewerThan;
-(async () => {
+const GITHUB_OWNER = 'avcode-exe';
+const GITHUB_REPO = 'Tower-Defense';
+const GITHUB_RELEASES_ATOM_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases.atom`;
+const FEED_FETCH_TIMEOUT_MS = 15000;
+
+// Store the latest update candidate so the download handler can configure autoUpdater.
+let _pendingCandidate = null;
+
+/**
+ * Standalone update check that bypasses autoUpdater.checkForUpdates() entirely.
+ * Uses the GitHub Atom feed (always reliable) to discover releases, then fetches
+ * latest.yml from the specific release assets. The autoUpdater is only used for
+ * the actual download/install (not for checking).
+ */
+async function checkForUpdatesDirect() {
+  sendStatus('checking');
+
   try {
-    const mod = await import('./src/versionUtils.js');
-    isPrerelease = mod.isPrerelease;
-    parseVersion = mod.parseVersion;
-    isNewerThan = mod.isNewerThan;
+    // 1. Fetch the Atom feed directly with a timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FEED_FETCH_TIMEOUT_MS);
+
+    let feedXml;
+    try {
+      const response = await fetch(GITHUB_RELEASES_ATOM_URL, { signal: controller.signal });
+      feedXml = await response.text();
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    // 2. Find the latest version newer than our current version
+    const settings = readSettings();
+    const currentVersion = app.getVersion();
+
+    const candidate = selectNewestNewerRelease(feedXml, currentVersion);
+
+    if (!candidate) {
+      _pendingCandidate = null;
+      sendStatus('not-available');
+      return;
+    }
+
+    // 3. Fetch latest.yml from the specific release assets
+    const tag = candidate.tag;
+    const latestYmlUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(tag)}/latest.yml`;
+
+    let ymlText;
+    let usedUrl;
+    try {
+      const ymlResponse = await fetch(latestYmlUrl, {
+        signal: AbortSignal.timeout(10000),
+        redirect: 'follow',
+      });
+      if (!ymlResponse.ok) throw new Error(`HTTP ${ymlResponse.status}`);
+      ymlText = await ymlResponse.text();
+      usedUrl = latestYmlUrl;
+    } catch (_) {
+      // Try with flipped "v" prefix (e.g. "1.7.0" if tag was "v1.7.0", or vice versa)
+      const altTag = tag.startsWith('v') ? tag.slice(1) : 'v' + tag;
+      const altUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(altTag)}/latest.yml`;
+      const altResponse = await fetch(altUrl, {
+        signal: AbortSignal.timeout(10000),
+        redirect: 'follow',
+      });
+      if (!altResponse.ok) throw new Error(`HTTP ${altResponse.status}`);
+      ymlText = await altResponse.text();
+      usedUrl = altUrl;
+    }
+
+    const info = parseUpdateInfo(ymlText, 'latest.yml', usedUrl);
+    const channel = isPrerelease(info.version) ? 'pre-release' : 'release';
+    info.type = channel;
+
+    if (!shouldAnnounceToUser(info, settings)) {
+      _pendingCandidate = null;
+      sendStatus('not-available');
+      return;
+    }
+
+    // 5. Store the candidate for the download handler
+    _pendingCandidate = { tag, info };
+
+    // 6. Notify the renderer
+    sendStatus('available', { version: info.version, type: channel });
   } catch (err) {
-    console.error('[versionUtils] failed to load:', err);
+    _pendingCandidate = null;
+    sendStatus('error', { message: formatUpdaterError(err) });
   }
-})();
+}
 
 // Apply autoUpdater settings from persisted settings
 function applyAutoUpdaterSettings() {
@@ -335,17 +356,21 @@ function handleUpdaterError(err) {
 }
 
 function checkForUpdatesSafely() {
-  try {
-    const result = autoUpdater.checkForUpdates();
-    if (result && typeof result.catch === 'function') {
-      result.catch(handleUpdaterError);
-    }
-  } catch (err) {
-    handleUpdaterError(err);
-  }
+  checkForUpdatesDirect();
 }
 
 function downloadUpdateSafely() {
+  // If we have a pending candidate, configure autoUpdater to download from
+  // that specific release (using the generic provider with a direct URL to
+  // the release assets). This bypasses the broken /releases/latest endpoint.
+  if (_pendingCandidate) {
+    const { tag } = _pendingCandidate;
+    const feedUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(tag)}/`;
+    autoUpdater.setFeedURL({
+      provider: 'generic',
+      url: feedUrl,
+    });
+  }
   try {
     const result = autoUpdater.downloadUpdate();
     if (result && typeof result.catch === 'function') {
@@ -357,10 +382,8 @@ function downloadUpdateSafely() {
 }
 
 function shouldAnnounceToUser(info, settings) {
-  const update = settings.update || {};
-  if ((update.skippedVersions || []).includes(info.version)) return false;
-  const channel = update.channel || 'release';
-  const currentVersion = settings.version || app.getVersion();
+  const channel = (settings.update || {}).channel || 'release';
+  const currentVersion = app.getVersion();
   const isPre = isPrerelease(info.version);
   const newer = isNewerThan(info.version, currentVersion);
   if (channel === 'release' && isPre) return false;
@@ -368,197 +391,23 @@ function shouldAnnounceToUser(info, settings) {
   return newer;
 }
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function requestText(url, redirects = 0) {
-  return new Promise((resolve, reject) => {
-    let parsedUrl;
-    try {
-      parsedUrl = new URL(url);
-    } catch (err) {
-      reject(err);
-      return;
-    }
-
-    if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
-      reject(new Error(`Unsupported protocol: ${parsedUrl.protocol}`));
-      return;
-    }
-
-    const client = parsedUrl.protocol === 'https:' ? https : http;
-    const req = client.get(
-      parsedUrl,
-      {
-        headers: {
-          'User-Agent': 'Tower-Defense-Updater',
-          Accept: 'application/atom+xml, application/xml, text/xml',
-        },
-      },
-      (res) => {
-        if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
-          res.resume();
-          if (redirects >= MAX_FETCH_REDIRECTS) {
-            reject(new Error(`Too many redirects for ${url}`));
-            return;
-          }
-          let redirectUrl;
-          try {
-            redirectUrl = new URL(res.headers.location, parsedUrl);
-          } catch (err) {
-            reject(err);
-            return;
-          }
-          requestText(redirectUrl, redirects + 1)
-            .then(resolve)
-            .catch(reject);
-          return;
-        }
-
-        if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
-          res.resume();
-          reject(new Error(`Request failed for ${url}: ${res.statusCode} ${res.statusMessage || ''}`.trim()));
-          return;
-        }
-
-        const chunks = [];
-        let totalSize = 0;
-        res.on('data', (chunk) => {
-          totalSize += Buffer.byteLength(chunk);
-          if (totalSize > 1024 * 2048) {
-            res.destroy(new Error(`Response body too large for ${url}`));
-            return;
-          }
-          chunks.push(chunk);
-        });
-        res.on('end', () => resolve(chunks.join('')));
-      }
-    );
-    req.on('error', reject);
-    req.setTimeout(FETCH_TIMEOUT_MS, () => req.destroy(new Error(`Request timed out for ${url}`)));
-  });
-}
-
-async function fetchText(url) {
-  return requestText(url);
-}
-
-function createReleaseAssetProvider(tag) {
-  const downloadBaseUrl = new URL(
-    `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(tag)}/`
-  );
-
-  return {
-    isUseMultipleRangeRequest: false,
-    getBlockMapFiles(newInstallerUrl, oldVersion, newVersion) {
-      const newBlockMapUrl = new URL(`${newInstallerUrl.pathname}.blockmap`, newInstallerUrl.origin);
-      const oldBlockMapUrl = new URL(
-        `${newInstallerUrl.pathname.replace(new RegExp(escapeRegExp(newVersion), 'g'), oldVersion)}.blockmap`,
-        newInstallerUrl.origin
-      );
-      return [oldBlockMapUrl, newBlockMapUrl];
-    },
-    resolveFiles(updateInfo) {
-      return (updateInfo.files || []).map((fileInfo) => {
-        if (fileInfo.sha2 == null && fileInfo.sha512 == null) {
-          throw new Error(`Update info doesn't contain checksum: ${JSON.stringify(fileInfo)}`);
-        }
-        return {
-          url: new URL(encodeURI(fileInfo.url), downloadBaseUrl),
-          info: fileInfo,
-        };
-      });
-    },
-  };
-}
-
-async function getSelectedReleaseUpdateInfo(selectedRelease, tagOverride) {
-  const downloadTag = tagOverride || selectedRelease.tag;
-  const channelFileUrl = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/download/${encodeURIComponent(
-    downloadTag
-  )}/latest.yml`;
-  const rawData = await fetchText(channelFileUrl);
-  const updateInfo = parseUpdateInfo(rawData, 'latest.yml', channelFileUrl);
-  updateInfo.tag = downloadTag;
-  updateInfo.releaseName = selectedRelease.title || updateInfo.releaseName;
-  return {
-    info: updateInfo,
-    provider: createReleaseAssetProvider(downloadTag),
-  };
-}
-
-function patchGitHubPrereleaseDiscovery() {
-  if (typeof autoUpdater.getUpdateInfoAndProvider !== 'function') {
-    return;
-  }
-
-  const originalGetUpdateInfoAndProvider = autoUpdater.getUpdateInfoAndProvider.bind(autoUpdater);
-
-  autoUpdater.getUpdateInfoAndProvider = async function getUpdateInfoAndProviderWithPrereleaseScan() {
-    const settings = readSettings();
-    if ((settings.update || {}).channel !== 'pre-release') {
-      return originalGetUpdateInfoAndProvider();
-    }
-
-    try {
-      const feedXml = await fetchText(GITHUB_RELEASES_ATOM_URL);
-      const currentVersion = app.getVersion();
-      const selectedPrerelease = selectNewestNewerPrereleaseTag(feedXml, currentVersion);
-      if (selectedPrerelease) {
-        const resolved = await resolveDownloadTag(GITHUB_OWNER, GITHUB_REPO, selectedPrerelease.tag);
-        return getSelectedReleaseUpdateInfo(selectedPrerelease, resolved.tag);
-      }
-
-      const selectedStable = selectNewestNewerRelease(feedXml, currentVersion);
-      if (selectedStable) {
-        const resolved = await resolveDownloadTag(GITHUB_OWNER, GITHUB_REPO, selectedStable.tag);
-        return getSelectedReleaseUpdateInfo(selectedStable, resolved.tag);
-      }
-
-      return originalGetUpdateInfoAndProvider();
-    } catch (err) {
-      console.warn(
-        '[auto-updater] prerelease feed scan failed; falling back to electron-updater:',
-        err?.message || err
-      );
-      return originalGetUpdateInfoAndProvider();
-    }
-  };
-}
-
-patchGitHubPrereleaseDiscovery();
-
 autoUpdater.logger = {
   info: (msg) => console.log('[auto-updater]', msg),
   warn: (msg) => console.warn('[auto-updater]', msg),
   error: (msg) => console.error('[auto-updater]', msg),
 };
 
-autoUpdater.on('checking-for-update', () => {
-  sendStatus('checking');
-});
-
-autoUpdater.on('update-available', (info) => {
-  const settings = readSettings();
-  const channel = isPrerelease(info.version) ? 'pre-release' : 'release';
-  info.type = channel;
-  if (shouldAnnounceToUser(info, settings)) {
-    sendStatus('available', { version: info.version, type: channel });
-  } else {
-    console.warn('[auto-updater] filtered (channel/skipped):', info.version, channel);
-  }
-});
-
-autoUpdater.on('update-not-available', () => {
-  sendStatus('not-available');
-});
+// NOTE: We no longer use autoUpdater.checkForUpdates(), so we don't listen
+// for 'checking-for-update', 'update-available', or 'update-not-available'
+// events. Update discovery is handled by checkForUpdatesDirect() above.
+// We only use autoUpdater for downloading and installing.
 
 autoUpdater.on('download-progress', (progress) => {
   sendStatus('progress', { percent: progress.percent, transferred: progress.transferred, total: progress.total });
 });
 
 autoUpdater.on('update-downloaded', (info) => {
+  _pendingCandidate = null;
   sendStatus('downloaded', { version: info.version });
 });
 
@@ -588,21 +437,6 @@ ipcMain.on('check-updates', () => {
 
 ipcMain.on('download-update', () => {
   downloadUpdateSafely();
-});
-
-ipcMain.on('skip-update', (_event, version) => {
-  try {
-    if (typeof version !== 'string' || version.length > 50 || !/^[a-zA-Z0-9._-]+$/.test(version)) return;
-    const settings = readSettings();
-    if (!settings.update) settings.update = {};
-    settings.update.skippedVersions = settings.update.skippedVersions || [];
-    if (!settings.update.skippedVersions.includes(version)) {
-      settings.update.skippedVersions.push(version);
-    }
-    writeSettings(settings);
-  } catch (err) {
-    console.error('[update] skip failed:', formatUpdaterError(err));
-  }
 });
 
 ipcMain.on('restart-to-update', () => {
@@ -779,8 +613,15 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
     },
+  });
+
+  // Enable dev tools via F12 or Ctrl+Shift+I for debugging
+  mainWindow.webContents.on('before-input-event', (_event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key.toLowerCase() === 'i')) {
+      mainWindow.webContents.toggleDevTools();
+    }
   });
 
   mainWindow.loadFile('index.html');
@@ -789,10 +630,8 @@ function createWindow() {
 
   mainWindow.webContents.on('did-finish-load', () => {
     applyAutoUpdaterSettings();
-    const settings = readSettings();
-    if ((settings.update || {}).checkOnStartup !== false) {
-      checkForUpdates();
-    }
+    // Startup check is handled by the renderer's updateManager (3s delay).
+    // We only set up the periodic interval check from the main process.
     startPeriodicUpdateCheck();
   });
 }

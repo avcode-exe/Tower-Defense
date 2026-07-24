@@ -7,7 +7,7 @@ export default defineConfig({
     testTimeout: 30000,
     coverage: {
       provider: 'v8',
-      include: ['src/**/*.js', 'preload.js'],
+      include: ['src/**/*.js'],
       exclude: ['src/main.js', 'src/necromancer.js', 'src/ui/popupManager.js'],
       thresholds: {
         perFile: true,

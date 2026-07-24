@@ -153,7 +153,7 @@ export function captureSavePreview() {
  * no version field is treated as v0 (legacy).
  */
 export const SaveMigrator = {
-  CURRENT_VERSION: '1.7.0',
+  CURRENT_VERSION: '1.7.1',
 
   migrate(data) {
     if (!data || typeof data !== 'object') return data;

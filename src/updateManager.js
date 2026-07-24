@@ -8,7 +8,6 @@ export class UpdateManager {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, settings || {});
     this.settings.update = Object.assign({}, DEFAULT_SETTINGS.update, this.settings.update || {});
     this.settings.collapsed = Object.assign({}, DEFAULT_SETTINGS.collapsed, this.settings.collapsed || {});
-    this._ensureArrays();
 
     this.els = {
       progressWrap: document.getElementById('update-progress'),
@@ -17,12 +16,6 @@ export class UpdateManager {
       progressFill: document.getElementById('update-progress-fill'),
     };
     this._hideProgress();
-  }
-
-  _ensureArrays() {
-    if (!Array.isArray(this.settings.update.skippedVersions)) {
-      this.settings.update.skippedVersions = [];
-    }
   }
 
   init() {
@@ -69,24 +62,12 @@ export class UpdateManager {
     return newer;
   }
 
-  shouldSkip(version) {
-    return (this.settings.update.skippedVersions || []).includes(version);
-  }
-
   _hideProgress() {
     if (this.els.progressWrap) this.els.progressWrap.style.display = 'none';
   }
 
   download() {
     window.electron?.downloadUpdate?.();
-  }
-
-  skip(version) {
-    this.settings.update.skippedVersions = this.settings.update.skippedVersions || [];
-    if (!this.settings.update.skippedVersions.includes(version)) {
-      this.settings.update.skippedVersions.push(version);
-    }
-    this._persist();
   }
 
   restart() {

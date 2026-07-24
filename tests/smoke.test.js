@@ -41,7 +41,7 @@ const EXISTING_SOURCE_FILES = [
   'src/config/settingsDefaults.js',
   'src/main.js',
   'src/electron-main.js',
-  'src/preload.js',
+  'preload.cjs',
 ];
 
 describe('smoke tests', () => {
@@ -95,7 +95,6 @@ describe('smoke tests', () => {
       'check-updates',
       'download-update',
       'restart-to-update',
-      'skip-update',
       'update-status',
     ];
     for (const channel of channels) {
@@ -103,8 +102,8 @@ describe('smoke tests', () => {
     }
   });
 
-  it('preload.js contains required IPC channel names', () => {
-    const filePath = path.resolve(root, 'src/preload.js');
+  it('preload.cjs contains required IPC channel names', () => {
+    const filePath = path.resolve(root, 'preload.cjs');
     if (!fs.existsSync(filePath)) return; // skip if file doesn't exist (Electron-only)
     const content = fs.readFileSync(filePath, 'utf-8');
     const channels = [
@@ -116,7 +115,6 @@ describe('smoke tests', () => {
       'check-updates',
       'download-update',
       'restart-to-update',
-      'skip-update',
       'update-status',
     ];
     for (const channel of channels) {

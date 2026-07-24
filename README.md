@@ -117,7 +117,7 @@ The bottom bar contains buttons for all in-game panels:
 | **Controls** | Controls reference | Keyboard shortcuts and mouse controls                                  |
 | **DEV**      | Dev tools          | Custom wave spawner with per-monster count controls (dev mode only)    |
 | **Settings** | Settings           | Update channel, auto-download, check interval, Save/Cancel             |
-| **🔔**       | Notifications      | Update status, download progress, action buttons (Update/Skip/Restart) |
+| **🔔**       | Notifications      | Update status, download progress, action buttons (Update/Cancel/Restart) |
 | **ⓘ**        | About              | Game name, version with release type, author, GitHub repo link         |
 
 ### Settings Panel
@@ -133,7 +133,7 @@ The bottom bar contains buttons for all in-game panels:
 - **Toast popups** appear in the bottom-right corner and fade away after a few seconds
 - **Notification panel** (bell icon) shows all notifications with timestamps
 - **Action buttons** appear inline for actionable notifications:
-  - **Update available** → Update / Skip
+  - **Update available** → Update / Cancel
   - **Download complete** → Restart & Install
 - Click any notification in the panel to replay its toast
 - Notifications stack newest on top, oldest on bottom
@@ -147,7 +147,7 @@ Displays the game name, version with release type (e.g. `v1.6.0`), author (AvCod
 The game checks for updates on startup (configurable) and offers to download them:
 
 1. **Check** — queries GitHub Releases for the latest version matching your channel
-2. **Notify** — if an update is found, a toast appears and the notification panel shows Update/Skip buttons
+2. **Notify** — if an update is found, a toast appears and the notification panel shows Update/Cancel buttons
 3. **Download** — clicking Update starts the download with a progress bar at the bottom of the screen
 4. **Install** — when complete, click Restart & Install to apply the update
 
@@ -166,7 +166,7 @@ Settings persist across reinstalls via `%USERPROFILE%\.tower-defense\settings.js
 - **Background heartbeat** — keeps the main-thread simulation running at full speed when the window is backgrounded (all actual simulation, AI, and rendering still happen on the main thread)
 - **Electron 42** desktop app with electron-builder (NSIS)
 - **electron-updater** for auto-update via GitHub Releases
-- **Vitest** — unit + integration test suite (**1,710 tests**, 47 files, **92.12% branch coverage**)
+- **Vitest** — unit + integration test suite (**1,885 tests**, 49 files, **92.93% branch coverage**)
 - **Performance benchmarks** — **50 hot-path benchmarks** across 15 engine areas (tile index, monster index, combat, AoE, projectiles, waves, particles, Healer, economy, state helpers) in `tests/benchmarkHotPaths.test.js`
 - **ESLint** — static code analysis for bug detection and code quality
 - **Prettier** — consistent code formatting across all source files
@@ -260,7 +260,7 @@ tests/
   gameRendererCursor.test.js # Cursor hit-testing for UI, troops, placement, and dialogs
   smoke.test.js           # Installer smoke test (entry points, file existence)
 electron-main.js     # Electron main process
-preload.js          # Electron preload script
+preload.cjs         # Electron preload script (CommonJS for sandbox compat)
 index.html          # Single-page canvas host
 css/                # Minimal styles (tray windows, notifications)
 ```
@@ -296,7 +296,7 @@ npm run lint         # Check code for bugs and issues
 npm run lint:fix     # Auto-fix lint issues
 npm run format       # Reformat all code with Prettier
 npm run format:check  # Check formatting without modifying files
-npm test             # Run test suite (1,710 tests)
+npm test             # Run test suite (1,885 tests)
 npm run test:watch   # Run tests in watch mode
 npm run test:coverage # Run tests with code coverage report
 npm run test:bench    # Run performance hot-path benchmarks (50 tests)

@@ -140,7 +140,11 @@ document.addEventListener('DOMContentLoaded', async () => {
       /* non-Electron or first launch */
     }
   }
+  // Merge persisted collapsed state first
   Object.assign(UI_LAYOUT.collapsed, persistedCollapsed);
+  // Override: always start with sidebars expanded regardless of persisted state
+  UI_LAYOUT.collapsed.hud = false;
+  UI_LAYOUT.collapsed.shop = false;
   initPopupButtons(UI_LAYOUT);
 
   // ── settings helpers ─────────────────────────────────────────────────────
@@ -411,14 +415,26 @@ document.addEventListener('DOMContentLoaded', async () => {
   const checkNowBtn = document.getElementById('settings-check-now-btn');
   if (checkNowBtn) {
     checkNowBtn.addEventListener('click', async () => {
+      // Immediate visible feedback that the button was clicked
+      const originalText = checkNowBtn.textContent;
+      checkNowBtn.textContent = '⟳ Checking…';
+      checkNowBtn.style.opacity = '0.6';
+      showToast('Checking for updates…', 'info');
+
       await syncSettingsToMainProcess().catch((err) => {
         console.warn('[settings] failed to sync settings before update check', err);
       });
+
       // Small delay to let main process apply the settings
       setTimeout(() => {
         if (window.electron && window.electron.sendManualCheck) {
           window.electron.sendManualCheck();
         }
+        // Restore button after 5s regardless of outcome
+        setTimeout(() => {
+          checkNowBtn.textContent = originalText;
+          checkNowBtn.style.opacity = '1';
+        }, 5000);
       }, 100);
     });
   }
@@ -714,10 +730,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ── Notification list management ────────────────────────────────────────
-  // opts: { group, actions, silent, version }
+  // opts: { group, actions, silent, version, autoDismissMs, progress }
+  function _autoRemoveNotification(n) {
+    const idx = notifications.indexOf(n);
+    if (idx >= 0) {
+      notifications.splice(idx, 1);
+      renderNotifications();
+    }
+  }
+
   function addNotification(text, type, group, opts = {}) {
     const matchKey = group || text;
     const existing = notifications.find((n) => (n.group || n.text) === matchKey);
+    // Clear any pending auto-dismiss on existing notification
+    if (existing && existing._autoDismissTimer) {
+      clearTimeout(existing._autoDismissTimer);
+      existing._autoDismissTimer = null;
+    }
     if (existing) {
       existing.text = text;
       existing.type = type;
@@ -725,6 +754,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       existing.read = false;
       if (opts.actions) existing.actions = opts.actions;
       if (opts.version) existing.version = opts.version;
+      if (opts.progress !== undefined) existing.progress = opts.progress;
     } else {
       const n = {
         id: Date.now(),
@@ -735,12 +765,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         group: group || null,
         actions: opts.actions || null,
         version: opts.version || null,
+        progress: opts.progress,
+        _autoDismissTimer: null,
       };
       notifications.unshift(n);
       // Cap at 50 entries to prevent unbounded growth.
       while (notifications.length > 50) {
         notifications.pop();
       }
+    }
+    // Schedule auto-dismiss if requested
+    if (opts.autoDismissMs) {
+      const n = existing || notifications[0];
+      n._autoDismissTimer = setTimeout(() => _autoRemoveNotification(n), opts.autoDismissMs);
     }
     renderNotifications();
     // Show toast for important notifications (not progress ticks, not silent)
@@ -783,6 +820,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       div.appendChild(contentRow);
 
+      // Render progress bar if present
+      if (n.progress !== undefined) {
+        const bar = document.createElement('div');
+        bar.className = 'update-progress-bar';
+        const fill = document.createElement('div');
+        fill.className = 'update-progress-fill';
+        fill.style.width = Math.min(100, Math.max(0, n.progress)) + '%';
+        bar.appendChild(fill);
+        div.appendChild(bar);
+      }
+
       // Render action buttons if present
       if (n.actions && n.actions.length > 0) {
         const actionBar = document.createElement('div');
@@ -810,6 +858,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
+  // ── Persistent update banner (DOM element overlay) ────────────────────
+  let _updateBanner = null;
+  function _ensureUpdateBanner() {
+    if (_updateBanner) return;
+    _updateBanner = document.createElement('div');
+    _updateBanner.id = 'update-banner';
+    _updateBanner.style.display = 'none';
+    document.body.appendChild(_updateBanner);
+  }
+
+  function _showUpdateBanner(html) {
+    _ensureUpdateBanner();
+    _updateBanner.classList.remove('banner-exit');
+    _updateBanner.innerHTML = html;
+    _updateBanner.style.display = 'flex';
+  }
+
+  function _hideUpdateBanner() {
+    if (!_updateBanner || _updateBanner.style.display === 'none' || _updateBanner.classList.contains('banner-exit'))
+      return;
+    _updateBanner.classList.add('banner-exit');
+    _updateBanner.addEventListener(
+      'animationend',
+      () => {
+        _updateBanner.classList.remove('banner-exit');
+        _updateBanner.style.display = 'none';
+      },
+      { once: true }
+    );
+  }
+
   // ── Actions for update-available notification ──────────────────────────
   function handleUpdateDownload(notif) {
     // Start the download
@@ -821,15 +900,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     renderNotifications();
   }
 
-  function handleUpdateSkip(notif) {
-    const ver = notif.version || null;
-    if (ver && window.electron && window.electron.skipUpdate) window.electron.skipUpdate(ver);
-    if (window.updateManager) window.updateManager.skip(ver);
+  function handleUpdateCancel(notif) {
     if (window.electron && window.electron.cancelUpdate) window.electron.cancelUpdate();
     // Remove this notification
     const idx = notifications.indexOf(notif);
     if (idx >= 0) notifications.splice(idx, 1);
     renderNotifications();
+    _hideUpdateBanner();
   }
 
   if (notifyClearAll) {
@@ -883,40 +960,86 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Hook into update manager status events for notifications
   if (window.electron && window.electron.onUpdateStatus) {
     window.electron.onUpdateStatus((data) => {
+      console.log('[update-renderer] Status:', JSON.stringify(data));
       switch (data.phase) {
         case 'checking':
-          addNotification('Checking for updates…', 'info');
+          // Button already shows immediate toast — just add to panel silently, auto-dismiss after 3s
+          addNotification('Checking for updates\u2026', 'info', null, { silent: true, autoDismissMs: 3000 });
           break;
         case 'available': {
           const label = 'v' + data.version + (data.type === 'pre-release' ? ' (pre-release)' : ' (release)');
-          // Add notification with Update + Skip action buttons (silent — no toast)
+          // Show persistent banner at top of screen
+          _showUpdateBanner(
+            '<span class="banner-icon">\u2139\uFE0F</span>' +
+              '<span class="banner-text">Update available: ' +
+              label +
+              '</span>' +
+              '<button class="banner-btn primary" id="banner-update-btn">Update</button>' +
+              '<button class="banner-btn secondary" id="banner-cancel-btn">Cancel</button>'
+          );
+          // Wire banner buttons after inserting
+          setTimeout(() => {
+            const updateBtn = document.getElementById('banner-update-btn');
+            const cancelBtn = document.getElementById('banner-cancel-btn');
+            if (updateBtn) {
+              updateBtn.addEventListener('click', () => {
+                if (window.updateManager) window.updateManager.download();
+                _hideUpdateBanner();
+              });
+            }
+            if (cancelBtn) {
+              cancelBtn.addEventListener('click', () => {
+                if (window.electron && window.electron.cancelUpdate) window.electron.cancelUpdate();
+                _hideUpdateBanner();
+              });
+            }
+          }, 0);
+          // Notification in panel (persists, no auto-dismiss)
           addNotification('Update available: ' + label, 'info', 'update-available', {
             version: data.version,
             actions: [
               { label: 'Update', handler: (n) => handleUpdateDownload(n) },
-              { label: 'Skip', secondary: true, handler: (n) => handleUpdateSkip(n) },
+              { label: 'Cancel', secondary: true, handler: (n) => handleUpdateCancel(n) },
             ],
-            silent: true,
           });
           break;
         }
         case 'not-available':
-          addNotification("You're up to date.", 'success');
+          _hideUpdateBanner();
+          addNotification("You're up to date.", 'success', null, { autoDismissMs: 4000 });
           break;
         case 'progress': {
+          const pct = Math.round(data.percent || 0);
           const ver = (window.updateManager && window.updateManager.getAnnouncedVersion()) || '';
-          addNotification(
-            'Downloading' + (ver ? ' v' + ver : '') + ' — ' + Math.round(data.percent || 0) + '%',
-            'info',
-            'update-progress'
-          );
+          // Hide the available banner and show progress in notification with progress bar
+          _hideUpdateBanner();
+          addNotification('Downloading' + (ver ? ' v' + ver : '') + ' \u2014 ' + pct + '%', 'info', 'update-progress', {
+            progress: pct,
+            silent: true,
+          });
           break;
         }
         case 'downloaded': {
           // Remove the progress notification
           const idx = notifications.findIndex((n) => n.group === 'update-progress');
           if (idx >= 0) notifications.splice(idx, 1);
-          // Add ready notification with Restart action
+          // Show persistent banner with restart button
+          _showUpdateBanner(
+            '<span class="banner-icon">\u2705</span>' +
+              '<span class="banner-text">v' +
+              data.version +
+              ' ready to install.</span>' +
+              '<button class="banner-btn primary" id="banner-restart-btn">Restart & Install</button>'
+          );
+          setTimeout(() => {
+            const restartBtn = document.getElementById('banner-restart-btn');
+            if (restartBtn) {
+              restartBtn.addEventListener('click', () => {
+                if (window.updateManager) window.updateManager.restart();
+              });
+            }
+          }, 0);
+          // Add notification in panel
           addNotification('v' + data.version + ' ready to install.', 'success', 'update-ready', {
             version: data.version,
             actions: [
@@ -931,7 +1054,19 @@ document.addEventListener('DOMContentLoaded', async () => {
           break;
         }
         case 'error':
-          addNotification('Update error: ' + (data.message || 'Unknown'), 'error');
+          _hideUpdateBanner();
+          addNotification('Update error: ' + (data.message || 'Unknown'), 'error', 'update-error', {
+            actions: [
+              {
+                label: 'Check Again',
+                handler: () => {
+                  if (window.electron && window.electron.sendManualCheck) {
+                    window.electron.sendManualCheck();
+                  }
+                },
+              },
+            ],
+          });
           break;
       }
     });

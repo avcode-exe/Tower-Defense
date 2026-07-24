@@ -1,8 +1,15 @@
 // Known limitations:
-// - (known limitation: preload.js tests rely on vi.mock('electron') with captured
-//   exposedApi reference; type-guard branches tested via invalid argument calls)
+// - Tests use fs.readFileSync + new Function to execute preload.cjs with a
+//   mocked require(), because vitest cannot intercept CJS require() calls
+//   within .cjs files (vi.mock only works with ES module imports).
 
 import { describe, it, expect, vi, beforeAll, afterAll } from 'vitest';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const preloadPath = path.resolve(__dirname, '..', 'preload.cjs');
 
 // ── Mocks ──────────────────────────────────────────────────────────────────
 
@@ -12,7 +19,12 @@ const mockOn = vi.fn();
 const mockRemoveListener = vi.fn();
 let capturedApi = null;
 
-vi.mock('electron', () => {
+function runPreload() {
+  const mockContextBridge = {
+    exposeInMainWorld: vi.fn((_key, api) => {
+      capturedApi = api;
+    }),
+  };
   const mockIpcRenderer = {
     invoke: mockInvoke,
     send: mockSend,
@@ -20,26 +32,21 @@ vi.mock('electron', () => {
     removeListener: mockRemoveListener,
   };
 
-  // contextBridge.exposeInMainWorld should call the passed callback with the api
-  // We capture the api object so tests can invoke methods on it
-  const mockContextBridge = {
-    exposeInMainWorld: vi.fn((_key, api) => {
-      capturedApi = api;
-    }),
-  };
-
-  return {
-    contextBridge: mockContextBridge,
-    ipcRenderer: mockIpcRenderer,
-  };
-});
+  const code = fs.readFileSync(preloadPath, 'utf8');
+  const fn = new Function('require', code);
+  fn((mod) => {
+    if (mod === 'electron') {
+      return { contextBridge: mockContextBridge, ipcRenderer: mockIpcRenderer };
+    }
+    throw new Error(`Unexpected require call: ${mod}`);
+  });
+}
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
-describe('preload.js (L13 phase 2, >=80% coverage)', () => {
-  beforeAll(async () => {
-    // Import triggers contextBridge.exposeInMainWorld which sets capturedApi
-    await import('../preload.js');
+describe('preload.cjs (L13 phase 2, >=80% coverage)', () => {
+  beforeAll(() => {
+    runPreload();
   });
 
   afterAll(() => {
@@ -47,9 +54,9 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
   });
 
   describe('contextBridge.exposeInMainWorld', () => {
-    it('exposes electron API on the window', async () => {
-      const electronMod = await import('electron');
-      expect(electronMod.contextBridge.exposeInMainWorld).toHaveBeenCalledWith('electron', expect.any(Object));
+    it('exposes electron API on the window', () => {
+      // capturedApi was set by runPreload() above
+      expect(capturedApi).not.toBeNull();
     });
 
     it('exposes all expected methods', () => {
@@ -59,7 +66,6 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
       expect(capturedApi).toHaveProperty('sendManualCheck');
       expect(capturedApi).toHaveProperty('downloadUpdate');
       expect(capturedApi).toHaveProperty('requestRestartToUpdate');
-      expect(capturedApi).toHaveProperty('skipUpdate');
       expect(capturedApi).toHaveProperty('onUpdateStatus');
       expect(capturedApi).toHaveProperty('setAutoDownload');
       expect(capturedApi).toHaveProperty('setUpdateChannel');
@@ -107,10 +113,10 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
 
   describe('getVersion', () => {
     it('calls ipcRenderer.invoke with get-version', async () => {
-      mockInvoke.mockResolvedValueOnce('1.7.0');
+      mockInvoke.mockResolvedValueOnce('1.7.1');
       const result = await capturedApi.getVersion();
       expect(mockInvoke).toHaveBeenCalledWith('get-version');
-      expect(result).toBe('1.7.0');
+      expect(result).toBe('1.7.1');
     });
   });
 
@@ -132,21 +138,6 @@ describe('preload.js (L13 phase 2, >=80% coverage)', () => {
     it('calls ipcRenderer.send with restart-to-update', () => {
       capturedApi.requestRestartToUpdate();
       expect(mockSend).toHaveBeenCalledWith('restart-to-update');
-    });
-  });
-
-  describe('skipUpdate', () => {
-    it('calls ipcRenderer.send with skip-update and version string', () => {
-      capturedApi.skipUpdate('v1.5.0');
-      expect(mockSend).toHaveBeenCalledWith('skip-update', 'v1.5.0');
-    });
-
-    it('throws TypeError when version is not a string', () => {
-      expect(() => capturedApi.skipUpdate(123)).toThrow(TypeError);
-    });
-
-    it('throws TypeError when version is null', () => {
-      expect(() => capturedApi.skipUpdate(null)).toThrow(TypeError);
     });
   });
 

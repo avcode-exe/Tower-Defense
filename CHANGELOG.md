@@ -1,24 +1,22 @@
 # Changelog
 
-## [1.7.0] — 2026-07-23
-
-### 🎉 Features
-
-- **Dynamic Particle System** — 4 quality tiers (Low/Medium/High/Ultra) with configurable pool size, spawn multiplier, and lifetime multiplier via `setQuality()`. Adjustable from the Settings panel.
-- **Auto-throttle** — `_checkFrameBudget()` monitors frame budget: 3 slow frames (>33ms) downgrades one tier, 60 fast frames (<16ms) upgrades toward user preference. Operates independently of user setting; clears on recovery.
-- **Multi-slot save rotation** — SaveRotationManager with 3 auto-save slots (autosave.0–autosave.2) using LRU eviction, plus manual named slots. Save/Load popup with preview thumbnails, overwrite confirmation dialog.
-- **Settings Panel Rework** — Tab-based layout (Audio/Graphics/Controls/Accessibility/Update) with draft-based editing (Save/Cancel). Keybind capture, accessibility toggles, particle quality selector, update channel selection.
-
-## [Unreleased]
+## [1.7.1] — 2026-07-24
 
 ### 🐛 Bug Fixes
 
+- **Stale skipped version blocking updates** — When a version was previously skipped (persisted in settings), downgrading to an older version would prevent update notifications since the skip was never cleared. Removed the skip version feature entirely to ensure users are always notified of available updates on startup.
+- **Double startup update check** — Both the main process (`did-finish-load`) and renderer (`updateManager.init()`) triggered duplicate update checks on startup. Removed the main process call; renderer's 3-second delayed check is sufficient.
 - **Popup shortcut race condition** — `_handlePopupShortcut()` in `game.js` could call `openFn` twice (once from `transitionend` event, once from the fallback `setTimeout`). Added a `opened` guard flag to ensure `openFn` is idempotent.
 - **Duplicate `SHIELD_SHOP_WIDTH` in config** — `src/config.js` defined `SHIELD_SHOP_WIDTH` twice (250 and 220); the second definition silently overrode the first. Removed the duplicate.
 - **Missing `about` key in electron-main settings** — `DEFAULT_SETTINGS.collapsed` in `electron-main.js` was missing the `about: false` key that `settingsDefaults.js` includes. Synced the two definitions.
 - **Dead code in `resolveDownloadTag`** — Removed unreachable early return in `githubReleaseFeed.js`.
 - **Redundant `if (m.alive)` in `_stepMonsters`** — Removed redundant guard inside `if (m.hp <= 0)` block in `game.js`.
 - **Dead code `_compactMonsters`** — Removed unused method from `game.js`; updated test to use `_cleanupDead()`.
+
+### 🎉 Features
+
+- **Sidebars expanded on startup** — Left and right sidebars (HUD + shop) now always expand on startup regardless of persisted collapsed state, ensuring full UI visibility on launch.
+- **Skip → Cancel in update notifications** — Removed the "Skip this update" feature. "Skip" buttons replaced with "Cancel" which simply dismisses without persisting. Users are now notified of available updates on every startup.
 
 ### ⚙️ Performance
 
@@ -31,8 +29,10 @@
 
 ### 🧪 Testing & Quality
 
-- **8 new tests** — `SaveMigrator` test suite (6 tests), auto-save debounce test (1 test), incremental monster tile index test (1 test).
-- **Coverage improved** — Statements: 98.13% → 98.47%, Branches: 91.61% → 92.15%, Lines: 99.41% → 99.64%. `game.js` lines: 98.86% → 100%.
+- **1,885 tests** across 49 files (up from 1,710 tests, 47 files).
+- **Toast branch coverage** — Added test for `showToast` without a type parameter, covering the `TYPE_ICONS[type] || ''` fallback and `icon ?` falsy ternary branches. Toast.js branch coverage: 83.33% → 95.83%.
+- **preload.cjs excluded from coverage** — Removed from coverage `include` list in vitest config since v8 cannot instrument CJS files. Tests remain active via `tests/preload.test.js`.
+- **Coverage improved** — Overall: 98.38% statements, 92.93% branches (+0.78pp), 98.30% functions, 99.30% lines. Every source file meets ≥90% on all metrics.
 
 ### ⚙️ Configuration
 
@@ -41,6 +41,20 @@
 ### 💾 Persistence
 
 - **Save migration pipeline** — Added `SaveMigrator` to `gamePersistence.js` with versioned migration system. Legacy saves (v0, no version field) are migrated with sensible defaults. Integrated into `GameSnapshotRestorer.apply()`.
+
+### 📝 Documentation
+
+- **Removed skip version feature** — All references to `skipUpdate`, `skip-update`, and `skippedVersions` removed from API docs, notification system descriptions, and contributing guidelines.
+- **Updated test stats** — Coverage metrics, test counts, and file counts updated across README and CONTRIBUTING to reflect current project state.
+
+## [1.7.0] — 2026-07-23
+
+### 🎉 Features
+
+- **Dynamic Particle System** — 4 quality tiers (Low/Medium/High/Ultra) with configurable pool size, spawn multiplier, and lifetime multiplier via `setQuality()`. Adjustable from the Settings panel.
+- **Auto-throttle** — `_checkFrameBudget()` monitors frame budget: 3 slow frames (>33ms) downgrades one tier, 60 fast frames (<16ms) upgrades toward user preference. Operates independently of user setting; clears on recovery.
+- **Multi-slot save rotation** — SaveRotationManager with 3 auto-save slots (autosave.0–autosave.2) using LRU eviction, plus manual named slots. Save/Load popup with preview thumbnails, overwrite confirmation dialog.
+- **Settings Panel Rework** — Tab-based layout (Audio/Graphics/Controls/Accessibility/Update) with draft-based editing (Save/Cancel). Keybind capture, accessibility toggles, particle quality selector, update channel selection.
 
 ## [1.6.2] — 2026-07-22
 

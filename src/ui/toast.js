@@ -21,18 +21,28 @@ function removeToast(toast) {
   }, TOAST_FADE_MS);
 }
 
+const TYPE_ICONS = {
+  info: '\u2139\uFE0F',
+  success: '\u2705',
+  error: '\u274C',
+  warning: '\u26A0\uFE0F',
+};
+
 export function showToast(text, type, duration) {
   const container = _getContainer();
   if (!container) return;
 
   const toast = document.createElement('div');
-  toast.className = 'toast';
+  toast.className = 'toast toast-' + (type || 'info');
   const dotClass =
     type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info';
   const dot = document.createElement('span');
   dot.className = 'toast-dot ' + dotClass;
   toast.appendChild(dot);
-  toast.appendChild(document.createTextNode(text));
+  const icon = TYPE_ICONS[type] || '';
+  const textSpan = document.createElement('span');
+  textSpan.textContent = (icon ? icon + ' ' : '') + text;
+  toast.appendChild(textSpan);
   toast.addEventListener(
     'click',
     () => {

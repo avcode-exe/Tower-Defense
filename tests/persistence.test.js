@@ -1114,7 +1114,7 @@ describe('SaveRotationManager', () => {
   describe('extractMeta', () => {
     it('reads from _meta field when present', () => {
       const data = {
-        _meta: { timestamp: 100, wave: 3, gold: 500, lives: 10, version: '1.7.0' },
+        _meta: { timestamp: 100, wave: 3, gold: 500, lives: 10, version: '1.7.1' },
         gold: 999, // should NOT be used
       };
       const meta = SaveRotationManager.extractMeta(data);
@@ -1169,7 +1169,7 @@ describe('SaveRotationManager', () => {
           wave: 1,
           gold: 100,
           lives: 10,
-          version: '1.7.0',
+          version: '1.7.1',
           preview: 'data:image/jpeg;base64,abc123',
         },
       };
@@ -1468,10 +1468,10 @@ describe('SaveMigrator', () => {
 
     it('copies _meta object when it exists', () => {
       const data = {
-        _meta: { timestamp: 1000, wave: 5, gold: 200, lives: 15, version: '1.7.0' },
+        _meta: { timestamp: 1000, wave: 5, gold: 200, lives: 15, version: '1.7.1' },
       };
       const meta = SaveRotationManager.extractMeta(data);
-      expect(meta.version).toBe('1.7.0');
+      expect(meta.version).toBe('1.7.1');
       expect(meta.wave).toBe(5);
     });
   });

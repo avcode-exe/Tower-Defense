@@ -17,7 +17,6 @@ const DEFAULT_SETTINGS = {
     autoDownload: false,
     checkOnStartup: true,
     checkIntervalMinutes: 60,
-    skippedVersions: [],
     showProgressBar: true,
     availableVersion: null,
     releaseType: null,

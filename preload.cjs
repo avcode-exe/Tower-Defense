@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+const { contextBridge, ipcRenderer } = require('electron');
 
 function isPlainObject(value) {
   return Object.prototype.toString.call(value) === '[object Object]';
@@ -16,12 +16,6 @@ contextBridge.exposeInMainWorld('electron', {
   sendManualCheck: () => ipcRenderer.send('check-updates'),
   downloadUpdate: () => ipcRenderer.send('download-update'),
   requestRestartToUpdate: () => ipcRenderer.send('restart-to-update'),
-  skipUpdate: (v) => {
-    if (typeof v !== 'string') {
-      throw new TypeError('skipUpdate expects a version string');
-    }
-    ipcRenderer.send('skip-update', v);
-  },
   onUpdateStatus: (cb) => {
     if (typeof cb !== 'function') {
       throw new TypeError('onUpdateStatus expects a function');
