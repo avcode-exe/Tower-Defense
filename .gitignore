@@ -1,4 +1,5 @@
 .poolside/
+.kilo/
 coverage/
 node_modules/
 dist/

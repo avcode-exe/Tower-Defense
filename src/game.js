@@ -62,7 +62,7 @@ export class Game {
     // Reusable projectile impact callback (avoids closure allocation per projectile per frame).
     this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
     // Tile-based spatial monster index for fast targeting.
-    this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+    this._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE).fill(null);
 
     this._troopTileIndex = [];
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) this._troopTileIndex.push([]);
@@ -486,8 +486,9 @@ export class Game {
       m.alive = false;
       this._hasDeadEntities = true;
       if (this.devMode) continue;
-      this.lives -= m.leak;
-      this._getPopup('-' + m.leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
+      const leak = m.leak || 0;
+      this.lives -= leak;
+      this._getPopup('-' + leak, m.x, m.y - 8, 1.0, CONFIG.COLORS.heart);
       AUDIO.monsterLeak();
       if (this.lives <= 0) {
         this.runtime.applyDefeat();
@@ -564,6 +565,7 @@ export class Game {
     let mw = 0;
     for (let i = 0; i < this.monsters.length; i++) {
       if (this.monsters[i].alive) this.monsters[mw++] = this.monsters[i];
+      else if (this.monsters[i]._hitTroops) this.monsters[i]._hitTroops.clear();
     }
     this.monsters.length = mw;
     let pw = 0;
@@ -1211,6 +1213,7 @@ export class Game {
     this.accumulator = 0;
     this._lastSaveWave = this.wave.currentWave;
     this._autoSaveIndicatorTimer = 0;
+    this._onProjectileImpact = (proj) => this.applyProjectileImpact(proj);
   }
 
   _autoSave() {
@@ -1450,6 +1453,7 @@ export class Game {
     GameSnapshotRestorer.applyFresh(this, this.seed);
     this.devMonsterCounts = this._defaultDevCounts();
     this._autoSaveIndicatorTimer = 0;
+    this._lastSaveWave = 0;
     this.start(); // re-start the background loop
   }
 

@@ -424,7 +424,7 @@ export const GameSnapshotRestorer = {
     game.popups = [];
     game._popupPool = [];
     resetTransientBuffers(game);
-    game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+    game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE).fill(null);
 
     // Wave manager.
     game.wave = new WaveManager();
@@ -478,7 +478,7 @@ export const GameSnapshotRestorer = {
     game.projectiles = [];
     game.popups = [];
     game._popupPool = [];
-    game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE);
+    game._monsterTileIndex = new Array(CONFIG.GRID_SIZE * CONFIG.GRID_SIZE).fill(null);
     game._troopTileIndex = [];
     game._troopIndexByRef = new Map();
     for (let i = 0; i < CONFIG.GRID_SIZE * CONFIG.GRID_SIZE; i++) {

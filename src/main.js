@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // Sync update channel on startup
-  syncSettingsToMainProcess().catch((err) => {
+  await syncSettingsToMainProcess().catch((err) => {
     console.warn('[settings] failed to sync settings to main process', err);
   });
 

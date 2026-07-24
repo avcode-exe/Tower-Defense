@@ -593,3 +593,11 @@ export const PROJECTILE_STYLES = {
   mortar: { color: '#8B4513', size: 5, speed: 8, kind: 'orb' },
   icewiz: { color: '#7fdbff', size: 3, speed: 12, kind: 'arrow' },
 };
+
+Object.freeze(CONFIG);
+Object.freeze(CONFIG.COLORS);
+Object.freeze(MONSTER_SPECS);
+Object.freeze(TROOP_SPECS);
+Object.freeze(WAVES);
+Object.freeze(MONSTER_DEV_ORDER);
+Object.freeze(PROJECTILE_STYLES);

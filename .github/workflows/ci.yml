@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        node-version: ['20.19.0', '22.12.0']
+        node-version: ['22.12.0', '24.0.0']
         os: [ubuntu-latest, windows-latest]
 
     steps:
@@ -31,6 +31,9 @@ jobs:
 
       - name: Run format check
         run: npm run format:check
+
+      - name: Run tests
+        run: npm test
 
       - name: Run tests with coverage thresholds (≥80% per file)
         run: npm run test:coverage

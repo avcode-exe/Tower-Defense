@@ -360,12 +360,14 @@ export class Monster {
       if (!this.attackTarget || !this.attackTarget.alive) {
         this.attackTarget = null;
         this.state = 'MOVING';
+        this._pendingAttack = null;
       } else {
         const dx = Math.abs(this._tileGx - this.attackTarget.gx);
         const dy = Math.abs(this._tileGy - this.attackTarget.gy);
         if (Math.max(dx, dy) > atkRange) {
           this.attackTarget = null;
           this.state = 'MOVING';
+          this._pendingAttack = null;
         } else {
           this.attackTimer -= dt;
           if (this.attackTimer <= 0) {
@@ -441,6 +443,7 @@ export class Monster {
     const tileIdx = gy * gs + gx;
     if (tileIdx !== this._lastPassTile) {
       this._lastPassTile = tileIdx;
+      this._pendingAttack = null;
       for (let dy = -1; dy <= 1; dy++) {
         for (let dx = -1; dx <= 1; dx++) {
           const tx = gx + dx;

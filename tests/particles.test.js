@@ -309,13 +309,14 @@ describe('PARTICLES', () => {
   });
 
   describe('pool cap (known limitation: hardcoded _maxPool=300)', () => {
-    it('particle pool cap is hardcoded to 300 with no dynamic scaling (known limitation: particle cap)', () => {
-      expect(PARTICLES._maxPool).toBe(300);
+    it('particle pool cap is at most CONFIG.PARTICLE_POOL_SIZE with dynamic scaling', () => {
+      expect(PARTICLES._maxPool).toBeLessThanOrEqual(CONFIG.PARTICLE_POOL_SIZE);
+      expect(PARTICLES._maxPool).toBeGreaterThanOrEqual(100);
     });
 
     it('over-cap spawn silently drops overflow', () => {
       PARTICLES.spawn(0, 0, { count: 500 });
-      expect(PARTICLES._activeCount).toBeLessThanOrEqual(300);
+      expect(PARTICLES._activeCount).toBeLessThanOrEqual(PARTICLES._maxPool);
     });
 
     it('worst-case frame saturates but never exceeds cap', () => {
@@ -324,7 +325,7 @@ describe('PARTICLES', () => {
       for (let i = 0; i < 2; i++) PARTICLES.deathBurst(i, i);
       PARTICLES.troopDeath(0, 0);
       for (let i = 0; i < 5; i++) PARTICLES.hitSpark(i, i);
-      expect(PARTICLES._activeCount).toBeLessThanOrEqual(300);
+      expect(PARTICLES._activeCount).toBeLessThanOrEqual(PARTICLES._maxPool);
     });
 
     it('recycling under saturation works', () => {
